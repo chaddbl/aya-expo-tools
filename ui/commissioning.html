@@ -451,7 +451,7 @@
         <div class="step-icon">🔗</div>
         <div class="step-info">
           <div class="step-label">Acesso remoto</div>
-          <div class="step-note" id="note-remote">AnyDesk / Tailscale</div>
+          <div class="step-note" id="note-remote">RustDesk / Tailscale</div>
         </div>
         <div class="step-status">
           <div class="status-dot"></div>
@@ -711,8 +711,8 @@ function renderDetail(id, result) {
   }
 
   else if (id === 'remote') {
-    if (result.anydesk?.enabled) {
-      html += row('AnyDesk', result.anydesk.running ? `ativo — ID: ${result.anydesk.id}` : 'não está rodando', result.anydesk.running);
+    if (result.rustdesk?.enabled) {
+      html += row('RustDesk', result.rustdesk.running ? `ativo — ID: ${result.rustdesk.id}` : 'não está rodando', result.rustdesk.running);
     }
     if (result.tailscale?.enabled) {
       html += row('Tailscale', result.tailscale.running ? `ativo — ${result.tailscale.ip}` : 'não está rodando', result.tailscale.running);

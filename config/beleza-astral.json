@@ -69,7 +69,7 @@
   },
 
   "remoteAccess": {
-    "anydesk": { "enabled": true, "id": "" },
+    "rustdesk": { "enabled": true, "id": "" },
     "tailscale": { "enabled": false, "ip": "" }
   },
 

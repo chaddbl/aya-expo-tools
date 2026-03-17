@@ -317,25 +317,25 @@ async function checkCameras(config) {
 
 // ─── STEP 8: Acesso remoto ────────────────────────────────
 async function checkRemoteAccess(config) {
-  const anydesk = config.remoteAccess?.anydesk || {};
+  const rustdesk = config.remoteAccess?.rustdesk || {};
   const tailscale = config.remoteAccess?.tailscale || {};
 
-  const anydeskResult = anydesk.enabled
-    ? await isProcessRunning('AnyDesk.exe')
+  const rustdeskResult = rustdesk.enabled
+    ? await isProcessRunning('rustdesk.exe')
     : { ok: false, note: 'desabilitado' };
 
   const tailscaleResult = tailscale.enabled
     ? await isProcessRunning('tailscaled.exe')
     : { ok: false, note: 'desabilitado' };
 
-  const ok = (anydesk.enabled && anydeskResult.ok) || (tailscale.enabled && tailscaleResult.ok);
+  const ok = (rustdesk.enabled && rustdeskResult.ok) || (tailscale.enabled && tailscaleResult.ok);
 
   return {
     ok,
-    anydesk: {
-      enabled: !!anydesk.enabled,
-      running: anydeskResult.ok,
-      id: anydesk.id || 'não configurado'
+    rustdesk: {
+      enabled: !!rustdesk.enabled,
+      running: rustdeskResult.ok,
+      id: rustdesk.id || 'não configurado'
     },
     tailscale: {
       enabled: !!tailscale.enabled,
@@ -343,8 +343,8 @@ async function checkRemoteAccess(config) {
       ip: tailscale.ip || 'não configurado'
     },
     notes: ok
-      ? `Acesso remoto ativo. ${anydesk.enabled && anydeskResult.ok ? `AnyDesk: ${anydesk.id || 'verificar ID'}` : ''}`
-      : 'Nenhum acesso remoto ativo — abrir AnyDesk e compartilhar ID com Felipe.'
+      ? `Acesso remoto ativo. ${rustdesk.enabled && rustdeskResult.ok ? `RustDesk: ${rustdesk.id || 'verificar ID'}` : ''}`
+      : 'Nenhum acesso remoto ativo — verificar se RustDesk está rodando.'
   };
 }
 
