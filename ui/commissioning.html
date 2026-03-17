@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comissionamento — AYA Expo Tools</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --bg-card: #141414;
+      --border: #222;
+      --border-light: #2a2a2a;
+      --text: #e5e5e5;
+      --text-dim: #888;
+      --text-dimmer: #444;
+      --green: #22c55e;
+      --green-bg: rgba(34,197,94,0.08);
+      --red: #ef4444;
+      --red-bg: rgba(239,68,68,0.08);
+      --amber: #f59e0b;
+      --amber-bg: rgba(245,158,11,0.08);
+      --blue: #3b82f6;
+      --blue-bg: rgba(59,130,246,0.08);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 100;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-logo { height: 24px; }
+    .header-back {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.2s;
+    }
+    .header-back:hover { color: var(--text); }
+    .header-title { font-size: 15px; font-weight: 500; }
+    .expo-name { font-size: 13px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+    /* Main */
+    .main { max-width: 760px; margin: 0 auto; padding: 40px 24px; }
+
+    /* Intro */
+    .intro {
+      margin-bottom: 40px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .intro h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+    .intro p { color: var(--text-dim); font-size: 14px; line-height: 1.6; max-width: 520px; }
+
+    /* Run all button */
+    .run-all-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      gap: 16px;
+    }
+    .btn-run-all {
+      background: white;
+      color: black;
+      border: none;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-run-all:hover { opacity: 0.9; }
+    .btn-run-all:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-run-all.running { background: #1a1a1a; color: white; border: 1px solid var(--border-light); }
+
+    .summary-badge {
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+    }
+    .summary-badge.ok { color: var(--green); }
+    .summary-badge.fail { color: var(--red); }
+
+    /* Steps */
+    .steps { display: flex; flex-direction: column; gap: 2px; }
+
+    .step {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .step.ok { border-color: rgba(34,197,94,0.25); }
+    .step.fail { border-color: rgba(239,68,68,0.25); }
+    .step.running { border-color: rgba(59,130,246,0.3); }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+      background: var(--bg-card);
+      transition: background 0.15s;
+    }
+    .step-header:hover { background: #1a1a1a; }
+
+    .step-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg);
+      border: 1px solid var(--border-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+    .step.ok .step-number { background: var(--green-bg); border-color: rgba(34,197,94,0.4); color: var(--green); }
+    .step.fail .step-number { background: var(--red-bg); border-color: rgba(239,68,68,0.4); color: var(--red); }
+    .step.running .step-number { background: var(--blue-bg); border-color: rgba(59,130,246,0.4); color: var(--blue); }
+
+    .step-icon { font-size: 18px; flex-shrink: 0; }
+    .step-info { flex: 1; }
+    .step-label { font-size: 14px; font-weight: 500; }
+    .step-note { font-size: 12px; color: var(--text-dim); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+
+    .step-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-dimmer);
+    }
+    .step.ok .status-dot { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+    .step.fail .status-dot { background: var(--red); box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+    .step.running .status-dot {
+      background: var(--blue);
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .btn-step-run {
+      background: transparent;
+      border: 1px solid var(--border-light);
+      color: var(--text-dim);
+      padding: 5px 12px;
+      font-size: 12px;
+      font-family: inherit;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-step-run:hover { border-color: #555; color: var(--text); }
+    .btn-step-run:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* Step detail */
+    .step-detail {
+      border-top: 1px solid var(--border);
+      padding: 16px 20px;
+      display: none;
+    }
+    .step-detail.open { display: block; }
+
+    .detail-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .detail-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 13px;
+    }
+    .detail-key {
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      min-width: 120px;
+      padding-top: 1px;
+    }
+    .detail-val { color: var(--text); }
+    .detail-val.ok { color: var(--green); }
+    .detail-val.fail { color: var(--red); }
+    .detail-val.warn { color: var(--amber); }
+
+    .device-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 2px;
+    }
+    .device-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+    }
+    .device-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-dimmer);
+      flex-shrink: 0;
+    }
+    .device-dot.ok { background: var(--green); }
+    .device-dot.fail { background: var(--red); }
+
+    /* Final status */
+    .final-status {
+      margin-top: 40px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      text-align: center;
+      display: none;
+    }
+    .final-status.visible { display: block; }
+    .final-status.ok { border-color: rgba(34,197,94,0.3); background: var(--green-bg); }
+    .final-status.fail { border-color: rgba(239,68,68,0.3); background: var(--red-bg); }
+
+    .final-status-icon { font-size: 40px; margin-bottom: 12px; }
+    .final-status-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+    .final-status.ok .final-status-title { color: var(--green); }
+    .final-status.fail .final-status-title { color: var(--red); }
+    .final-status-text { font-size: 13px; color: var(--text-dim); }
+    .final-status-time { font-size: 11px; color: var(--text-dimmer); font-family: 'JetBrains Mono', monospace; margin-top: 8px; }
+
+    /* History */
+    .history-section { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border); }
+    .history-title { font-size: 13px; font-weight: 500; color: var(--text-dim); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .history-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .history-dot.ok { background: var(--green); }
+    .history-dot.fail { background: var(--red); }
+    .history-time { color: var(--text-dim); }
+    .history-summary { color: var(--text); flex: 1; }
+    .history-empty { font-size: 13px; color: var(--text-dimmer); font-style: italic; }
+
+    /* Spinner */
+    .spin {
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <img src="logo-aya-branco.png" class="header-logo" alt="AYA">
+    <a href="/" class="header-back">← Dashboard</a>
+    <span style="color:var(--text-dimmer)">|</span>
+    <span class="header-title">Comissionamento</span>
+  </div>
+  <span class="expo-name" id="expoName">carregando...</span>
+</header>
+
+<main class="main">
+
+  <div class="intro">
+    <h1>Verificação de Sistemas</h1>
+    <p>A montagem física está concluída. Rode a verificação para confirmar que todos os sistemas estão respondendo antes de abrir a expo.</p>
+  </div>
+
+  <div class="run-all-bar">
+    <button class="btn-run-all" id="btnRunAll" onclick="runAll()">
+      <span>▶</span> Verificar tudo
+    </button>
+    <span class="summary-badge" id="summaryBadge"></span>
+  </div>
+
+  <div class="steps" id="stepsContainer">
+
+    <!-- Step 1: Rede -->
+    <div class="step" id="step-network" data-step="network">
+      <div class="step-header" onclick="toggleDetail('network')">
+        <div class="step-number">1</div>
+        <div class="step-icon">🌐</div>
+        <div class="step-info">
+          <div class="step-label">Rede</div>
+          <div class="step-note" id="note-network">Gateway, switch, internet</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'network')">Testar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-network"></div>
+    </div>
+
+    <!-- Step 2: Resolume -->
+    <div class="step" id="step-resolume" data-step="resolume">
+      <div class="step-header" onclick="toggleDetail('resolume')">
+        <div class="step-number">2</div>
+        <div class="step-icon">🎬</div>
+        <div class="step-info">
+          <div class="step-label">Resolume</div>
+          <div class="step-note" id="note-resolume">Processo em execução, pixelmap carregado</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'resolume')">Testar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-resolume"></div>
+    </div>
+
+    <!-- Step 3: Som -->
+    <div class="step" id="step-audio" data-step="audio">
+      <div class="step-header" onclick="toggleDetail('audio')">
+        <div class="step-number">3</div>
+        <div class="step-icon">🔊</div>
+        <div class="step-info">
+          <div class="step-label">Som</div>
+          <div class="step-note" id="note-audio">Interface de áudio, dispositivos</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'audio')">Testar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-audio"></div>
+    </div>
+
+    <!-- Step 4: Projetores -->
+    <div class="step" id="step-projectors" data-step="projectors">
+      <div class="step-header" onclick="toggleDetail('projectors')">
+        <div class="step-number">4</div>
+        <div class="step-icon">📽</div>
+        <div class="step-info">
+          <div class="step-label">Projetores</div>
+          <div class="step-note" id="note-projectors">PJLink — ping + porta 4352</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'projectors')">Testar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-projectors"></div>
+    </div>
+
+    <!-- Step 5: Automação -->
+    <div class="step" id="step-automation" data-step="automation">
+      <div class="step-header" onclick="toggleDetail('automation')">
+        <div class="step-number">5</div>
+        <div class="step-icon">⏱</div>
+        <div class="step-info">
+          <div class="step-label">Automação</div>
+          <div class="step-note" id="note-automation">Scheduler + smart plugs</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'automation')">Testar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-automation"></div>
+    </div>
+
+    <!-- Step 6: Boot -->
+    <div class="step" id="step-boot" data-step="boot">
+      <div class="step-header" onclick="toggleDetail('boot')">
+        <div class="step-number">6</div>
+        <div class="step-icon">🔄</div>
+        <div class="step-info">
+          <div class="step-label">Boot automático</div>
+          <div class="step-note" id="note-boot">Inicialização após queda de energia</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'boot')">Testar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-boot"></div>
+    </div>
+
+    <!-- Step 7: Câmeras -->
+    <div class="step" id="step-cameras" data-step="cameras">
+      <div class="step-header" onclick="toggleDetail('cameras')">
+        <div class="step-number">7</div>
+        <div class="step-icon">📷</div>
+        <div class="step-info">
+          <div class="step-label">Câmeras</div>
+          <div class="step-note" id="note-cameras">RTSP porta 554</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'cameras')">Testar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-cameras">
+        <div class="detail-grid" id="camera-snapshots"></div>
+      </div>
+    </div>
+
+    <!-- Step 8: Acesso remoto -->
+    <div class="step" id="step-remote" data-step="remote">
+      <div class="step-header" onclick="toggleDetail('remote')">
+        <div class="step-number">8</div>
+        <div class="step-icon">🔗</div>
+        <div class="step-info">
+          <div class="step-label">Acesso remoto</div>
+          <div class="step-note" id="note-remote">AnyDesk / Tailscale</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'remote')">Testar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-remote"></div>
+    </div>
+
+    <!-- Step 9: Conteúdo -->
+    <div class="step" id="step-content" data-step="content">
+      <div class="step-header" onclick="toggleDetail('content')">
+        <div class="step-number">9</div>
+        <div class="step-icon">🎨</div>
+        <div class="step-info">
+          <div class="step-label">Conteúdo</div>
+          <div class="step-note" id="note-content">Conteúdo final no loop</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-step-run" onclick="setContent(event,'content')" id="btnContentReady" style="display:none">✓ Conteúdo pronto</button>
+            <button class="btn-step-run" onclick="runStep(event,'content')">Verificar</button>
+          </div>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-content"></div>
+    </div>
+
+  </div>
+
+  <!-- Final status -->
+  <div class="final-status" id="finalStatus">
+    <div class="final-status-icon" id="finalIcon"></div>
+    <div class="final-status-title" id="finalTitle"></div>
+    <div class="final-status-text" id="finalText"></div>
+    <div class="final-status-time" id="finalTime"></div>
+  </div>
+
+  <!-- History -->
+  <div class="history-section">
+    <div class="history-title">Histórico de comissionamentos</div>
+    <div class="history-list" id="historyList">
+      <div class="history-empty">Nenhum comissionamento registrado ainda.</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+let running = false;
+let expoInfo = {};
+
+// ─── Load initial data ─────────────────────────────────────
+async function init() {
+  try {
+    const info = await fetch('/api/info').then(r => r.json());
+    expoInfo = info;
+    document.getElementById('expoName').textContent = `${info.exhibition.name} — ${info.exhibition.venue}`;
+    document.title = `Comissionamento — ${info.exhibition.name}`;
+
+    // Show content-ready button only if content not yet confirmed
+    document.getElementById('btnContentReady').style.display = 'inline-block';
+  } catch(e) {
+    document.getElementById('expoName').textContent = 'offline';
+  }
+
+  loadHistory();
+}
+
+// ─── Run all steps ─────────────────────────────────────────
+async function runAll() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('btnRunAll');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">◌</span> Verificando...';
+  btn.classList.add('running');
+  document.getElementById('summaryBadge').textContent = '';
+  document.getElementById('finalStatus').className = 'final-status';
+
+  try {
+    const report = await fetch('/api/commissioning/run', { method: 'POST' }).then(r => r.json());
+    applyReport(report);
+  } catch(e) {
+    document.getElementById('summaryBadge').textContent = 'Erro de conexão';
+    document.getElementById('summaryBadge').className = 'summary-badge fail';
+  }
+
+  running = false;
+  btn.disabled = false;
+  btn.innerHTML = '<span>▶</span> Verificar tudo';
+  btn.classList.remove('running');
+}
+
+// ─── Run individual step ───────────────────────────────────
+async function runStep(event, stepId) {
+  event.stopPropagation();
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '...';
+  setStepState(stepId, 'running', 'Verificando...');
+
+  try {
+    const result = await fetch(`/api/commissioning/step/${stepId}`, { method: 'POST' }).then(r => r.json());
+    applyStepResult(stepId, result);
+    openDetail(stepId);
+  } catch(e) {
+    setStepState(stepId, 'fail', 'Erro de conexão');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Testar';
+}
+
+// ─── Set content status ────────────────────────────────────
+async function setContent(event, status) {
+  event.stopPropagation();
+  const btn = event.target;
+  btn.disabled = true;
+  try {
+    await fetch('/api/commissioning/content', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    // Re-check the step
+    const stepBtn = btn.parentElement.querySelector('[onclick^="runStep"]');
+    if (stepBtn) stepBtn.click();
+  } catch {}
+  btn.disabled = false;
+}
+
+// ─── Apply full report ─────────────────────────────────────
+function applyReport(report) {
+  const steps = report.steps || {};
+  for (const [id, result] of Object.entries(steps)) {
+    applyStepResult(id, result);
+  }
+
+  const badge = document.getElementById('summaryBadge');
+  badge.textContent = report.ok
+    ? '✓ Todos os sistemas ok'
+    : `✗ ${Object.values(steps).filter(s => !s.ok).length} problema(s)`;
+  badge.className = 'summary-badge ' + (report.ok ? 'ok' : 'fail');
+
+  // Final status
+  const fs = document.getElementById('finalStatus');
+  fs.className = 'final-status visible ' + (report.ok ? 'ok' : 'fail');
+  document.getElementById('finalIcon').textContent = report.ok ? '✓' : '✗';
+  document.getElementById('finalTitle').textContent = report.ok
+    ? 'Expo comissionada'
+    : `${Object.values(steps).filter(s => !s.ok).length} problema(s) encontrado(s)`;
+  document.getElementById('finalText').textContent = report.summary || '';
+  document.getElementById('finalTime').textContent = formatTime(report.timestamp);
+
+  loadHistory();
+}
+
+// ─── Apply single step result ──────────────────────────────
+function applyStepResult(id, result) {
+  const ok = result.ok;
+  setStepState(id, ok ? 'ok' : 'fail', result.notes || '');
+  renderDetail(id, result);
+}
+
+function setStepState(id, state, note) {
+  const el = document.getElementById(`step-${id}`);
+  if (!el) return;
+  el.className = `step ${state}`;
+  const noteEl = document.getElementById(`note-${id}`);
+  if (noteEl && note) noteEl.textContent = note;
+}
+
+// ─── Render step detail ────────────────────────────────────
+function renderDetail(id, result) {
+  const el = document.getElementById(`detail-${id}`);
+  if (!el) return;
+
+  let html = '<div class="detail-grid">';
+
+  if (id === 'network') {
+    html += row('Gateway', result.gateway?.ip + (result.gateway?.online ? ' ✓' : ' ✗ não responde'), result.gateway?.online);
+    html += row('Internet', result.internet?.ok ? 'online' : 'offline (normal em 4G)', result.internet?.ok, !result.internet?.ok ? 'warn' : null);
+    html += row('Este servidor', result.thisIp || '?');
+    html += row('Subnet', result.subnet || '');
+  }
+
+  else if (id === 'resolume') {
+    html += row('Processo', result.process, result.running);
+    html += row('Status', result.running ? 'em execução' : 'não está rodando', result.running);
+    html += row('Conteúdo', result.contentStatus === 'content' ? 'final carregado' : 'pixelmap (conteúdo final pendente)', result.contentStatus === 'content', result.contentStatus !== 'content' ? 'warn' : null);
+  }
+
+  else if (id === 'audio') {
+    if (result.devices && result.devices.length > 0) {
+      html += `<div class="detail-row"><div class="detail-key">dispositivos</div><div class="detail-val"><div class="device-list">`;
+      for (const d of result.devices) {
+        html += `<div class="device-row"><div class="device-dot ok"></div>${d.name}</div>`;
+      }
+      html += '</div></div></div>';
+    } else {
+      html += row('dispositivos', 'nenhum detectado', false);
+    }
+    if (result.zones && result.zones.length > 0) {
+      html += `<div class="detail-row"><div class="detail-key">zonas</div><div class="detail-val"><div class="device-list">`;
+      for (const z of result.zones) {
+        html += `<div class="device-row"><div class="device-dot ok"></div>${z.name} — ${z.equipment}</div>`;
+      }
+      html += '</div></div></div>';
+    }
+  }
+
+  else if (id === 'projectors') {
+    if (result.projectors) {
+      html += `<div class="detail-row"><div class="detail-key">projetores</div><div class="detail-val"><div class="device-list">`;
+      for (const p of result.projectors) {
+        const state = p.ok ? 'ok' : 'fail';
+        const detail = p.note || `ping:${p.ping ? '✓' : '✗'} pjlink:${p.pjlink ? '✓' : '✗'}`;
+        html += `<div class="device-row"><div class="device-dot ${state}"></div>${p.name} (${p.ip}) — ${detail}</div>`;
+      }
+      html += '</div></div></div>';
+    }
+  }
+
+  else if (id === 'automation') {
+    if (result.schedule) {
+      html += row('scheduler', result.schedule.enabled
+        ? `liga ${result.schedule.powerOn} / desliga ${result.schedule.powerOff}`
+        : 'desabilitado — configurar horários', result.schedule.ok);
+    }
+    if (result.smartplugs && result.smartplugs.length > 0) {
+      html += `<div class="detail-row"><div class="detail-key">smart plugs</div><div class="detail-val"><div class="device-list">`;
+      for (const p of result.smartplugs) {
+        const state = p.ok ? 'ok' : 'fail';
+        html += `<div class="device-row"><div class="device-dot ${state}"></div>${p.name} (${p.ip || 'sem IP'}) — ${p.ok ? 'respondendo' : (p.note || 'sem resposta')}</div>`;
+      }
+      html += '</div></div></div>';
+    }
+  }
+
+  else if (id === 'boot') {
+    html += row('Resolume startup', result.resolume?.startup ? 'configurado' : 'NÃO configurado — risco de queda de energia', result.resolume?.startup);
+    html += row('Auto-login', result.autoLogin?.ok ? 'ativo' : 'inativo — Windows pode pedir senha no boot', result.autoLogin?.ok, !result.autoLogin?.ok ? 'warn' : null);
+  }
+
+  else if (id === 'cameras') {
+    if (result.cameras) {
+      html += `<div class="detail-row"><div class="detail-key">câmeras</div><div class="detail-val"><div class="device-list">`;
+      for (const c of result.cameras) {
+        const state = c.ok ? 'ok' : 'fail';
+        const detail = c.note || `ping:${c.ping ? '✓' : '✗'} rtsp:${c.rtsp ? '✓' : '✗'}`;
+        html += `<div class="device-row"><div class="device-dot ${state}"></div>${c.name} (${c.ip}) — ${detail}</div>`;
+      }
+      html += '</div></div></div>';
+    }
+  }
+
+  else if (id === 'remote') {
+    if (result.anydesk?.enabled) {
+      html += row('AnyDesk', result.anydesk.running ? `ativo — ID: ${result.anydesk.id}` : 'não está rodando', result.anydesk.running);
+    }
+    if (result.tailscale?.enabled) {
+      html += row('Tailscale', result.tailscale.running ? `ativo — ${result.tailscale.ip}` : 'não está rodando', result.tailscale.running);
+    }
+  }
+
+  else if (id === 'content') {
+    html += row('status', result.contentStatus === 'content' ? 'conteúdo final em loop' : 'pixelmap (conteúdo final pendente)', result.ok, !result.ok ? 'warn' : null);
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function row(key, val, ok, overrideClass) {
+  const cls = overrideClass !== undefined ? overrideClass : (ok === true ? 'ok' : ok === false ? 'fail' : '');
+  return `<div class="detail-row">
+    <div class="detail-key">${key}</div>
+    <div class="detail-val ${cls}">${val}</div>
+  </div>`;
+}
+
+// ─── Toggle detail panel ───────────────────────────────────
+function toggleDetail(id) {
+  const el = document.getElementById(`detail-${id}`);
+  if (!el) return;
+  el.classList.toggle('open');
+}
+
+function openDetail(id) {
+  const el = document.getElementById(`detail-${id}`);
+  if (el) el.classList.add('open');
+}
+
+// ─── Load history ──────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const history = await fetch('/api/commissioning/history').then(r => r.json());
+    const el = document.getElementById('historyList');
+    if (!history.length) {
+      el.innerHTML = '<div class="history-empty">Nenhum comissionamento registrado ainda.</div>';
+      return;
+    }
+    el.innerHTML = history.map(h => `
+      <div class="history-item">
+        <div class="history-dot ${h.ok ? 'ok' : 'fail'}"></div>
+        <div class="history-time">${formatTime(h.timestamp)}</div>
+        <div class="history-summary">${h.summary}</div>
+      </div>
+    `).join('');
+  } catch {}
+}
+
+// ─── Helpers ───────────────────────────────────────────────
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+init();
+</script>
+</body>
+</html>

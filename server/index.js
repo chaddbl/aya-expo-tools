@@ -12,6 +12,7 @@ const { ProjectorManager } = require('./pjlink');
 const { CameraManager } = require('./cameras');
 const { Scheduler } = require('./scheduler');
 const network = require('./network');
+const commissioning = require('./commissioning');
 
 // ─── Load Config ───────────────────────────────────────────
 const configArg = process.argv.find(a => a.startsWith('--config='));
@@ -173,6 +174,51 @@ app.get('/api/schedule', (req, res) => {
 app.post('/api/schedule', (req, res) => {
   scheduler.updateConfig(req.body);
   res.json(scheduler.getStatus());
+});
+
+// ─── API: Commissioning ────────────────────────────────────
+app.get('/api/commissioning/steps', (req, res) => {
+  res.json(commissioning.STEPS.map(s => ({ id: s.id, label: s.label })));
+});
+
+app.post('/api/commissioning/run', async (req, res) => {
+  try {
+    const report = await commissioning.runAll(config);
+    commissioning.saveReport(report);
+    broadcast('commissioning', report);
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/commissioning/step/:id', async (req, res) => {
+  try {
+    const result = await commissioning.runStep(req.params.id, config);
+    broadcast('commissioning-step', result);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/commissioning/history', (req, res) => {
+  res.json(commissioning.loadHistory());
+});
+
+app.patch('/api/commissioning/content', (req, res) => {
+  const { status } = req.body;
+  if (!['pixelmap', 'content'].includes(status)) {
+    return res.status(400).json({ error: 'status must be pixelmap or content' });
+  }
+  if (!config.resolume) config.resolume = {};
+  config.resolume.contentStatus = status;
+  const configPath = path.join(__dirname, '..', 'config', `${configName}.json`);
+  const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  if (!saved.resolume) saved.resolume = {};
+  saved.resolume.contentStatus = status;
+  fs.writeFileSync(configPath, JSON.stringify(saved, null, 2));
+  res.json({ ok: true, contentStatus: status });
 });
 
 // ─── API: Health ───────────────────────────────────────────
