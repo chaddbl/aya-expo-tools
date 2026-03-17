@@ -62,7 +62,7 @@
   ],
 
   "resolume": {
-    "process": "Avenue.exe",
+    "process": "Arena.exe",
     "pixelmap": "",
     "contentStatus": "pixelmap",
     "notes": "Mapeado com pixelmap JPG/PNG — conteúdo final a ser carregado"
