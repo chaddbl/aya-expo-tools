@@ -1,0 +1,31 @@
+{
+  "exhibition": {
+    "name": "Nome da Exposição",
+    "venue": "Local",
+    "city": "Cidade",
+    "network": {
+      "subnet": "10.0.1.0/24",
+      "gateway": "10.0.1.1",
+      "mediaServer": "10.0.1.10"
+    }
+  },
+  "projectors": [
+    { "id": "proj-1", "name": "Projetor 1", "ip": "10.0.1.20", "model": "", "input": "HDMI1" }
+  ],
+  "cameras": [],
+  "pjlink": {
+    "port": 4352,
+    "password": "",
+    "pollInterval": 30000
+  },
+  "schedule": {
+    "enabled": false,
+    "powerOn": "09:00",
+    "powerOff": "20:00",
+    "timezone": "America/Sao_Paulo"
+  },
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0"
+  }
+}

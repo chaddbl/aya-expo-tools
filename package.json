@@ -1,0 +1,17 @@
+{
+  "name": "aya-expo-tools",
+  "version": "1.0.0",
+  "description": "AYA Studio — Exhibition Control Tools (PJLink, Cameras, Network)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js --dev"
+  },
+  "author": "AYA Studio",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "ws": "^8.16.0"
+  }
+}

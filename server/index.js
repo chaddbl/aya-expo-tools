@@ -1,0 +1,244 @@
+/**
+ * AYA Expo Tools — Server
+ * Express + WebSocket for real-time updates
+ */
+
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+const path = require('path');
+const fs = require('fs');
+const { ProjectorManager } = require('./pjlink');
+const { CameraManager } = require('./cameras');
+const { Scheduler } = require('./scheduler');
+const network = require('./network');
+
+// ─── Load Config ───────────────────────────────────────────
+const configArg = process.argv.find(a => a.startsWith('--config='));
+const configName = configArg ? configArg.split('=')[1] : 'beleza-astral';
+const configPath = path.join(__dirname, '..', 'config', `${configName}.json`);
+
+if (!fs.existsSync(configPath)) {
+  console.error(`Config not found: ${configPath}`);
+  console.error(`Available configs:`);
+  fs.readdirSync(path.join(__dirname, '..', 'config'))
+    .filter(f => f.endsWith('.json') && f !== 'template.json')
+    .forEach(f => console.error(`  --config=${f.replace('.json', '')}`));
+  process.exit(1);
+}
+
+const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+console.log(`\n  ◇ AYA EXPO TOOLS`);
+console.log(`  ${config.exhibition.name} — ${config.exhibition.venue}`);
+console.log(`  ${config.projectors.length} projetores · ${config.cameras.length} câmeras\n`);
+
+// ─── Initialize Managers ───────────────────────────────────
+const projectors = new ProjectorManager(config);
+const cameras = new CameraManager(config);
+const scheduler = new Scheduler(projectors, config);
+
+// ─── Express App ───────────────────────────────────────────
+const app = express();
+const server = http.createServer(app);
+
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '..', 'ui')));
+
+// ─── API: Exhibition Info ──────────────────────────────────
+app.get('/api/info', (req, res) => {
+  res.json({
+    exhibition: config.exhibition,
+    projectorCount: config.projectors.length,
+    cameraCount: config.cameras.length,
+    uptime: process.uptime(),
+  });
+});
+
+// ─── API: Projectors ───────────────────────────────────────
+app.get('/api/projectors', (req, res) => {
+  res.json(projectors.getAllStatus());
+});
+
+app.post('/api/projectors/poll', async (req, res) => {
+  try {
+    const status = await projectors.pollAll();
+    broadcast('projectors', status);
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/projectors/all/on', async (req, res) => {
+  try {
+    await projectors.powerOnAll();
+    setTimeout(() => projectors.pollAll().then(s => broadcast('projectors', s)), 3000);
+    res.json({ ok: true, action: 'power-on-all' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/projectors/all/off', async (req, res) => {
+  try {
+    await projectors.powerOffAll();
+    setTimeout(() => projectors.pollAll().then(s => broadcast('projectors', s)), 3000);
+    res.json({ ok: true, action: 'power-off-all' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/projectors/:id/on', async (req, res) => {
+  const p = projectors.get(req.params.id);
+  if (!p) return res.status(404).json({ error: 'Projector not found' });
+  try {
+    await p.powerOn();
+    setTimeout(() => p.poll().then(s => broadcast('projector', s)), 3000);
+    res.json({ ok: true, id: p.id, action: 'power-on' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/projectors/:id/off', async (req, res) => {
+  const p = projectors.get(req.params.id);
+  if (!p) return res.status(404).json({ error: 'Projector not found' });
+  try {
+    await p.powerOff();
+    setTimeout(() => p.poll().then(s => broadcast('projector', s)), 3000);
+    res.json({ ok: true, id: p.id, action: 'power-off' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/projectors/:id/input', async (req, res) => {
+  const p = projectors.get(req.params.id);
+  if (!p) return res.status(404).json({ error: 'Projector not found' });
+  const { input } = req.body;
+  if (!input) return res.status(400).json({ error: 'input required' });
+  try {
+    await p.setInput(input);
+    res.json({ ok: true, id: p.id, input });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── API: Cameras ──────────────────────────────────────────
+app.get('/api/cameras', (req, res) => {
+  res.json(cameras.getAllStatus());
+});
+
+app.post('/api/cameras/check', async (req, res) => {
+  const status = await cameras.checkAll();
+  broadcast('cameras', status);
+  res.json(status);
+});
+
+app.get('/api/cameras/:id/snapshot', async (req, res) => {
+  const cam = cameras.get(req.params.id);
+  if (!cam) return res.status(404).json({ error: 'Camera not found' });
+  try {
+    const buffer = await cam.getSnapshot();
+    res.set('Content-Type', 'image/jpeg');
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── API: Network ──────────────────────────────────────────
+app.post('/api/network/scan', async (req, res) => {
+  const subnet = config.exhibition.network?.subnet?.split('.').slice(0, 3).join('.') || '10.0.1';
+  try {
+    const devices = await network.fullScan(subnet);
+    res.json({ subnet: `${subnet}.0/24`, devices });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/network/internet', async (req, res) => {
+  const result = await network.checkInternet();
+  res.json(result);
+});
+
+// ─── API: Schedule ─────────────────────────────────────────
+app.get('/api/schedule', (req, res) => {
+  res.json(scheduler.getStatus());
+});
+
+app.post('/api/schedule', (req, res) => {
+  scheduler.updateConfig(req.body);
+  res.json(scheduler.getStatus());
+});
+
+// ─── API: Health ───────────────────────────────────────────
+app.get('/api/health', async (req, res) => {
+  const inet = await network.checkInternet();
+  res.json({
+    status: 'ok',
+    exhibition: config.exhibition.name,
+    uptime: Math.floor(process.uptime()),
+    projectors: projectors.getAllStatus().length,
+    cameras: cameras.getAllStatus().length,
+    internet: inet.online,
+    schedule: scheduler.enabled,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ─── WebSocket for real-time updates ───────────────────────
+const wss = new WebSocket.Server({ server });
+const clients = new Set();
+
+wss.on('connection', (ws) => {
+  clients.add(ws);
+  // Send initial state
+  ws.send(JSON.stringify({
+    type: 'init',
+    data: {
+      exhibition: config.exhibition,
+      projectors: projectors.getAllStatus(),
+      cameras: cameras.getAllStatus(),
+      schedule: scheduler.getStatus(),
+    }
+  }));
+
+  ws.on('close', () => clients.delete(ws));
+});
+
+function broadcast(type, data) {
+  const msg = JSON.stringify({ type, data, time: Date.now() });
+  for (const ws of clients) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(msg);
+    }
+  }
+}
+
+// ─── Start ─────────────────────────────────────────────────
+const PORT = config.server?.port || 3000;
+const HOST = config.server?.host || '0.0.0.0';
+
+server.listen(PORT, HOST, () => {
+  console.log(`  🌐 http://localhost:${PORT}`);
+  console.log(`  🌐 http://${config.exhibition.network?.mediaServer || 'localhost'}:${PORT}\n`);
+
+  // Start polling
+  projectors.startPolling(config.pjlink?.pollInterval || 30000);
+  cameras.startPolling(30000);
+  scheduler.start();
+});
+
+// ─── Graceful shutdown ─────────────────────────────────────
+process.on('SIGINT', () => {
+  console.log('\n  Shutting down...');
+  projectors.stopPolling();
+  cameras.stopPolling();
+  scheduler.stop();
+  server.close();
+  process.exit(0);
+});

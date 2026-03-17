@@ -1,0 +1,41 @@
+{
+  "exhibition": {
+    "name": "Beleza Astral",
+    "venue": "Farol Santander",
+    "city": "São Paulo",
+    "network": {
+      "subnet": "10.0.1.0/24",
+      "gateway": "10.0.1.1",
+      "mediaServer": "10.0.1.10"
+    }
+  },
+  "projectors": [
+    { "id": "proj-1", "name": "Projetor 1", "ip": "10.0.1.20", "model": "NEC PE456USL", "input": "HDMI1" },
+    { "id": "proj-2", "name": "Projetor 2", "ip": "10.0.1.21", "model": "NEC PE456USL", "input": "HDMI1" },
+    { "id": "proj-3", "name": "Projetor 3", "ip": "10.0.1.22", "model": "NEC PE456USL", "input": "HDMI1" },
+    { "id": "proj-4", "name": "Projetor 4", "ip": "10.0.1.23", "model": "NEC PE456USL", "input": "HDMI1" },
+    { "id": "proj-5", "name": "Projetor 5", "ip": "10.0.1.24", "model": "NEC PE456USL", "input": "HDMI1" },
+    { "id": "proj-6", "name": "Projetor 6", "ip": "10.0.1.25", "model": "NEC PE456USL", "input": "HDMI1" }
+  ],
+  "cameras": [
+    { "id": "cam-1", "name": "Câmera 1", "ip": "10.0.1.30", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "" },
+    { "id": "cam-2", "name": "Câmera 2", "ip": "10.0.1.31", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "" },
+    { "id": "cam-3", "name": "Câmera 3", "ip": "10.0.1.32", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "" },
+    { "id": "cam-4", "name": "Câmera 4", "ip": "10.0.1.33", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "" }
+  ],
+  "pjlink": {
+    "port": 4352,
+    "password": "",
+    "pollInterval": 30000
+  },
+  "schedule": {
+    "enabled": false,
+    "powerOn": "09:00",
+    "powerOff": "20:00",
+    "timezone": "America/Sao_Paulo"
+  },
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0"
+  }
+}
