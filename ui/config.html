@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações — AYA Expo Tools</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:#0a0a0a; --bg-card:#141414; --bg-input:#0f0f0f;
+      --border:#222; --border-light:#2a2a2a; --border-focus:#555;
+      --text:#e5e5e5; --text-dim:#888; --text-dimmer:#444;
+      --green:#22c55e; --green-bg:rgba(34,197,94,0.08);
+      --red:#ef4444; --red-bg:rgba(239,68,68,0.08);
+      --amber:#f59e0b; --blue:#3b82f6;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+    .header { border-bottom:1px solid var(--border); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--bg); z-index:100; }
+    .header-left { display:flex; align-items:center; gap:16px; }
+    .header-logo { height:24px; }
+    .header-back { color:var(--text-dim); text-decoration:none; font-size:13px; }
+    .header-back:hover { color:var(--text); }
+    .header-title { font-size:15px; font-weight:500; }
+    .save-bar { display:flex; align-items:center; gap:12px; }
+    .save-status { font-size:12px; color:var(--text-dimmer); }
+    .save-status.saved { color:var(--green); }
+    .save-status.error { color:var(--red); }
+
+    .main { max-width:860px; margin:0 auto; padding:32px 24px; }
+
+    /* Tabs */
+    .tabs { display:flex; gap:2px; border-bottom:1px solid var(--border); margin-bottom:32px; }
+    .tab { padding:10px 20px; font-size:13px; color:var(--text-dim); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:all 0.15s; user-select:none; }
+    .tab:hover { color:var(--text); }
+    .tab.active { color:var(--text); border-bottom-color:white; }
+
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* Form elements */
+    .section { margin-bottom:32px; }
+    .section-title { font-size:12px; font-weight:600; color:var(--text-dimmer); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:16px; }
+    .section-desc { font-size:13px; color:var(--text-dim); margin-bottom:16px; line-height:1.6; }
+
+    .field { margin-bottom:16px; }
+    .field-label { font-size:12px; color:var(--text-dim); margin-bottom:6px; display:block; }
+    .field-hint { font-size:11px; color:var(--text-dimmer); margin-top:4px; }
+
+    input, select, textarea {
+      width:100%; background:var(--bg-input); border:1px solid var(--border-light);
+      color:var(--text); font-family:inherit; font-size:13px;
+      padding:8px 12px; border-radius:6px; outline:none; transition:border-color 0.15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color:var(--border-focus); }
+    input[type="time"] { width:120px; }
+    input[type="checkbox"] { width:auto; }
+    textarea { resize:vertical; min-height:80px; }
+
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+
+    /* Device cards */
+    .devices { display:flex; flex-direction:column; gap:8px; }
+    .device-card { border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+    .device-card-header { display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--bg-card); }
+    .device-card-body { padding:16px; border-top:1px solid var(--border); display:none; }
+    .device-card-body.open { display:block; }
+    .device-card-name { font-size:13px; font-weight:500; flex:1; }
+    .device-card-ip { font-size:12px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; }
+    .device-card-status { width:8px; height:8px; border-radius:50%; background:var(--text-dimmer); }
+    .device-card-status.ok { background:var(--green); }
+    .device-card-status.fail { background:var(--red); }
+    .device-expand { cursor:pointer; font-size:12px; color:var(--text-dim); }
+
+    .btn { padding:8px 16px; border-radius:6px; font-size:13px; font-family:inherit; cursor:pointer; transition:all 0.15s; border:none; }
+    .btn-primary { background:white; color:black; font-weight:600; }
+    .btn-primary:hover { opacity:0.9; }
+    .btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
+    .btn-secondary { background:transparent; border:1px solid var(--border-light); color:var(--text-dim); }
+    .btn-secondary:hover { border-color:#555; color:var(--text); }
+    .btn-danger { background:transparent; border:1px solid rgba(239,68,68,0.3); color:var(--red); }
+    .btn-danger:hover { background:var(--red-bg); }
+    .btn-test { background:transparent; border:1px solid var(--border-light); color:var(--text-dim); padding:5px 10px; font-size:11px; font-family:inherit; border-radius:4px; cursor:pointer; }
+    .btn-test:hover { border-color:#555; color:var(--text); }
+
+    .test-result { font-size:12px; margin-top:6px; padding:6px 10px; border-radius:4px; }
+    .test-result.ok { color:var(--green); background:var(--green-bg); }
+    .test-result.fail { color:var(--red); background:var(--red-bg); }
+
+    .add-btn { display:flex; align-items:center; gap:8px; padding:10px 16px; border:1px dashed var(--border-light); border-radius:8px; color:var(--text-dim); font-size:13px; cursor:pointer; transition:all 0.15s; background:transparent; width:100%; font-family:inherit; margin-top:8px; }
+    .add-btn:hover { border-color:#555; color:var(--text); }
+
+    /* Toggle */
+    .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border); }
+    .toggle-row:last-child { border-bottom:none; }
+    .toggle-info { flex:1; }
+    .toggle-label { font-size:13px; font-weight:500; }
+    .toggle-desc { font-size:12px; color:var(--text-dim); margin-top:2px; }
+    .toggle { position:relative; width:40px; height:22px; flex-shrink:0; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; cursor:pointer; inset:0; background:var(--border-light); border-radius:22px; transition:0.2s; }
+    .toggle-slider:before { content:''; position:absolute; height:16px; width:16px; left:3px; bottom:3px; background:var(--text-dim); border-radius:50%; transition:0.2s; }
+    input:checked + .toggle-slider { background:var(--green); }
+    input:checked + .toggle-slider:before { transform:translateX(18px); background:white; }
+
+    /* Upload area */
+    .upload-area { border:1px dashed var(--border-light); border-radius:8px; padding:24px; text-align:center; cursor:pointer; transition:all 0.15s; position:relative; }
+    .upload-area:hover { border-color:#555; }
+    .upload-area input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; }
+    .upload-area-text { font-size:13px; color:var(--text-dim); }
+    .upload-area-hint { font-size:11px; color:var(--text-dimmer); margin-top:4px; }
+    .upload-preview { max-width:100%; max-height:200px; border-radius:6px; margin-top:12px; }
+
+    /* Log */
+    .log-list { display:flex; flex-direction:column; gap:6px; }
+    .log-item { padding:12px 16px; border:1px solid var(--border); border-radius:6px; }
+    .log-item-header { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+    .log-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .log-dot.auto { background:var(--red); }
+    .log-dot.manual { background:var(--blue); }
+    .log-dot.info { background:var(--text-dimmer); }
+    .log-time { font-size:11px; color:var(--text-dimmer); font-family:'JetBrains Mono',monospace; }
+    .log-tag { font-size:10px; color:var(--text-dimmer); border:1px solid var(--border-light); padding:1px 6px; border-radius:3px; }
+    .log-text { font-size:13px; color:var(--text-dim); }
+    .log-empty { font-size:13px; color:var(--text-dimmer); font-style:italic; padding:16px 0; }
+
+    .log-add { margin-bottom:24px; }
+    .log-add textarea { margin-bottom:8px; }
+
+    /* Contacts */
+    .contact-card { display:flex; align-items:center; gap:12px; padding:12px 16px; border:1px solid var(--border); border-radius:8px; margin-bottom:8px; }
+    .contact-avatar { width:36px; height:36px; border-radius:50%; background:var(--border-light); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .contact-info { flex:1; }
+    .contact-name { font-size:13px; font-weight:500; }
+    .contact-role { font-size:12px; color:var(--text-dim); }
+
+    .notice { background:#0f0f0f; border:1px solid var(--border); border-radius:6px; padding:14px 16px; font-size:13px; color:var(--text-dim); line-height:1.6; margin-bottom:16px; }
+    .notice strong { color:var(--text); }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <img src="logo-aya-branco.png" class="header-logo" alt="AYA">
+    <a href="/" class="header-back">← Dashboard</a>
+    <span style="color:var(--text-dimmer)">|</span>
+    <span class="header-title">Configurações</span>
+  </div>
+  <div class="save-bar">
+    <span class="save-status" id="saveStatus"></span>
+    <button class="btn btn-primary" onclick="saveConfig()">Salvar</button>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('dispositivos')">Dispositivos</div>
+    <div class="tab" onclick="switchTab('espaco')">Espaço</div>
+    <div class="tab" onclick="switchTab('agendamento')">Agendamento</div>
+    <div class="tab" onclick="switchTab('acesso')">Acesso</div>
+    <div class="tab" onclick="switchTab('log')">Log</div>
+  </div>
+
+  <!-- ABA: DISPOSITIVOS -->
+  <div class="tab-panel active" id="panel-dispositivos">
+
+    <div class="section">
+      <div class="section-title">Informações da Expo</div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Nome da exposição</label>
+          <input type="text" id="cfg-name" placeholder="ex: Beleza Astral">
+        </div>
+        <div class="field">
+          <label class="field-label">Venue (local)</label>
+          <input type="text" id="cfg-venue" placeholder="ex: Farol Santander">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Cidade</label>
+          <input type="text" id="cfg-city" placeholder="ex: São Paulo">
+        </div>
+        <div class="field">
+          <label class="field-label">IP deste servidor na rede da expo</label>
+          <input type="text" id="cfg-mediaServer" placeholder="ex: 192.168.0.13">
+          <div class="field-hint">Endereço deste computador na rede local da sala</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">IP do roteador</label>
+          <input type="text" id="cfg-gateway" placeholder="ex: 192.168.0.1">
+          <div class="field-hint">Geralmente .1 na mesma faixa do servidor</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Projetores</div>
+      <div class="section-desc">Cada projetor precisa de um endereço IP fixo na rede da sala para ser controlado remotamente. Confirme os IPs nas configurações de rede de cada projetor.</div>
+      <div class="devices" id="projectors-list"></div>
+      <button class="add-btn" onclick="addDevice('projector')">+ Adicionar projetor</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Câmeras</div>
+      <div class="section-desc">Câmeras de monitoramento da sala. Usadas para visualizar a expo remotamente pelo portal AYA.</div>
+      <div class="devices" id="cameras-list"></div>
+      <button class="add-btn" onclick="addDevice('camera')">+ Adicionar câmera</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Tomadas Inteligentes</div>
+      <div class="section-desc">Tomadas conectadas à rede que ligam e desligam os equipamentos nos horários programados.</div>
+      <div class="devices" id="plugs-list"></div>
+      <button class="add-btn" onclick="addDevice('plug')">+ Adicionar tomada</button>
+    </div>
+
+  </div>
+
+  <!-- ABA: ESPAÇO -->
+  <div class="tab-panel" id="panel-espaco">
+
+    <div class="section">
+      <div class="section-title">Planta da sala</div>
+      <div class="section-desc">Imagem mostrando o layout físico da sala — posição das paredes, entradas, saída de emergência. Serve de referência para a equipe de montagem.</div>
+      <div class="upload-area" id="upload-planta">
+        <input type="file" accept="image/*" onchange="handleUpload('planta', this)">
+        <div class="upload-area-text">📐 Clique para fazer upload da planta</div>
+        <div class="upload-area-hint">JPG, PNG ou PDF · Qualquer tamanho</div>
+        <img class="upload-preview" id="preview-planta" style="display:none">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Pixelmap</div>
+      <div class="section-desc">Imagem de referência usada no Resolume para mapear as superfícies de projeção. Normalmente um JPG ou PNG com marcações das telas.</div>
+      <div class="upload-area" id="upload-pixelmap">
+        <input type="file" accept="image/*" onchange="handleUpload('pixelmap', this)">
+        <div class="upload-area-text">🗺 Clique para fazer upload do pixelmap</div>
+        <div class="upload-area-hint">JPG ou PNG</div>
+        <img class="upload-preview" id="preview-pixelmap" style="display:none">
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label class="field-label">Notas sobre o mapeamento</label>
+        <textarea id="cfg-pixelmap-notes" placeholder="ex: Sala dividida em 3 zonas. Projetor 1 cobre parede Norte..."></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Posição dos projetores</div>
+      <div id="projector-positions"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Posição das câmeras</div>
+      <div id="camera-positions"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Notas técnicas da sala</div>
+      <div class="section-desc">Informações que a equipe precisa saber sobre o espaço — pé direito, tomadas disponíveis, acesso ao rack, peculiaridades.</div>
+      <textarea id="cfg-space-notes" rows="5" placeholder="ex: Rack fica no corredor B, lado esquerdo. Tomadas de força estão no piso. Câmeras fixadas no teto com parafuso M6..."></textarea>
+    </div>
+
+  </div>
+
+  <!-- ABA: AGENDAMENTO -->
+  <div class="tab-panel" id="panel-agendamento">
+
+    <div class="notice">
+      <strong>Atenção:</strong> o agendamento controla quando os projetores ligam e desligam automaticamente. Se o Chataigne também estiver configurado para isso, desative um dos dois para evitar conflito.
+    </div>
+
+    <div class="section">
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">Agendamento automático</div>
+          <div class="toggle-desc">Liga e desliga os projetores nos horários abaixo, todos os dias</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cfg-schedule-enabled" onchange="toggleSchedule()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="section" id="schedule-fields" style="display:none;">
+      <div class="section-title">Horários</div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Ligar projetores às</label>
+          <input type="time" id="cfg-schedule-on" value="09:00">
+        </div>
+        <div class="field">
+          <label class="field-label">Desligar projetores às</label>
+          <input type="time" id="cfg-schedule-off" value="20:00">
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Fuso horário</label>
+        <select id="cfg-schedule-tz">
+          <option value="America/Sao_Paulo">São Paulo (BRT)</option>
+          <option value="America/Manaus">Manaus (AMT)</option>
+          <option value="America/Recife">Recife (BRT)</option>
+          <option value="America/Belem">Belém (BRT)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Zonas de áudio</div>
+      <div id="audio-zones-list"></div>
+    </div>
+
+  </div>
+
+  <!-- ABA: ACESSO -->
+  <div class="tab-panel" id="panel-acesso">
+
+    <div class="section">
+      <div class="section-title">Acesso remoto</div>
+      <div class="section-desc">O RustDesk permite acessar este computador de qualquer lugar, como se você estivesse na frente da tela. Anote o ID abaixo e compartilhe com a equipe.</div>
+      <div class="field">
+        <label class="field-label">ID do RustDesk</label>
+        <input type="text" id="cfg-rustdesk-id" placeholder="ex: 123 456 789">
+        <div class="field-hint">Encontre o ID abrindo o RustDesk neste computador</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Contatos da equipe</div>
+      <div class="section-desc">Quem acionar se algo der errado. A ordem é a ordem de prioridade.</div>
+      <div id="contacts-list"></div>
+      <button class="add-btn" onclick="addContact()">+ Adicionar contato</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Informações da rede</div>
+      <div class="section-desc">Credenciais do roteador da sala. Útil para acessar as configurações de IP dos equipamentos.</div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Modelo do roteador</label>
+          <input type="text" id="cfg-router-model" placeholder="ex: TP-Link TL-SG116">
+        </div>
+        <div class="field">
+          <label class="field-label">URL de administração</label>
+          <input type="text" id="cfg-router-url" placeholder="ex: http://192.168.0.1">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Usuário</label>
+          <input type="text" id="cfg-router-user" placeholder="admin">
+        </div>
+        <div class="field">
+          <label class="field-label">Senha</label>
+          <input type="password" id="cfg-router-pass" placeholder="••••••••">
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ABA: LOG -->
+  <div class="tab-panel" id="panel-log">
+
+    <div class="section log-add">
+      <div class="section-title">Registrar ocorrência</div>
+      <div class="section-desc">Anote aqui qualquer problema, ajuste ou observação durante a expo. Esses registros ajudam a equipe futura a entender o histórico do espaço.</div>
+      <textarea id="log-input" placeholder="ex: Projetor 2 estava com imagem amarelada — desligou e religou, voltou ao normal. Câmera 3 reposicionada após visita técnica." rows="3"></textarea>
+      <button class="btn btn-secondary" style="margin-top:8px;" onclick="addLog()">Registrar</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Ocorrências registradas</div>
+      <div class="log-list" id="log-list">
+        <div class="log-empty">Nenhuma ocorrência registrada ainda.</div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<script>
+let config = {};
+let contacts = [];
+
+async function init() {
+  try {
+    config = await fetch('/api/config').then(r=>r.json());
+    populateForm();
+    loadLog();
+  } catch(e) {
+    document.getElementById('saveStatus').textContent = 'Erro ao carregar configurações';
+    document.getElementById('saveStatus').className = 'save-status error';
+  }
+}
+
+function populateForm() {
+  const e = config.exhibition || {};
+  const net = e.network || {};
+  setValue('cfg-name', e.name);
+  setValue('cfg-venue', e.venue);
+  setValue('cfg-city', e.city);
+  setValue('cfg-gateway', net.gateway);
+  setValue('cfg-mediaServer', net.mediaServer);
+  setValue('cfg-router-model', net.router?.model);
+  setValue('cfg-router-url', net.router?.adminUrl);
+  setValue('cfg-router-user', net.router?.user);
+  setValue('cfg-router-pass', net.router?.password);
+  setValue('cfg-rustdesk-id', config.remoteAccess?.rustdesk?.id);
+  setValue('cfg-schedule-enabled', config.schedule?.enabled, true);
+  setValue('cfg-schedule-on', config.schedule?.powerOn || '09:00');
+  setValue('cfg-schedule-off', config.schedule?.powerOff || '20:00');
+  setValue('cfg-schedule-tz', config.schedule?.timezone || 'America/Sao_Paulo');
+  if (config.schedule?.enabled) document.getElementById('schedule-fields').style.display = 'block';
+
+  setValue('cfg-pixelmap-notes', config.resolume?.pixelmapNotes);
+  setValue('cfg-space-notes', config.space?.notes);
+
+  renderProjectors();
+  renderCameras();
+  renderPlugs();
+  renderPositions();
+  renderContacts();
+  renderAudioZones();
+}
+
+function setValue(id, val, isCheck=false) {
+  const el = document.getElementById(id);
+  if (!el || val === undefined || val === null) return;
+  if (isCheck) el.checked = !!val;
+  else el.value = val;
+}
+
+function getValue(id, isCheck=false) {
+  const el = document.getElementById(id);
+  if (!el) return '';
+  return isCheck ? el.checked : el.value;
+}
+
+// ─── Projectors ───────────────────────────────────────────
+function renderProjectors() {
+  const list = document.getElementById('projectors-list');
+  list.innerHTML = (config.projectors || []).map((p,i) => `
+    <div class="device-card" id="proj-card-${i}">
+      <div class="device-card-header" onclick="toggleCard('proj-body-${i}')">
+        <div class="device-card-status" id="proj-status-${i}"></div>
+        <div class="device-card-name">${p.name}</div>
+        <div class="device-card-ip">${p.ip || 'sem IP'}</div>
+        <button class="btn-test" onclick="testDevice(event,'projector',${i})">Testar</button>
+        <span class="device-expand">›</span>
+      </div>
+      <div class="device-card-body" id="proj-body-${i}">
+        <div class="row-3">
+          <div class="field">
+            <label class="field-label">Nome</label>
+            <input type="text" value="${p.name}" onchange="updateProjector(${i},'name',this.value)">
+          </div>
+          <div class="field">
+            <label class="field-label">IP na rede da sala</label>
+            <input type="text" value="${p.ip||''}" placeholder="192.168.0.20" onchange="updateProjector(${i},'ip',this.value)">
+          </div>
+          <div class="field">
+            <label class="field-label">Modelo</label>
+            <input type="text" value="${p.model||''}" placeholder="NEC PE456USL" onchange="updateProjector(${i},'model',this.value)">
+          </div>
+        </div>
+        <div id="proj-test-${i}"></div>
+        <button class="btn btn-danger" style="margin-top:8px;font-size:12px;padding:5px 10px;" onclick="removeDevice('projector',${i})">Remover</button>
+      </div>
+    </div>`).join('');
+}
+
+function updateProjector(i, field, val) {
+  if (!config.projectors[i]) return;
+  config.projectors[i][field] = val;
+  document.querySelector(`#proj-card-${i} .device-card-ip`).textContent = config.projectors[i].ip || 'sem IP';
+}
+
+// ─── Cameras ──────────────────────────────────────────────
+function renderCameras() {
+  const list = document.getElementById('cameras-list');
+  list.innerHTML = (config.cameras || []).map((c,i) => `
+    <div class="device-card" id="cam-card-${i}">
+      <div class="device-card-header" onclick="toggleCard('cam-body-${i}')">
+        <div class="device-card-status" id="cam-status-${i}"></div>
+        <div class="device-card-name">${c.name}</div>
+        <div class="device-card-ip">${c.ip || 'sem IP'}</div>
+        <button class="btn-test" onclick="testDevice(event,'camera',${i})">Testar</button>
+        <span class="device-expand">›</span>
+      </div>
+      <div class="device-card-body" id="cam-body-${i}">
+        <div class="row-3">
+          <div class="field">
+            <label class="field-label">Nome</label>
+            <input type="text" value="${c.name}" onchange="updateCamera(${i},'name',this.value)">
+          </div>
+          <div class="field">
+            <label class="field-label">IP na rede da sala</label>
+            <input type="text" value="${c.ip||''}" placeholder="192.168.0.30" onchange="updateCamera(${i},'ip',this.value)">
+          </div>
+          <div class="field">
+            <label class="field-label">Modelo</label>
+            <input type="text" value="${c.model||''}" placeholder="Intelbras VIP 1130 B" onchange="updateCamera(${i},'model',this.value)">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label class="field-label">Usuário</label>
+            <input type="text" value="${c.user||'admin'}" onchange="updateCamera(${i},'user',this.value)">
+          </div>
+          <div class="field">
+            <label class="field-label">Senha</label>
+            <input type="password" value="${c.password||''}" onchange="updateCamera(${i},'password',this.value)">
+          </div>
+        </div>
+        <div id="cam-test-${i}"></div>
+        <button class="btn btn-danger" style="margin-top:8px;font-size:12px;padding:5px 10px;" onclick="removeDevice('camera',${i})">Remover</button>
+      </div>
+    </div>`).join('');
+}
+
+function updateCamera(i, field, val) {
+  if (config.cameras[i]) { config.cameras[i][field] = val; document.querySelector(`#cam-card-${i} .device-card-ip`).textContent = config.cameras[i].ip || 'sem IP'; }
+}
+
+// ─── Smart Plugs ──────────────────────────────────────────
+function renderPlugs() {
+  const list = document.getElementById('plugs-list');
+  list.innerHTML = (config.smartplugs || []).map((p,i) => `
+    <div class="device-card" id="plug-card-${i}">
+      <div class="device-card-header" onclick="toggleCard('plug-body-${i}')">
+        <div class="device-card-status" id="plug-status-${i}"></div>
+        <div class="device-card-name">${p.name}</div>
+        <div class="device-card-ip">${p.ip || 'sem IP'}</div>
+        <button class="btn-test" onclick="testDevice(event,'plug',${i})">Testar</button>
+        <span class="device-expand">›</span>
+      </div>
+      <div class="device-card-body" id="plug-body-${i}">
+        <div class="row-3">
+          <div class="field">
+            <label class="field-label">Nome</label>
+            <input type="text" value="${p.name}" onchange="updatePlug(${i},'name',this.value)">
+          </div>
+          <div class="field">
+            <label class="field-label">IP</label>
+            <input type="text" value="${p.ip||''}" placeholder="192.168.0.40" onchange="updatePlug(${i},'ip',this.value)">
+          </div>
+          <div class="field">
+            <label class="field-label">Controla</label>
+            <input type="text" value="${p.controls||''}" placeholder="ex: Projetores 1–2" onchange="updatePlug(${i},'controls',this.value)">
+          </div>
+        </div>
+        <div id="plug-test-${i}"></div>
+        <button class="btn btn-danger" style="margin-top:8px;font-size:12px;padding:5px 10px;" onclick="removeDevice('plug',${i})">Remover</button>
+      </div>
+    </div>`).join('');
+}
+
+function updatePlug(i, field, val) {
+  if (config.smartplugs[i]) { config.smartplugs[i][field] = val; document.querySelector(`#plug-card-${i} .device-card-ip`).textContent = config.smartplugs[i].ip || 'sem IP'; }
+}
+
+// ─── Add / Remove devices ─────────────────────────────────
+function addDevice(type) {
+  const id = `${type}-${Date.now()}`;
+  if (type === 'projector') {
+    config.projectors.push({ id, name: `Projetor ${config.projectors.length+1}`, ip: '', model: 'NEC PE456USL', input: 'HDMI1' });
+    renderProjectors();
+    toggleCard(`proj-body-${config.projectors.length-1}`);
+  } else if (type === 'camera') {
+    config.cameras.push({ id, name: `Câmera ${config.cameras.length+1}`, ip: '', model: 'Intelbras VIP 1130 B', user: 'admin', password: '' });
+    renderCameras();
+    toggleCard(`cam-body-${config.cameras.length-1}`);
+  } else if (type === 'plug') {
+    if (!config.smartplugs) config.smartplugs = [];
+    config.smartplugs.push({ id, name: `Smart Plug ${config.smartplugs.length+1}`, ip: '', model: 'NovaDigital', controls: '' });
+    renderPlugs();
+    toggleCard(`plug-body-${config.smartplugs.length-1}`);
+  }
+}
+
+function removeDevice(type, i) {
+  if (!confirm('Remover este dispositivo?')) return;
+  if (type === 'projector') config.projectors.splice(i,1), renderProjectors(), renderPositions();
+  else if (type === 'camera') config.cameras.splice(i,1), renderCameras(), renderPositions();
+  else if (type === 'plug') config.smartplugs.splice(i,1), renderPlugs();
+}
+
+// ─── Test device ──────────────────────────────────────────
+async function testDevice(event, type, i) {
+  event.stopPropagation();
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '...';
+  const resultId = `${type==='projector'?'proj':type==='camera'?'cam':'plug'}-test-${i}`;
+  document.getElementById(resultId).innerHTML = '';
+  try {
+    const res = await fetch(`/api/config/test/${type}/${i}`, {method:'POST'}).then(r=>r.json());
+    const ok = res.ok;
+    document.getElementById(resultId).innerHTML = `<div class="test-result ${ok?'ok':'fail'}">${ok ? '✓ ' + (res.message||'Respondendo') : '✗ ' + (res.message||'Sem resposta — verifique o IP e a conexão')}</div>`;
+    const statusDot = document.getElementById(`${type==='projector'?'proj':type==='camera'?'cam':'plug'}-status-${i}`);
+    if (statusDot) statusDot.className = `device-card-status ${ok?'ok':'fail'}`;
+  } catch {
+    document.getElementById(resultId).innerHTML = `<div class="test-result fail">✗ Erro de conexão</div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Testar';
+}
+
+// ─── Positions (Espaço tab) ───────────────────────────────
+function renderPositions() {
+  const pp = document.getElementById('projector-positions');
+  pp.innerHTML = (config.projectors||[]).map((p,i) => `
+    <div class="field">
+      <label class="field-label">${p.name}</label>
+      <input type="text" value="${p.position||''}" placeholder="ex: Parede Norte, canto superior esquerdo" onchange="config.projectors[${i}].position=this.value">
+    </div>`).join('');
+
+  const cp = document.getElementById('camera-positions');
+  cp.innerHTML = (config.cameras||[]).map((c,i) => `
+    <div class="field">
+      <label class="field-label">${c.name}</label>
+      <input type="text" value="${c.position||''}" placeholder="ex: Entrada principal, teto, ângulo geral" onchange="config.cameras[${i}].position=this.value">
+    </div>`).join('');
+}
+
+// ─── Audio zones ──────────────────────────────────────────
+function renderAudioZones() {
+  const list = document.getElementById('audio-zones-list');
+  list.innerHTML = (config.audio?.zones||[]).map((z,i) => `
+    <div class="row" style="margin-bottom:8px;">
+      <div class="field">
+        <label class="field-label">Zona ${i+1}</label>
+        <input type="text" value="${z.name||''}" placeholder="ex: Zona A" onchange="config.audio.zones[${i}].name=this.value">
+      </div>
+      <div class="field">
+        <label class="field-label">Equipamento</label>
+        <input type="text" value="${z.equipment||''}" placeholder="ex: JBL Bar + Sub" onchange="config.audio.zones[${i}].equipment=this.value">
+      </div>
+    </div>`).join('');
+}
+
+// ─── Contacts ─────────────────────────────────────────────
+function renderContacts() {
+  const list = document.getElementById('contacts-list');
+  if (!contacts.length && config.contacts) contacts = config.contacts;
+  list.innerHTML = contacts.map((c,i) => `
+    <div class="contact-card">
+      <div class="contact-avatar">${c.emoji||'👤'}</div>
+      <div class="contact-info">
+        <div class="contact-name">${c.name}</div>
+        <div class="contact-role">${c.role||''} ${c.phone ? '· '+c.phone : ''}</div>
+      </div>
+      <button class="btn btn-danger" style="font-size:12px;padding:4px 8px;" onclick="removeContact(${i})">×</button>
+    </div>`).join('') || '<div style="color:var(--text-dimmer);font-size:13px;">Nenhum contato cadastrado.</div>';
+}
+
+function addContact() {
+  const name = prompt('Nome:'); if (!name) return;
+  const role = prompt('Função (ex: Produtor técnico):') || '';
+  const phone = prompt('WhatsApp / telefone:') || '';
+  contacts.push({ name, role, phone, emoji: '👤' });
+  renderContacts();
+}
+
+function removeContact(i) { contacts.splice(i,1); renderContacts(); }
+
+// ─── Schedule toggle ──────────────────────────────────────
+function toggleSchedule() {
+  const enabled = document.getElementById('cfg-schedule-enabled').checked;
+  document.getElementById('schedule-fields').style.display = enabled ? 'block' : 'none';
+}
+
+// ─── Upload images ────────────────────────────────────────
+function handleUpload(type, input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const preview = document.getElementById(`preview-${type}`);
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+    if (!config.space) config.space = {};
+    config.space[type] = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── Save ─────────────────────────────────────────────────
+async function saveConfig() {
+  const btn = document.querySelector('.btn-primary');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  const updated = {
+    ...config,
+    exhibition: {
+      ...config.exhibition,
+      name: getValue('cfg-name'),
+      venue: getValue('cfg-venue'),
+      city: getValue('cfg-city'),
+      network: {
+        ...config.exhibition?.network,
+        gateway: getValue('cfg-gateway'),
+        mediaServer: getValue('cfg-mediaServer'),
+        subnet: config.exhibition?.network?.subnet || '192.168.0.0/24',
+        router: {
+          model: getValue('cfg-router-model'),
+          adminUrl: getValue('cfg-router-url'),
+          user: getValue('cfg-router-user'),
+          password: getValue('cfg-router-pass'),
+        }
+      }
+    },
+    schedule: {
+      enabled: getValue('cfg-schedule-enabled', true),
+      powerOn: getValue('cfg-schedule-on'),
+      powerOff: getValue('cfg-schedule-off'),
+      timezone: getValue('cfg-schedule-tz'),
+    },
+    remoteAccess: {
+      ...config.remoteAccess,
+      rustdesk: { enabled: true, id: getValue('cfg-rustdesk-id') }
+    },
+    resolume: {
+      ...config.resolume,
+      pixelmapNotes: getValue('cfg-pixelmap-notes'),
+    },
+    space: {
+      ...(config.space||{}),
+      notes: getValue('cfg-space-notes'),
+    },
+    contacts,
+  };
+
+  try {
+    const res = await fetch('/api/config', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(updated) }).then(r=>r.json());
+    config = res.config || updated;
+    showSaveStatus('Salvo', 'saved');
+    renderProjectors(); renderCameras(); renderPlugs(); renderPositions();
+  } catch(e) {
+    showSaveStatus('Erro ao salvar', 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Salvar';
+}
+
+function showSaveStatus(msg, cls) {
+  const el = document.getElementById('saveStatus');
+  el.textContent = msg; el.className = `save-status ${cls}`;
+  setTimeout(() => { el.textContent = ''; el.className = 'save-status'; }, 3000);
+}
+
+// ─── Log ──────────────────────────────────────────────────
+async function loadLog() {
+  try {
+    const entries = await fetch('/api/log').then(r=>r.json());
+    const list = document.getElementById('log-list');
+    if (!entries.length) { list.innerHTML = '<div class="log-empty">Nenhuma ocorrência registrada ainda.</div>'; return; }
+    list.innerHTML = entries.map(e => `
+      <div class="log-item">
+        <div class="log-item-header">
+          <div class="log-dot ${e.type||'manual'}"></div>
+          <div class="log-time">${formatTime(e.timestamp)}</div>
+          <div class="log-tag">${e.type === 'auto' ? 'automático' : 'manual'}</div>
+        </div>
+        <div class="log-text">${e.message}</div>
+      </div>`).join('');
+  } catch {}
+}
+
+async function addLog() {
+  const msg = document.getElementById('log-input').value.trim();
+  if (!msg) return;
+  try {
+    await fetch('/api/log', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:msg, type:'manual'}) });
+    document.getElementById('log-input').value = '';
+    loadLog();
+  } catch {}
+}
+
+// ─── Utils ────────────────────────────────────────────────
+function toggleCard(id) { document.getElementById(id)?.classList.toggle('open'); }
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', t.textContent.toLowerCase().includes(name.substring(0,4).toLowerCase())));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${name}`));
+}
+function formatTime(ts) { if(!ts) return ''; return new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificação de Sistemas — AYA Expo Tools</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0a; --bg-card: #141414; --border: #222; --border-light: #2a2a2a;
+      --text: #e5e5e5; --text-dim: #888; --text-dimmer: #444;
+      --green: #22c55e; --green-bg: rgba(34,197,94,0.08);
+      --red: #ef4444; --red-bg: rgba(239,68,68,0.08);
+      --amber: #f59e0b; --amber-bg: rgba(245,158,11,0.08);
+      --blue: #3b82f6; --blue-bg: rgba(59,130,246,0.08);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+    .header { border-bottom:1px solid var(--border); padding:16px 24px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--bg); z-index:100; }
+    .header-left { display:flex; align-items:center; gap:16px; }
+    .header-logo { height:24px; }
+    .header-back { color:var(--text-dim); text-decoration:none; font-size:13px; display:flex; align-items:center; gap:6px; transition:color 0.2s; }
+    .header-back:hover { color:var(--text); }
+    .header-title { font-size:15px; font-weight:500; }
+    .expo-name { font-size:13px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; }
+
+    .main { max-width:760px; margin:0 auto; padding:40px 24px; }
+
+    .intro { margin-bottom:40px; padding-bottom:32px; border-bottom:1px solid var(--border); }
+    .intro h1 { font-size:24px; font-weight:600; margin-bottom:12px; }
+    .intro p { color:var(--text-dim); font-size:14px; line-height:1.7; max-width:560px; }
+
+    .run-all-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; gap:16px; }
+    .btn-run-all { background:white; color:black; border:none; padding:10px 24px; font-size:14px; font-weight:600; font-family:inherit; border-radius:6px; cursor:pointer; transition:opacity 0.2s; display:flex; align-items:center; gap:8px; }
+    .btn-run-all:hover { opacity:0.9; }
+    .btn-run-all:disabled { opacity:0.4; cursor:not-allowed; }
+    .btn-run-all.running { background:#1a1a1a; color:white; border:1px solid var(--border-light); }
+    .summary-badge { font-size:13px; color:var(--text-dim); }
+    .summary-badge.ok { color:var(--green); }
+    .summary-badge.fail { color:var(--red); }
+
+    .steps { display:flex; flex-direction:column; gap:2px; }
+    .step { border:1px solid var(--border); border-radius:8px; overflow:hidden; transition:border-color 0.2s; }
+    .step.ok { border-color:rgba(34,197,94,0.25); }
+    .step.fail { border-color:rgba(239,68,68,0.25); }
+    .step.running { border-color:rgba(59,130,246,0.3); }
+
+    .step-header { display:flex; align-items:center; gap:16px; padding:16px 20px; cursor:pointer; user-select:none; background:var(--bg-card); transition:background 0.15s; }
+    .step-header:hover { background:#1a1a1a; }
+
+    .step-number { width:28px; height:28px; border-radius:50%; background:var(--bg); border:1px solid var(--border-light); display:flex; align-items:center; justify-content:center; font-size:12px; font-family:'JetBrains Mono',monospace; color:var(--text-dim); flex-shrink:0; }
+    .step.ok .step-number { background:var(--green-bg); border-color:rgba(34,197,94,0.4); color:var(--green); }
+    .step.fail .step-number { background:var(--red-bg); border-color:rgba(239,68,68,0.4); color:var(--red); }
+    .step.running .step-number { background:var(--blue-bg); border-color:rgba(59,130,246,0.4); color:var(--blue); }
+
+    .step-icon { font-size:18px; flex-shrink:0; }
+    .step-info { flex:1; }
+    .step-label { font-size:14px; font-weight:500; }
+    .step-note { font-size:12px; color:var(--text-dim); margin-top:2px; }
+    .step-desc { font-size:12px; color:var(--text-dimmer); margin-top:4px; line-height:1.5; display:none; }
+
+    .step-status { display:flex; align-items:center; gap:10px; }
+    .status-dot { width:8px; height:8px; border-radius:50%; background:var(--text-dimmer); }
+    .step.ok .status-dot { background:var(--green); box-shadow:0 0 6px rgba(34,197,94,0.5); }
+    .step.fail .status-dot { background:var(--red); box-shadow:0 0 6px rgba(239,68,68,0.5); }
+    .step.running .status-dot { background:var(--blue); animation:pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .btn-step-run { background:transparent; border:1px solid var(--border-light); color:var(--text-dim); padding:5px 12px; font-size:12px; font-family:inherit; border-radius:4px; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+    .btn-step-run:hover { border-color:#555; color:var(--text); }
+    .btn-step-run:disabled { opacity:0.3; cursor:not-allowed; }
+
+    .step-detail { border-top:1px solid var(--border); padding:20px; display:none; }
+    .step-detail.open { display:block; }
+
+    .step-context { background:#0f0f0f; border:1px solid var(--border); border-radius:6px; padding:14px 16px; margin-bottom:16px; font-size:13px; color:var(--text-dim); line-height:1.6; }
+    .step-context strong { color:var(--text); }
+
+    .detail-grid { display:flex; flex-direction:column; gap:8px; }
+    .detail-row { display:flex; align-items:flex-start; gap:12px; font-size:13px; }
+    .detail-key { color:var(--text-dim); font-size:12px; min-width:160px; padding-top:1px; }
+    .detail-val { color:var(--text); }
+    .detail-val.ok { color:var(--green); }
+    .detail-val.fail { color:var(--red); }
+    .detail-val.warn { color:var(--amber); }
+
+    .device-list { display:flex; flex-direction:column; gap:4px; margin-top:2px; }
+    .device-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim); }
+    .device-dot { width:6px; height:6px; border-radius:50%; background:var(--text-dimmer); flex-shrink:0; }
+    .device-dot.ok { background:var(--green); }
+    .device-dot.fail { background:var(--red); }
+
+    .error-hint { margin-top:8px; padding:10px 14px; background:var(--red-bg); border:1px solid rgba(239,68,68,0.2); border-radius:6px; font-size:12px; color:#fca5a5; line-height:1.5; }
+    .error-hint a { color:#fca5a5; }
+
+    /* Tooltip */
+    .tip { border-bottom:1px dashed var(--text-dimmer); cursor:help; position:relative; }
+    .tip:hover::after { content:attr(data-tip); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:#1a1a1a; border:1px solid var(--border-light); color:var(--text); font-size:11px; padding:6px 10px; border-radius:4px; white-space:nowrap; z-index:200; pointer-events:none; max-width:260px; white-space:normal; line-height:1.4; }
+
+    .final-status { margin-top:40px; padding:24px; border:1px solid var(--border); border-radius:10px; text-align:center; display:none; }
+    .final-status.visible { display:block; }
+    .final-status.ok { border-color:rgba(34,197,94,0.3); background:var(--green-bg); }
+    .final-status.fail { border-color:rgba(239,68,68,0.3); background:var(--red-bg); }
+    .final-status-icon { font-size:40px; margin-bottom:12px; }
+    .final-status-title { font-size:20px; font-weight:600; margin-bottom:8px; }
+    .final-status.ok .final-status-title { color:var(--green); }
+    .final-status.fail .final-status-title { color:var(--red); }
+    .final-status-text { font-size:13px; color:var(--text-dim); }
+    .final-status-time { font-size:11px; color:var(--text-dimmer); font-family:'JetBrains Mono',monospace; margin-top:8px; }
+    .final-action { margin-top:16px; }
+    .final-action a { font-size:13px; color:var(--text-dim); text-decoration:none; border:1px solid var(--border-light); padding:7px 16px; border-radius:4px; transition:all 0.15s; }
+    .final-action a:hover { color:var(--text); border-color:#555; }
+
+    .history-section { margin-top:48px; padding-top:32px; border-top:1px solid var(--border); }
+    .history-title { font-size:12px; font-weight:500; color:var(--text-dimmer); margin-bottom:16px; text-transform:uppercase; letter-spacing:0.06em; }
+    .history-list { display:flex; flex-direction:column; gap:6px; }
+    .history-item { display:flex; align-items:center; gap:12px; padding:10px 14px; border:1px solid var(--border); border-radius:6px; font-size:12px; }
+    .history-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .history-dot.ok { background:var(--green); }
+    .history-dot.fail { background:var(--red); }
+    .history-time { color:var(--text-dimmer); font-family:'JetBrains Mono',monospace; white-space:nowrap; }
+    .history-summary { color:var(--text-dim); flex:1; }
+    .history-empty { font-size:13px; color:var(--text-dimmer); font-style:italic; }
+    .spin { display:inline-block; animation:spin 1s linear infinite; }
+    @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  </style>
+</head>
+<body>
+<header class="header">
+  <div class="header-left">
+    <img src="logo-aya-branco.png" class="header-logo" alt="AYA">
+    <a href="/" class="header-back">← Dashboard</a>
+    <span style="color:var(--text-dimmer)">|</span>
+    <span class="header-title">Verificação de Sistemas</span>
+  </div>
+  <span class="expo-name" id="expoName">carregando...</span>
+</header>
+
+<main class="main">
+  <div class="intro">
+    <h1>Verificação de Sistemas</h1>
+    <p>Use esta tela quando a montagem física estiver concluída — cabos passados, equipamentos posicionados, rede ligada. A verificação testa cada sistema na ordem em que você normalmente configura, e avisa exatamente o que precisa de atenção antes de abrir as portas.</p>
+  </div>
+
+  <div class="run-all-bar">
+    <button class="btn-run-all" id="btnRunAll" onclick="runAll()">
+      <span>▶</span> Verificar tudo
+    </button>
+    <span class="summary-badge" id="summaryBadge"></span>
+  </div>
+
+  <div class="steps" id="stepsContainer">
+
+    <!-- 1: Rede -->
+    <div class="step" id="step-network">
+      <div class="step-header" onclick="toggleDetail('network')">
+        <div class="step-number">1</div>
+        <div class="step-icon">🌐</div>
+        <div class="step-info">
+          <div class="step-label">Rede</div>
+          <div class="step-note" id="note-network">Verificando conexão com o roteador e internet</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'network')">Verificar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-network">
+        <div class="step-context">
+          <strong>O que verificamos:</strong> se o servidor consegue falar com o roteador da sala (<span class="tip" data-tip="O roteador distribui a rede para todos os equipamentos da expo">gateway</span>) e se tem acesso à internet. Sem rede local, os projetores e câmeras não respondem. Sem internet, o portal AYA não recebe atualizações — mas a expo funciona normalmente.
+        </div>
+        <div class="detail-grid" id="result-network"></div>
+      </div>
+    </div>
+
+    <!-- 2: Resolume -->
+    <div class="step" id="step-resolume">
+      <div class="step-header" onclick="toggleDetail('resolume')">
+        <div class="step-number">2</div>
+        <div class="step-icon">🎬</div>
+        <div class="step-info">
+          <div class="step-label">Resolume</div>
+          <div class="step-note" id="note-resolume">Verificando se o software de vídeo está rodando</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'resolume')">Verificar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-resolume">
+        <div class="step-context">
+          <strong>O que verificamos:</strong> se o <span class="tip" data-tip="Software que reproduz e mapeia o conteúdo visual nos projetores">Resolume Arena</span> está aberto e rodando. O conteúdo pode estar como <span class="tip" data-tip="Imagem de referência usada para alinhar a projeção antes do conteúdo final chegar">pixelmap</span> por enquanto — isso é normal. O conteúdo final é confirmado no passo 9.
+        </div>
+        <div class="detail-grid" id="result-resolume"></div>
+      </div>
+    </div>
+
+    <!-- 3: Som -->
+    <div class="step" id="step-audio">
+      <div class="step-header" onclick="toggleDetail('audio')">
+        <div class="step-number">3</div>
+        <div class="step-icon">🔊</div>
+        <div class="step-info">
+          <div class="step-label">Som</div>
+          <div class="step-note" id="note-audio">Verificando se o sistema de áudio está disponível</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'audio')">Verificar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-audio">
+        <div class="step-context">
+          <strong>O que verificamos:</strong> se o Windows reconhece algum dispositivo de saída de áudio. O volume e o roteamento entre as zonas da sala são configurados dentro do Resolume — aqui só confirmamos que o hardware está detectado.
+        </div>
+        <div class="detail-grid" id="result-audio"></div>
+      </div>
+    </div>
+
+    <!-- 4: Projetores -->
+    <div class="step" id="step-projectors">
+      <div class="step-header" onclick="toggleDetail('projectors')">
+        <div class="step-number">4</div>
+        <div class="step-icon">📽</div>
+        <div class="step-info">
+          <div class="step-label">Projetores</div>
+          <div class="step-note" id="note-projectors">Verificando se os projetores estão respondendo na rede</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'projectors')">Verificar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-projectors">
+        <div class="step-context">
+          <strong>O que verificamos:</strong> se cada projetor está acessível pela rede e responde ao protocolo de controle <span class="tip" data-tip="Linguagem padrão para controlar projetores pela rede — como um controle remoto digital. Permite ligar, desligar e consultar o status de qualquer projetor compatível.">PJLink</span>. Se um projetor não responde, verifique se ele está ligado e se o cabo de rede está conectado.
+        </div>
+        <div class="detail-grid" id="result-projectors"></div>
+      </div>
+    </div>
+
+    <!-- 5: Automação -->
+    <div class="step" id="step-automation">
+      <div class="step-header" onclick="toggleDetail('automation')">
+        <div class="step-number">5</div>
+        <div class="step-icon">⏱</div>
+        <div class="step-info">
+          <div class="step-label">Automação</div>
+          <div class="step-note" id="note-automation">Verificando horários e tomadas inteligentes</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'automation')">Verificar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-automation">
+        <div class="step-context">
+          <strong>O que verificamos:</strong> se o horário de ligar e desligar os projetores está configurado, e se as <span class="tip" data-tip="Tomadas conectadas à rede que podem ser ligadas e desligadas remotamente ou por horário">tomadas inteligentes</span> estão respondendo. Isso garante que a expo abre e fecha sozinha todos os dias, sem precisar de alguém no local.
+        </div>
+        <div class="detail-grid" id="result-automation"></div>
+      </div>
+    </div>
+
+    <!-- 6: Boot -->
+    <div class="step" id="step-boot">
+      <div class="step-header" onclick="toggleDetail('boot')">
+        <div class="step-number">6</div>
+        <div class="step-icon">🔄</div>
+        <div class="step-info">
+          <div class="step-label">Recuperação de energia</div>
+          <div class="step-note" id="note-boot">Verificando se o servidor reinicia sozinho após queda de energia</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'boot')">Verificar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-boot">
+        <div class="step-context">
+          <strong>O que verificamos:</strong> se o servidor está configurado para ligar automaticamente e abrir todos os programas após uma queda de energia. Sem isso, qualquer queda de luz deixa a expo parada até alguém ir ao local reiniciar tudo manualmente.
+        </div>
+        <div class="detail-grid" id="result-boot"></div>
+      </div>
+    </div>
+
+    <!-- 7: Câmeras -->
+    <div class="step" id="step-cameras">
+      <div class="step-header" onclick="toggleDetail('cameras')">
+        <div class="step-number">7</div>
+        <div class="step-icon">📷</div>
+        <div class="step-info">
+          <div class="step-label">Câmeras</div>
+          <div class="step-note" id="note-cameras">Verificando se as câmeras estão acessíveis</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'cameras')">Verificar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-cameras">
+        <div class="step-context">
+          <strong>O que verificamos:</strong> se cada câmera está conectada à rede e transmitindo vídeo via <span class="tip" data-tip="Protocolo de transmissão de vídeo ao vivo pela rede — como um streaming interno. As câmeras Intelbras usam esse padrão.">RTSP</span>. As câmeras são usadas para monitorar a sala remotamente pelo portal AYA, sem precisar ir até o local.
+        </div>
+        <div class="detail-grid" id="result-cameras"></div>
+      </div>
+    </div>
+
+    <!-- 8: Acesso remoto -->
+    <div class="step" id="step-remote">
+      <div class="step-header" onclick="toggleDetail('remote')">
+        <div class="step-number">8</div>
+        <div class="step-icon">🔗</div>
+        <div class="step-info">
+          <div class="step-label">Acesso remoto</div>
+          <div class="step-note" id="note-remote">Verificando se o acesso à distância está ativo</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <button class="btn-step-run" onclick="runStep(event,'remote')">Verificar</button>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-remote">
+        <div class="step-context">
+          <strong>O que verificamos:</strong> se o <span class="tip" data-tip="Software de acesso remoto — permite controlar o servidor da expo de qualquer lugar, como se você estivesse na frente do computador">RustDesk</span> está rodando e com um ID configurado para compartilhar com a equipe. Sem isso, qualquer problema que precise de intervenção no computador exige alguém indo ao local.
+        </div>
+        <div class="detail-grid" id="result-remote"></div>
+      </div>
+    </div>
+
+    <!-- 9: Conteúdo -->
+    <div class="step" id="step-content">
+      <div class="step-header" onclick="toggleDetail('content')">
+        <div class="step-number">9</div>
+        <div class="step-icon">🎨</div>
+        <div class="step-info">
+          <div class="step-label">Conteúdo</div>
+          <div class="step-note" id="note-content">Confirmando se o conteúdo final está carregado</div>
+        </div>
+        <div class="step-status">
+          <div class="status-dot"></div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn-step-run" id="btnContentReady" onclick="setContent(event,'content')">✓ Conteúdo chegou</button>
+            <button class="btn-step-run" onclick="runStep(event,'content')">Verificar</button>
+          </div>
+        </div>
+      </div>
+      <div class="step-detail" id="detail-content">
+        <div class="step-context">
+          <strong>O que verificamos:</strong> se o conteúdo final da exposição já foi carregado no Resolume, substituindo o <span class="tip" data-tip="Imagem de referência temporária usada para alinhar a projeção antes do conteúdo final chegar — normalmente um JPG ou PNG com marcações de posição">pixelmap</span>. Este passo pode ser confirmado antes da abertura oficial, quando o conteúdo chegar.
+        </div>
+        <div class="detail-grid" id="result-content"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Status final -->
+  <div class="final-status" id="finalStatus">
+    <div class="final-status-icon" id="finalIcon"></div>
+    <div class="final-status-title" id="finalTitle"></div>
+    <div class="final-status-text" id="finalText"></div>
+    <div class="final-status-time" id="finalTime"></div>
+    <div class="final-action">
+      <a href="/config.html">Editar configurações →</a>
+    </div>
+  </div>
+
+  <!-- Histórico -->
+  <div class="history-section">
+    <div class="history-title">Verificações anteriores</div>
+    <div class="history-list" id="historyList">
+      <div class="history-empty">Nenhuma verificação registrada ainda.</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+let running = false;
+
+const STEP_CONTEXTS = {
+  network: {
+    ok: r => `Roteador respondendo em ${r.gateway?.ip}. ${r.internet?.ok ? 'Internet disponível.' : 'Sem internet — a expo funciona normalmente, mas o portal AYA não receberá atualizações.'}`,
+    fail: r => `Roteador em ${r.gateway?.ip} não responde. Verifique se o switch está ligado e se o cabo de rede do servidor está conectado.`
+  },
+  resolume: {
+    ok: r => `Resolume Arena está rodando. Conteúdo: ${r.contentStatus === 'content' ? 'final carregado.' : 'pixelmap (conteúdo final pendente — confirmar no passo 9).'}`,
+    fail: r => `Resolume Arena não está aberto. Abra o programa e carregue o composition antes de continuar.`
+  },
+  audio: {
+    ok: r => `${r.devices?.length || 0} dispositivo(s) de áudio detectado(s). Verifique o volume e a saída correta dentro do Resolume.`,
+    fail: r => `Nenhum dispositivo de áudio detectado. Verifique se a interface de áudio está conectada.`
+  },
+  projectors: {
+    ok: r => `Todos os ${r.projectors?.length} projetores respondendo.`,
+    fail: r => { const off = r.projectors?.filter(p=>!p.ok)||[]; return `${off.length} projetor(es) não respondem: ${off.map(p=>p.name).join(', ')}. Verifique se estão ligados e com o cabo de rede conectado. Confirme os IPs em Configurações.`; }
+  },
+  automation: {
+    ok: r => `Horário configurado: liga ${r.schedule?.powerOn}, desliga ${r.schedule?.powerOff}. ${r.smartplugs?.filter(p=>p.ok).length || 0}/${r.smartplugs?.length || 0} tomadas respondendo.`,
+    fail: r => `${!r.schedule?.ok ? 'Horário de liga/desliga não configurado.' : ''} ${r.smartplugs?.filter(p=>!p.ok).length > 0 ? 'Algumas tomadas não respondem.' : ''}`
+  },
+  boot: {
+    ok: r => `Recuperação de energia configurada. O servidor liga e abre tudo automaticamente após queda de luz.`,
+    fail: r => `${!r.resolume?.startup ? 'Resolume não está configurado para iniciar automaticamente.' : ''} ${!r.autoLogin?.ok ? 'Login automático não está ativo — o Windows pedirá senha após reiniciar.' : ''}`
+  },
+  cameras: {
+    ok: r => `Todas as ${r.cameras?.length} câmeras acessíveis.`,
+    fail: r => { const off = r.cameras?.filter(c=>!c.ok)||[]; return `${off.length} câmera(s) não respondem: ${off.map(c=>c.name).join(', ')}. Confirme os IPs em Configurações.`; }
+  },
+  remote: {
+    ok: r => `Acesso remoto ativo${r.rustdesk?.id && r.rustdesk.id !== 'não configurado' ? ` — ID RustDesk: ${r.rustdesk.id}` : '. Configure o ID em Configurações para facilitar o acesso.'}`,
+    fail: r => `RustDesk não está rodando. Abra o programa e compartilhe o ID com a equipe.`
+  },
+  content: {
+    ok: r => `Conteúdo final confirmado e em loop.`,
+    fail: r => `Pixelmap carregado. Quando o conteúdo final chegar, clique em "Conteúdo chegou" para confirmar.`
+  }
+};
+
+async function init() {
+  try {
+    const info = await fetch('/api/info').then(r=>r.json());
+    document.getElementById('expoName').textContent = `${info.exhibition.name} — ${info.exhibition.venue}`;
+    document.title = `Verificação — ${info.exhibition.name}`;
+  } catch { document.getElementById('expoName').textContent = 'offline'; }
+  loadHistory();
+}
+
+async function runAll() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('btnRunAll');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">◌</span> Verificando...';
+  btn.classList.add('running');
+  document.getElementById('summaryBadge').textContent = '';
+  document.getElementById('finalStatus').className = 'final-status';
+
+  try {
+    const report = await fetch('/api/commissioning/run', { method:'POST' }).then(r=>r.json());
+    applyReport(report);
+  } catch(e) {
+    document.getElementById('summaryBadge').textContent = 'Erro de conexão';
+    document.getElementById('summaryBadge').className = 'summary-badge fail';
+  }
+  running = false;
+  btn.disabled = false;
+  btn.innerHTML = '<span>▶</span> Verificar tudo';
+  btn.classList.remove('running');
+}
+
+async function runStep(event, stepId) {
+  event.stopPropagation();
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '...';
+  setStepState(stepId, 'running', 'Verificando...');
+  try {
+    const result = await fetch(`/api/commissioning/step/${stepId}`, { method:'POST' }).then(r=>r.json());
+    applyStepResult(stepId, result);
+    openDetail(stepId);
+  } catch { setStepState(stepId, 'fail', 'Erro de conexão'); }
+  btn.disabled = false; btn.textContent = 'Verificar';
+}
+
+async function setContent(event, status) {
+  event.stopPropagation();
+  const btn = event.target; btn.disabled = true;
+  try {
+    await fetch('/api/commissioning/content', { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status}) });
+    const result = await fetch('/api/commissioning/step/content', { method:'POST' }).then(r=>r.json());
+    applyStepResult('content', result);
+    openDetail('content');
+  } catch {}
+  btn.disabled = false;
+}
+
+function applyReport(report) {
+  const steps = report.steps || {};
+  for (const [id, result] of Object.entries(steps)) applyStepResult(id, result);
+  const failCount = Object.values(steps).filter(s=>!s.ok).length;
+  const badge = document.getElementById('summaryBadge');
+  badge.textContent = report.ok ? '✓ Tudo certo' : `✗ ${failCount} item(ns) precisam de atenção`;
+  badge.className = 'summary-badge ' + (report.ok ? 'ok' : 'fail');
+  const fs = document.getElementById('finalStatus');
+  fs.className = 'final-status visible ' + (report.ok ? 'ok' : 'fail');
+  document.getElementById('finalIcon').textContent = report.ok ? '✓' : '!';
+  document.getElementById('finalTitle').textContent = report.ok ? 'Expo pronta para abrir' : `${failCount} item(ns) precisam de atenção`;
+  document.getElementById('finalText').textContent = report.ok ? 'Todos os sistemas verificados e funcionando.' : Object.values(steps).filter(s=>!s.ok).map(s=>s.label).join(', ') + '.';
+  document.getElementById('finalTime').textContent = formatTime(report.timestamp);
+  loadHistory();
+}
+
+function applyStepResult(id, result) {
+  const ctx = STEP_CONTEXTS[id];
+  const note = ctx ? (result.ok ? ctx.ok(result) : ctx.fail(result)) : result.notes;
+  setStepState(id, result.ok ? 'ok' : 'fail', note);
+  renderDetail(id, result);
+}
+
+function setStepState(id, state, note) {
+  const el = document.getElementById(`step-${id}`);
+  if (el) el.className = `step ${state}`;
+  const noteEl = document.getElementById(`note-${id}`);
+  if (noteEl && note) noteEl.textContent = note;
+}
+
+function renderDetail(id, result) {
+  const el = document.getElementById(`result-${id}`);
+  if (!el) return;
+  let html = '';
+
+  if (id === 'network') {
+    html += row('Roteador', result.gateway?.ip + (result.gateway?.online ? ' — respondendo' : ' — sem resposta'), result.gateway?.online);
+    html += row('Internet', result.internet?.ok ? 'disponível' : 'sem conexão (a expo funciona normalmente)', result.internet?.ok, !result.internet?.ok ? 'warn' : null);
+    html += row('IP deste servidor', result.thisIp || '?');
+  }
+  else if (id === 'resolume') {
+    html += row('Programa', result.process, result.running);
+    html += row('Status', result.running ? 'aberto e rodando' : 'não está aberto — abrir o Resolume', result.running);
+    html += row('Conteúdo', result.contentStatus === 'content' ? 'final carregado' : 'pixelmap (temporário — normal por enquanto)', result.contentStatus === 'content', result.contentStatus !== 'content' ? 'warn' : null);
+  }
+  else if (id === 'audio') {
+    if (result.devices?.length > 0) {
+      html += `<div class="detail-row"><div class="detail-key">dispositivos detectados</div><div class="detail-val"><div class="device-list">`;
+      for (const d of result.devices) html += `<div class="device-row"><div class="device-dot ok"></div>${d.name}</div>`;
+      html += '</div></div></div>';
+    } else {
+      html += row('dispositivos', 'nenhum detectado — verificar conexão', false);
+    }
+  }
+  else if (id === 'projectors') {
+    if (result.projectors) {
+      html += `<div class="detail-row"><div class="detail-key">projetores</div><div class="detail-val"><div class="device-list">`;
+      for (const p of result.projectors) {
+        const msg = p.ok ? 'respondendo' : (p.note || 'não responde — verificar cabo e energia');
+        html += `<div class="device-row"><div class="device-dot ${p.ok?'ok':'fail'}"></div>${p.name} — ${msg}</div>`;
+      }
+      html += '</div></div></div>';
+      if (result.projectors.some(p=>!p.ok)) html += `<div class="error-hint">Projetores com falha podem ter IPs errados no config. <a href="/config.html">Editar configurações →</a></div>`;
+    }
+  }
+  else if (id === 'automation') {
+    html += row('Horário de abertura', result.schedule?.ok ? `liga ${result.schedule.powerOn} / fecha ${result.schedule.powerOff}` : 'não configurado', result.schedule?.ok);
+    if (result.smartplugs?.length > 0) {
+      html += `<div class="detail-row"><div class="detail-key">tomadas inteligentes</div><div class="detail-val"><div class="device-list">`;
+      for (const p of result.smartplugs) html += `<div class="device-row"><div class="device-dot ${p.ok?'ok':'fail'}"></div>${p.name} — ${p.ok?'respondendo':(p.note||'sem resposta')}</div>`;
+      html += '</div></div></div>';
+    }
+  }
+  else if (id === 'boot') {
+    html += row('Resolume inicia com o Windows', result.resolume?.startup ? 'sim' : 'não — risco em caso de queda de luz', result.resolume?.startup);
+    html += row('Login automático', result.autoLogin?.ok ? 'ativo' : 'inativo — Windows pedirá senha após reiniciar', result.autoLogin?.ok, !result.autoLogin?.ok ? 'warn' : null);
+  }
+  else if (id === 'cameras') {
+    if (result.cameras) {
+      html += `<div class="detail-row"><div class="detail-key">câmeras</div><div class="detail-val"><div class="device-list">`;
+      for (const c of result.cameras) {
+        const msg = c.ok ? 'acessível' : (c.note || 'não responde — verificar cabo e IP');
+        html += `<div class="device-row"><div class="device-dot ${c.ok?'ok':'fail'}"></div>${c.name} — ${msg}</div>`;
+      }
+      html += '</div></div></div>';
+      if (result.cameras.some(c=>!c.ok)) html += `<div class="error-hint">Câmeras com falha podem ter IPs errados no config. <a href="/config.html">Editar configurações →</a></div>`;
+    }
+  }
+  else if (id === 'remote') {
+    html += row('RustDesk', result.rustdesk?.running ? `ativo${result.rustdesk.id && result.rustdesk.id !== 'não configurado' ? ' — ID: ' + result.rustdesk.id : ' — configurar ID em Configurações'}` : 'não está rodando — abrir o RustDesk', result.rustdesk?.running);
+  }
+  else if (id === 'content') {
+    html += row('status', result.contentStatus === 'content' ? 'conteúdo final em loop' : 'pixelmap — aguardando conteúdo final', result.ok, !result.ok ? 'warn' : null);
+  }
+
+  el.innerHTML = html;
+}
+
+function row(key, val, ok, overrideClass) {
+  const cls = overrideClass !== undefined ? overrideClass : (ok === true ? 'ok' : ok === false ? 'fail' : '');
+  return `<div class="detail-row"><div class="detail-key">${key}</div><div class="detail-val ${cls}">${val}</div></div>`;
+}
+
+function toggleDetail(id) { document.getElementById(`detail-${id}`)?.classList.toggle('open'); }
+function openDetail(id) { document.getElementById(`detail-${id}`)?.classList.add('open'); }
+
+async function loadHistory() {
+  try {
+    const history = await fetch('/api/commissioning/history').then(r=>r.json());
+    const el = document.getElementById('historyList');
+    if (!history.length) { el.innerHTML = '<div class="history-empty">Nenhuma verificação registrada ainda.</div>'; return; }
+    el.innerHTML = history.map(h => `
+      <div class="history-item">
+        <div class="history-dot ${h.ok?'ok':'fail'}"></div>
+        <div class="history-time">${formatTime(h.timestamp)}</div>
+        <div class="history-summary">${h.ok ? 'Todos os sistemas ok' : h.summary}</div>
+      </div>`).join('');
+  } catch {}
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+init();
+</script>
+</body>
+</html>

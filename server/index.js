@@ -176,6 +176,102 @@ app.post('/api/schedule', (req, res) => {
   res.json(scheduler.getStatus());
 });
 
+// ─── API: Config editor ────────────────────────────────────
+app.get('/api/config', (req, res) => {
+  res.json(config);
+});
+
+app.put('/api/config', (req, res) => {
+  try {
+    const updated = req.body;
+    const cfgPath = path.join(__dirname, '..', 'config', `${configName}.json`);
+    fs.writeFileSync(cfgPath, JSON.stringify(updated, null, 2));
+    // Update in-memory config (safe fields only)
+    Object.assign(config, updated);
+    scheduler.updateConfig(config);
+    res.json({ ok: true, config: updated });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/config/test/projector/:i', async (req, res) => {
+  const p = config.projectors[parseInt(req.params.i)];
+  if (!p) return res.status(404).json({ ok: false });
+  const { ProjectorManager } = require('./pjlink');
+  try {
+    const net = require('./network');
+    const pingOk = await new Promise(resolve => {
+      const { exec } = require('child_process');
+      exec(`ping -n 1 -w 2000 ${p.ip}`, (err, out) => resolve(!err && (out.includes('TTL=') || out.includes('Reply'))));
+    });
+    if (!pingOk) return res.json({ ok: false, message: `${p.ip} não responde ao ping. Verifique se está ligado e conectado.` });
+    const portOk = await new Promise(resolve => {
+      const net2 = require('net');
+      const s = new net2.Socket();
+      s.setTimeout(2000);
+      s.connect(4352, p.ip, () => { s.destroy(); resolve(true); });
+      s.on('error', () => resolve(false));
+      s.on('timeout', () => resolve(false));
+    });
+    res.json({ ok: portOk, message: portOk ? `${p.name} respondendo via PJLink` : `${p.ip} responde ao ping mas PJLink (porta 4352) não está acessível` });
+  } catch(e) { res.json({ ok: false, message: e.message }); }
+});
+
+app.post('/api/config/test/camera/:i', async (req, res) => {
+  const c = config.cameras[parseInt(req.params.i)];
+  if (!c) return res.status(404).json({ ok: false });
+  try {
+    const portOk = await new Promise(resolve => {
+      const net2 = require('net');
+      const s = new net2.Socket();
+      s.setTimeout(3000);
+      s.connect(554, c.ip, () => { s.destroy(); resolve(true); });
+      s.on('error', () => resolve(false));
+      s.on('timeout', () => resolve(false));
+    });
+    res.json({ ok: portOk, message: portOk ? `${c.name} acessível` : `${c.ip} não responde. Verifique o IP e a conexão.` });
+  } catch(e) { res.json({ ok: false, message: e.message }); }
+});
+
+app.post('/api/config/test/plug/:i', async (req, res) => {
+  const p = (config.smartplugs || [])[parseInt(req.params.i)];
+  if (!p) return res.status(404).json({ ok: false });
+  try {
+    const pingOk = await new Promise(resolve => {
+      const { exec } = require('child_process');
+      exec(`ping -n 1 -w 2000 ${p.ip}`, (err, out) => resolve(!err && (out.includes('TTL=') || out.includes('Reply'))));
+    });
+    res.json({ ok: pingOk, message: pingOk ? `${p.name} respondendo` : `${p.ip} não responde. Verifique o IP e a conexão.` });
+  } catch(e) { res.json({ ok: false, message: e.message }); }
+});
+
+// ─── API: Log ──────────────────────────────────────────────
+const LOG_PATH = path.join(__dirname, '..', 'config', 'log.json');
+
+function readLog() {
+  if (!fs.existsSync(LOG_PATH)) return [];
+  try { return JSON.parse(fs.readFileSync(LOG_PATH, 'utf8')); } catch { return []; }
+}
+
+function writeLog(entries) {
+  fs.writeFileSync(LOG_PATH, JSON.stringify(entries, null, 2));
+}
+
+app.get('/api/log', (req, res) => {
+  res.json(readLog());
+});
+
+app.post('/api/log', (req, res) => {
+  const { message, type } = req.body;
+  if (!message) return res.status(400).json({ error: 'message required' });
+  const entries = readLog();
+  entries.unshift({ message, type: type || 'manual', timestamp: new Date().toISOString() });
+  if (entries.length > 200) entries.splice(200);
+  writeLog(entries);
+  res.json({ ok: true });
+});
+
 // ─── API: Commissioning ────────────────────────────────────
 app.get('/api/commissioning/steps', (req, res) => {
   res.json(commissioning.STEPS.map(s => ({ id: s.id, label: s.label })));
