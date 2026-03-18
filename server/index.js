@@ -321,6 +321,45 @@ app.patch('/api/commissioning/content', (req, res) => {
   res.json({ ok: true, contentStatus: status });
 });
 
+// ─── API: Descoberta de rede ──────────────────────────────
+
+// Lookup de MAC por IP — pinga o dispositivo e lê a tabela ARP
+app.get('/api/discover/mac', async (req, res) => {
+  const { ip } = req.query;
+  if (!ip) return res.status(400).json({ error: 'Parâmetro ip obrigatório' });
+  try {
+    const result = await network.lookupMac(ip);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ found: false, error: e.message });
+  }
+});
+
+// Varredura completa — descobre todos os dispositivos na subnet com IP + MAC + tipo
+// Usa SSE (Server-Sent Events) para enviar progresso em tempo real
+app.get('/api/discover/subnet', async (req, res) => {
+  const subnet = req.query.subnet || config.exhibition?.network?.subnet || '192.168.0.0/24';
+  // Extrai os 3 primeiros octetos: "192.168.0.0/24" → "192.168.0"
+  const base = subnet.replace(/\/\d+$/, '').split('.').slice(0, 3).join('.');
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  try {
+    send({ type: 'start', subnet: `${base}.0/24` });
+    const devices = await network.discoverSubnet(base, (pct) => {
+      send({ type: 'progress', pct });
+    });
+    send({ type: 'result', devices });
+  } catch (e) {
+    send({ type: 'error', message: e.message });
+  }
+  res.end();
+});
+
 // ─── API: TVs ─────────────────────────────────────────────
 app.get('/api/tv', (req, res) => {
   const tvs = config.tvs || [];

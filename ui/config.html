@@ -241,6 +241,50 @@
 
     /* Position tip on canvas */
     .pos-tip { font-size:10px; color:var(--dimmer); font-style:italic; }
+
+    /* ── Modal de varredura ── */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000;
+      display:none; align-items:center; justify-content:center;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal {
+      background:var(--surface); border:1px solid var(--border-hi);
+      border-radius:8px; width:560px; max-height:80vh;
+      display:flex; flex-direction:column; overflow:hidden;
+    }
+    .modal-hdr {
+      padding:16px 20px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+    }
+    .modal-title { font-size:13px; font-weight:500; }
+    .modal-close { cursor:pointer; color:var(--dim); font-size:20px; line-height:1; }
+    .modal-close:hover { color:var(--text); }
+    .modal-body { flex:1; overflow-y:auto; padding:20px; }
+    .modal-body::-webkit-scrollbar { width:4px; }
+    .modal-body::-webkit-scrollbar-thumb { background:var(--border-hi); border-radius:2px; }
+
+    .scan-progress { margin-bottom:16px; }
+    .scan-bar-track { height:3px; background:var(--border-hi); border-radius:2px; margin-top:6px; }
+    .scan-bar-fill  { height:3px; background:white; border-radius:2px; width:0; transition:width 0.3s; }
+    .scan-msg { font-size:12px; color:var(--dim); }
+
+    .device-found {
+      display:grid; grid-template-columns:110px 1fr auto;
+      align-items:center; gap:10px;
+      padding:9px 12px; border:1px solid var(--border);
+      border-radius:4px; margin-bottom:5px;
+    }
+    .device-found-ip { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text); }
+    .device-found-info { font-size:11px; color:var(--dim); }
+    .device-found-mac { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dimmer); }
+    .device-found-badge {
+      font-size:10px; padding:2px 7px; border-radius:3px;
+      background:var(--border-hi); color:var(--dim);
+    }
+    .device-found-badge.projector { background:rgba(96,165,250,0.12); color:var(--blue); }
+    .device-found-badge.tv        { background:rgba(245,158,11,0.12);  color:var(--amber); }
+    .device-found-badge.camera    { background:rgba(34,197,94,0.12);   color:var(--green); }
   </style>
 </head>
 <body>
@@ -470,6 +514,15 @@
         </div>
       </div>
       <div class="section">
+        <div class="section-label">Descoberta de rede</div>
+        <p style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.6;">
+          Varre a rede e lista todos os dispositivos conectados com IP e MAC.
+          Útil para descobrir IPs e MACs de TVs, projetores e câmeras que ainda não estão configurados.
+        </p>
+        <button class="btn btn-ghost" onclick="openScanModal()">⊙ Escanear rede agora</button>
+      </div>
+
+      <div class="section">
         <div class="section-label">Contatos</div>
         <div id="contacts-list"></div>
         <button class="add-row" onclick="addContact()">+ Adicionar contato</button>
@@ -491,6 +544,23 @@
 
   </div><!-- /panel -->
 </div><!-- /workspace -->
+
+<!-- Modal de varredura de rede -->
+<div class="modal-overlay" id="scanModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">Escanear rede</span>
+      <span class="modal-close" onclick="closeScanModal()">×</span>
+    </div>
+    <div class="modal-body">
+      <div class="scan-progress">
+        <div class="scan-msg" id="scan-msg">Iniciando varredura...</div>
+        <div class="scan-bar-track"><div class="scan-bar-fill" id="scan-bar"></div></div>
+      </div>
+      <div id="scan-results"></div>
+    </div>
+  </div>
+</div>
 
 <script>
 // ── Estado global ─────────────────────────────────────────
@@ -815,17 +885,24 @@ function renderDeviceDetail(type, index) {
       ${type === 'tv' ? `
       <div class="field">
         <label class="field-label">Endereço MAC</label>
-        <input type="text" value="${esc(d.mac||'')}" placeholder="AA:BB:CC:DD:EE:FF"
-               onchange="updateDevice('${type}',${index},'mac',this.value)"
-               style="font-family:'JetBrains Mono',monospace;">
-        <div class="field-hint">Necessário para ligar via rede (Wake-on-LAN).<br>
-          Onde encontrar: TV → Configurações → Rede → Status da conexão<br>
-          Ou no roteador: <a href="http://192.168.0.1" target="_blank" style="color:var(--blue);">192.168.0.1</a> → lista de dispositivos conectados</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="mac-input-${index}" value="${esc(d.mac||'')}" placeholder="AA:BB:CC:DD:EE:FF"
+                 onchange="updateDevice('${type}',${index},'mac',this.value)"
+                 style="font-family:'JetBrains Mono',monospace;flex:1;">
+          <button class="btn btn-ghost btn-sm" onclick="discoverMac('${type}',${index},'${esc(d.ip||'')}')">
+            Descobrir
+          </button>
+        </div>
+        <div id="mac-status-${index}" class="field-hint" style="margin-top:4px;"></div>
+        <div class="field-hint" style="margin-top:4px;">
+          TV precisa estar ligada e na rede.<br>
+          Manual: TV → Configurações → Rede → Status da conexão
+        </div>
       </div>
       <div class="field">
-        <label class="field-label">Wake-on-LAN ativado?</label>
-        <div class="field-hint" style="margin-top:0;">Ativar na TV: Configurações → Energia → Wake on LAN: <strong style="color:var(--text);">Ativado</strong><br>
-          Se a TV estiver em WiFi: Configurações → Energia → Wake on WiFi: <strong style="color:var(--text);">Ativado</strong></div>
+        <label class="field-label">Wake-on-LAN</label>
+        <div class="field-hint" style="margin-top:0;">Ativar na TV: Configurações → Energia → <strong style="color:var(--text);">Wake on LAN: Ativado</strong><br>
+          Via WiFi: Configurações → Energia → <strong style="color:var(--text);">Wake on WiFi: Ativado</strong></div>
       </div>` : ''}
     </div>
 
@@ -1078,6 +1155,144 @@ function showMsg(msg, cls) {
   el.textContent = msg; el.className = `save-msg ${cls}`;
   setTimeout(() => { el.textContent = ''; el.className = 'save-msg'; }, 3000);
 }
+
+// ── Descoberta de MAC por IP ──────────────────────────────
+async function discoverMac(type, index, ip) {
+  const statusEl = document.getElementById(`mac-status-${index}`);
+  const inputEl  = document.getElementById(`mac-input-${index}`);
+  if (!ip || ip === '') {
+    statusEl.textContent = '⚠ Configure o IP primeiro';
+    statusEl.style.color = 'var(--amber)';
+    return;
+  }
+  statusEl.textContent = '⊙ Pingando dispositivo...';
+  statusEl.style.color = 'var(--dim)';
+  try {
+    const res = await fetch(`/api/discover/mac?ip=${encodeURIComponent(ip)}`).then(r => r.json());
+    if (res.found && res.mac) {
+      inputEl.value = res.mac;
+      updateDevice(type, index, 'mac', res.mac);
+      statusEl.textContent = `✓ MAC encontrado — salve para confirmar`;
+      statusEl.style.color = 'var(--green)';
+    } else {
+      statusEl.textContent = `✗ ${res.hint || 'Dispositivo não encontrado'}`;
+      statusEl.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    statusEl.textContent = '✗ Erro ao consultar';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+// ── Varredura de rede (modal) ─────────────────────────────
+function openScanModal() {
+  document.getElementById('scanModal').classList.add('open');
+  document.getElementById('scan-results').innerHTML = '';
+  document.getElementById('scan-msg').textContent = 'Iniciando varredura...';
+  document.getElementById('scan-bar').style.width = '0';
+  runSubnetScan();
+}
+
+function closeScanModal() {
+  document.getElementById('scanModal').classList.remove('open');
+}
+
+function runSubnetScan() {
+  const es = new EventSource('/api/discover/subnet');
+  const resultsEl = document.getElementById('scan-results');
+  const msgEl     = document.getElementById('scan-msg');
+  const barEl     = document.getElementById('scan-bar');
+
+  es.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+
+    if (data.type === 'start') {
+      msgEl.textContent = `Varrendo ${data.subnet}...`;
+    }
+    else if (data.type === 'progress') {
+      barEl.style.width = data.pct + '%';
+      msgEl.textContent = data.pct < 65
+        ? `Pingando hosts... ${data.pct}%`
+        : data.pct < 90
+          ? `Lendo tabela ARP... ${data.pct}%`
+          : `Identificando serviços... ${data.pct}%`;
+    }
+    else if (data.type === 'result') {
+      es.close();
+      barEl.style.width = '100%';
+      const devices = data.devices;
+      if (!devices.length) {
+        msgEl.textContent = 'Nenhum dispositivo encontrado.';
+        return;
+      }
+      msgEl.textContent = `${devices.length} dispositivo${devices.length > 1 ? 's' : ''} encontrado${devices.length > 1 ? 's' : ''}.`;
+
+      // Ordenar por IP
+      devices.sort((a,b) => {
+        const na = a.ip.split('.').map(Number);
+        const nb = b.ip.split('.').map(Number);
+        for (let i = 0; i < 4; i++) if (na[i] !== nb[i]) return na[i] - nb[i];
+        return 0;
+      });
+
+      resultsEl.innerHTML = devices.map(d => {
+        const badgeClass = d.type !== 'unknown' ? d.type : '';
+        const typeLabel  = { projector:'Projetor', camera:'Câmera', tv:'TV', device:'Dispositivo', unknown:'Desconhecido', computer:'Computador' }[d.type] || d.type;
+        const services   = d.services.length ? d.services.join(' · ') : '—';
+        const mac        = d.mac || '—';
+        const macBtn     = d.mac
+          ? `<button class="btn btn-ghost btn-sm" onclick="applyMac('${d.ip}','${d.mac}')" title="Aplicar MAC ao dispositivo com este IP">Usar MAC</button>`
+          : '';
+        return `
+          <div class="device-found">
+            <span class="device-found-ip">${esc(d.ip)}</span>
+            <div>
+              <div class="device-found-info">${services}</div>
+              <div class="device-found-mac">${mac}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="device-found-badge ${badgeClass}">${typeLabel}</span>
+              ${macBtn}
+            </div>
+          </div>`;
+      }).join('');
+    }
+    else if (data.type === 'error') {
+      es.close();
+      msgEl.textContent = `Erro: ${data.message}`;
+    }
+  };
+
+  es.onerror = () => {
+    es.close();
+    msgEl.textContent = 'Erro na varredura.';
+  };
+}
+
+// Aplica o MAC ao dispositivo configurado com o mesmo IP
+function applyMac(ip, mac) {
+  const types = ['projector', 'camera', 'tv', 'plug'];
+  for (const type of types) {
+    const arr = deviceArray(type);
+    const idx = arr.findIndex(d => d.ip === ip);
+    if (idx >= 0) {
+      arr[idx].mac = mac;
+      // Se o painel desse device estiver aberto, atualizar o campo
+      const inputEl = document.getElementById(`mac-input-${idx}`);
+      if (inputEl) inputEl.value = mac;
+      const statusEl = document.getElementById(`mac-status-${idx}`);
+      if (statusEl) { statusEl.textContent = '✓ MAC aplicado — salve para confirmar'; statusEl.style.color = 'var(--green)'; }
+      showMsg(`MAC aplicado a ${arr[idx].name}`, 'ok');
+      return;
+    }
+  }
+  showMsg(`Nenhum dispositivo configurado com IP ${ip}`, 'err');
+}
+
+// Fechar modal com Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeScanModal();
+});
 
 init();
 </script>

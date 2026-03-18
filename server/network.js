@@ -123,6 +123,114 @@ async function fullScan(subnet) {
 }
 
 /**
+ * Lê a tabela ARP do sistema e devolve mapa IP → MAC
+ * Funciona no Windows (arp -a) e Linux/Mac
+ */
+function readArpTable() {
+  return new Promise((resolve) => {
+    exec('arp -a', { timeout: 5000 }, (err, stdout) => {
+      if (err) return resolve({});
+      const table = {};
+      const lines = stdout.split('\n');
+      for (const line of lines) {
+        // Windows:  192.168.0.50    aa-bb-cc-dd-ee-ff    dynamic
+        // Linux:    ? (192.168.0.50) at aa:bb:cc:dd:ee:ff
+        const winMatch = line.match(/\s*([\d.]+)\s+([0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2}[-:][0-9a-f]{2})\s+(\w+)/i);
+        if (winMatch) {
+          const ip  = winMatch[1];
+          const mac = winMatch[2].replace(/-/g, ':').toUpperCase();
+          const type = winMatch[3]; // dynamic / static
+          if (type !== 'static' || mac !== 'FF:FF:FF:FF:FF:FF') {
+            table[ip] = mac;
+          }
+        }
+      }
+      resolve(table);
+    });
+  });
+}
+
+/**
+ * Descobre o MAC de um IP específico:
+ * 1. Pinga o IP para popular a tabela ARP
+ * 2. Lê a tabela ARP e devolve o MAC
+ */
+async function lookupMac(ip) {
+  // Pinga 3x com curto intervalo para garantir que entra na tabela ARP
+  await Promise.all([
+    ping(ip, 1000),
+    new Promise(r => setTimeout(r, 300)).then(() => ping(ip, 1000)),
+    new Promise(r => setTimeout(r, 600)).then(() => ping(ip, 1000)),
+  ]);
+
+  // Aguarda a tabela ARP ser populada
+  await new Promise(r => setTimeout(r, 400));
+
+  const table = await readArpTable();
+  const mac = table[ip];
+
+  if (!mac) return { ip, mac: null, found: false, hint: 'Dispositivo não respondeu — verifique se está ligado e conectado na rede' };
+  return { ip, mac, found: true };
+}
+
+/**
+ * Varredura completa da subnet com MACs
+ * Pinga todos os IPs, lê a tabela ARP uma única vez no final
+ * Retorna todos os dispositivos online com IP + MAC + tipo identificado
+ */
+async function discoverSubnet(subnet, onProgress) {
+  const ips = [];
+  for (let i = 1; i <= 254; i++) ips.push(`${subnet}.${i}`);
+
+  // Ping sweep em paralelo (lotes de 30)
+  let done = 0;
+  const alive = [];
+  for (let i = 0; i < ips.length; i += 30) {
+    const batch = ips.slice(i, i + 30);
+    const results = await Promise.all(batch.map(ip => ping(ip, 600)));
+    results.forEach(r => { if (r.online) alive.push(r.ip); });
+    done += batch.length;
+    if (onProgress) onProgress(Math.round(done / ips.length * 60)); // 0–60%
+  }
+
+  // Aguarda ARP propagar
+  await new Promise(r => setTimeout(r, 600));
+  const arpTable = await readArpTable();
+  if (onProgress) onProgress(75);
+
+  // Identificar serviços (portas)
+  const SERVICE_PORTS = [
+    { port: 4352, type: 'projector',  label: 'PJLink' },
+    { port: 554,  type: 'camera',     label: 'RTSP' },
+    { port: 36669, type: 'tv',        label: 'VIDAA/MQTT' },
+    { port: 80,   type: 'device',     label: 'HTTP' },
+    { port: 8080, type: 'device',     label: 'HTTP-Alt' },
+  ];
+
+  const devices = await Promise.all(alive.map(async ip => {
+    const portChecks = await Promise.all(
+      SERVICE_PORTS.map(p => checkPort(ip, p.port, 800))
+    );
+    const openPorts = SERVICE_PORTS.filter((p, i) => portChecks[i].open);
+    const mac = arpTable[ip] || null;
+
+    // Tipo inferido pelo primeiro serviço encontrado
+    let type = 'unknown';
+    if (openPorts.length > 0) type = openPorts[0].type;
+
+    return {
+      ip,
+      mac,
+      type,
+      services: openPorts.map(p => p.label),
+    };
+  }));
+
+  if (onProgress) onProgress(100);
+  return devices;
+}
+
+/**
  * Check internet connectivity
  */
 function checkInternet() {
@@ -138,4 +246,4 @@ function checkInternet() {
   });
 }
 
-module.exports = { ping, checkPort, scanSubnet, identifyHost, fullScan, checkInternet };
+module.exports = { ping, checkPort, scanSubnet, identifyHost, fullScan, checkInternet, lookupMac, discoverSubnet, readArpTable };
