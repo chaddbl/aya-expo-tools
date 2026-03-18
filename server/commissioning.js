@@ -80,8 +80,13 @@ async function checkStartupEntries(processName) {
     ).catch(() => ({ stdout: '' }));
 
     const inScheduler = tasks.length > 0;
-    const inStartup = startupFiles.some(f => f.toLowerCase().includes(processName.toLowerCase().replace('.exe','')));
-    const inRegistry = regOut.toLowerCase().includes(processName.toLowerCase().replace('.exe',''));
+    // Accept .lnk shortcuts in startup folder (Resolume compositions opened via shortcut)
+    const processBase = processName.toLowerCase().replace('.exe','');
+    const inStartup = startupFiles.some(f => {
+      const fl = f.toLowerCase();
+      return fl.includes(processBase) || fl.endsWith('.lnk');
+    });
+    const inRegistry = regOut.toLowerCase().includes(processBase);
 
     return {
       ok: inScheduler || inStartup || inRegistry,
