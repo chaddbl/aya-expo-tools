@@ -5,42 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Configurações — AYA Expo Tools</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared.css">
   <style>
-    :root {
-      --bg:#0a0a0a; --surface:#111; --border:#1e1e1e; --border-hi:#2e2e2e;
-      --text:#e0e0e0; --dim:#666; --dimmer:#333;
-      --green:#22c55e; --red:#ef4444; --blue:#60a5fa; --amber:#f59e0b;
-      --accent:rgba(255,255,255,0.06);
-    }
-    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; display:flex; flex-direction:column; }
-
-    /* ── Header ── */
-    .hdr { flex-shrink:0; height:48px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:0 20px; }
-    .hdr-left { display:flex; align-items:center; gap:14px; }
-    .hdr-logo { height:20px; opacity:0.8; }
-    .hdr-sep { width:1px; height:16px; background:var(--border-hi); }
-    .hdr-title { font-size:12px; color:var(--dim); letter-spacing:0.06em; text-transform:uppercase; }
-    .hdr-right { display:flex; align-items:center; gap:10px; }
-    .save-msg { font-size:11px; color:var(--dimmer); transition:color 0.3s; }
-    .save-msg.ok { color:var(--green); }
-    .save-msg.err { color:var(--red); }
+    /* ── Config page: full-height workspace layout ── */
+    body { height:100vh; overflow:hidden; display:flex; flex-direction:column; }
 
     /* ── Layout: planta + painel ── */
     .workspace { flex:1; display:grid; grid-template-columns:1fr 380px; overflow:hidden; }
 
     /* ── Canvas da planta ── */
-    .canvas-area { position:relative; background:#0a0a0a; overflow:hidden; }
+    .canvas-area { position:relative; background:var(--bg); overflow:hidden; }
     .canvas-bg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:24px; }
     .canvas-bg img { max-width:100%; max-height:100%; object-fit:contain; display:block; user-select:none; }
-    .canvas-empty { color:var(--dimmer); font-size:13px; text-align:center; }
+    .canvas-empty { color:var(--text-dimmer); font-size:13px; text-align:center; }
     .canvas-empty span { display:block; font-size:32px; margin-bottom:12px; opacity:0.3; }
 
     /* Marcadores de dispositivo */
     .marker { position:absolute; cursor:pointer; transform:translate(-50%,-50%); z-index:10; }
     .marker-dot {
       width:10px; height:10px; border-radius:50%;
-      background:var(--dimmer); border:1.5px solid rgba(255,255,255,0.2);
+      background:var(--text-dimmer); border:1.5px solid rgba(255,255,255,0.2);
       transition:all 0.15s; position:relative;
     }
     .marker:hover .marker-dot, .marker.active .marker-dot {
@@ -53,7 +37,7 @@
       position:absolute; left:14px; top:50%; transform:translateY(-50%);
       font-size:10px; color:rgba(255,255,255,0.5); white-space:nowrap;
       font-family:'JetBrains Mono',monospace; pointer-events:none;
-      background:rgba(10,10,10,0.7); padding:2px 5px; border-radius:2px;
+      background:rgba(10,10,10,0.7); padding:2px 5px; border-radius:var(--radius-sm);
     }
     .marker:hover .marker-label, .marker.active .marker-label { color:rgba(255,255,255,0.9); }
 
@@ -61,8 +45,8 @@
     .palette {
       position:absolute; bottom:20px; left:50%; transform:translateX(-50%);
       display:flex; gap:6px; z-index:20;
-      background:rgba(10,10,10,0.82); border:1px solid var(--border-hi);
-      border-radius:8px; padding:8px 12px;
+      background:rgba(10,10,10,0.82); border:1px solid var(--border-light);
+      border-radius:var(--radius-md); padding:8px 12px;
       backdrop-filter:blur(8px);
       opacity:0; transition:opacity 0.3s;
       pointer-events:none;
@@ -70,17 +54,17 @@
     .palette.visible { opacity:1; pointer-events:all; }
     .palette-item {
       display:flex; align-items:center; gap:7px;
-      padding:6px 12px; border-radius:5px;
-      border:1px solid var(--border-hi);
-      font-size:11px; color:var(--dim);
+      padding:6px 12px; border-radius:var(--radius);
+      border:1px solid var(--border-light);
+      font-size:11px; color:var(--text-dim);
       cursor:grab; user-select:none;
       transition:all 0.15s;
     }
-    .palette-item:hover { border-color:#555; color:var(--text); background:rgba(255,255,255,0.04); }
+    .palette-item:hover { border-color:var(--text-dimmer); color:var(--text); background:rgba(255,255,255,0.04); }
     .palette-item:active { cursor:grabbing; }
     .palette-icon { font-size:13px; line-height:1; }
     .palette-hint {
-      font-size:10px; color:var(--dimmer); text-align:center;
+      font-size:10px; color:var(--text-dimmer); text-align:center;
       margin-top:4px; letter-spacing:0.04em;
     }
 
@@ -91,7 +75,7 @@
     }
     #drag-ghost .ghost-inner {
       display:flex; align-items:center; gap:7px;
-      padding:6px 12px; border-radius:5px;
+      padding:6px 12px; border-radius:var(--radius);
       border:1px solid rgba(255,255,255,0.3);
       background:rgba(10,10,10,0.9);
       font-size:11px; color:white;
@@ -118,11 +102,11 @@
       position:absolute; top:-4px; left:-4px;
     }
 
-    /* Instrução de posicionamento (legado, mantido) */
+    /* Instrução de posicionamento */
     .placement-hint {
       position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
-      background:rgba(10,10,10,0.85); border:1px solid var(--border-hi);
-      border-radius:6px; padding:8px 16px; font-size:11px; color:var(--dim);
+      background:rgba(10,10,10,0.85); border:1px solid var(--border-light);
+      border-radius:var(--radius-md); padding:8px 16px; font-size:11px; color:var(--text-dim);
       pointer-events:none; opacity:0; transition:opacity 0.2s;
     }
     .placement-hint.visible { opacity:1; }
@@ -131,7 +115,7 @@
     .panel { border-left:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
     .panel-tabs { flex-shrink:0; display:flex; border-bottom:1px solid var(--border); }
     .ptab {
-      flex:1; padding:11px 0; font-size:11px; color:var(--dim); text-align:center;
+      flex:1; padding:11px 0; font-size:11px; color:var(--text-dim); text-align:center;
       cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px;
       transition:all 0.15s; user-select:none; text-transform:uppercase; letter-spacing:0.06em;
     }
@@ -140,165 +124,100 @@
     .panel-body { flex:1; overflow-y:auto; padding:24px 20px; }
     .panel-body::-webkit-scrollbar { width:4px; }
     .panel-body::-webkit-scrollbar-track { background:transparent; }
-    .panel-body::-webkit-scrollbar-thumb { background:var(--border-hi); border-radius:2px; }
+    .panel-body::-webkit-scrollbar-thumb { background:var(--border-light); border-radius:2px; }
 
     /* ── Device panel (contextual) ── */
     .device-panel { display:none; }
     .device-panel.active { display:block; }
-    .device-panel-title { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; }
-    .device-close { cursor:pointer; color:var(--dimmer); font-size:16px; line-height:1; }
-    .device-close:hover { color:var(--dim); }
+    .device-panel-title { font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:20px; display:flex; align-items:center; justify-content:space-between; }
+    .device-close { cursor:pointer; color:var(--text-dimmer); font-size:16px; line-height:1; }
+    .device-close:hover { color:var(--text-dim); }
 
-    /* ── Seções do painel ── */
+    /* ── Config section (overrides shared) ── */
     .section { margin-bottom:28px; }
-    .section-label { font-size:10px; color:var(--dimmer); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:14px; }
-
-    /* Campos */
-    .field { margin-bottom:12px; }
-    .field-label { font-size:11px; color:var(--dim); margin-bottom:5px; display:block; }
-    .field-hint { font-size:10px; color:var(--dimmer); margin-top:3px; line-height:1.4; }
-    input[type=text], input[type=password], input[type=time], select, textarea {
-      width:100%; background:var(--surface); border:1px solid var(--border-hi);
-      color:var(--text); font-family:inherit; font-size:12px;
-      padding:7px 10px; border-radius:4px; outline:none;
-      transition:border-color 0.15s;
-    }
-    input:focus, select:focus, textarea:focus { border-color:#444; }
-    textarea { resize:vertical; min-height:72px; }
-    input[type=time] { width:100px; }
-
-    .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
-
-    /* Botões */
-    .btn { padding:7px 14px; border-radius:4px; font-size:12px; font-family:inherit; cursor:pointer; border:none; transition:all 0.15s; }
-    .btn-white { background:white; color:black; font-weight:600; }
-    .btn-white:hover { opacity:0.88; }
-    .btn-white:disabled { opacity:0.3; cursor:default; }
-    .btn-ghost { background:transparent; border:1px solid var(--border-hi); color:var(--dim); }
-    .btn-ghost:hover { border-color:#444; color:var(--text); }
-    .btn-danger { background:transparent; border:1px solid rgba(239,68,68,0.25); color:var(--red); }
-    .btn-danger:hover { background:rgba(239,68,68,0.06); }
-    .btn-sm { padding:4px 10px; font-size:11px; }
+    .section-label { font-size:10px; color:var(--text-dimmer); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:14px; }
 
     /* Test result */
-    .test-result { font-size:11px; margin-top:8px; padding:6px 10px; border-radius:4px; line-height:1.4; }
-    .test-result.ok { color:var(--green); background:rgba(34,197,94,0.07); }
-    .test-result.fail { color:var(--red); background:rgba(239,68,68,0.07); }
+    .test-result { font-size:11px; margin-top:8px; padding:6px 10px; border-radius:var(--radius); line-height:1.4; }
+    .test-result.ok { color:var(--green); background:var(--green-bg); }
+    .test-result.fail { color:var(--red); background:var(--red-bg); }
 
-    /* Device list (no canvas / dispositivos tab) */
-    .device-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:4px; margin-bottom:6px; cursor:pointer; transition:border-color 0.15s; }
-    .device-row:hover, .device-row.active { border-color:var(--border-hi); }
-    .device-dot { width:7px; height:7px; border-radius:50%; background:var(--dimmer); flex-shrink:0; }
-    .device-dot.ok { background:var(--green); }
-    .device-dot.fail { background:var(--red); }
-    .device-name { font-size:12px; flex:1; }
-    .device-ip { font-size:11px; color:var(--dim); font-family:'JetBrains Mono',monospace; }
-    .device-action { font-size:11px; color:var(--dimmer); }
+    /* Config device list (interactive rows) */
+    .cfg-device-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:6px; cursor:pointer; transition:border-color 0.15s; }
+    .cfg-device-row:hover, .cfg-device-row.active { border-color:var(--border-light); }
+    .cfg-device-dot { width:7px; height:7px; border-radius:50%; background:var(--text-dimmer); flex-shrink:0; }
+    .cfg-device-dot.ok { background:var(--green); }
+    .cfg-device-dot.fail { background:var(--red); }
+    .cfg-device-name { font-size:12px; flex:1; }
+    .cfg-device-ip { font-size:11px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; }
+    .cfg-device-action { font-size:11px; color:var(--text-dimmer); }
 
-    .add-row { display:flex; align-items:center; gap:8px; padding:9px 12px; border:1px dashed var(--border-hi); border-radius:4px; color:var(--dim); font-size:12px; cursor:pointer; transition:all 0.15s; background:transparent; width:100%; font-family:inherit; margin-top:2px; }
-    .add-row:hover { border-color:#444; color:var(--text); }
-
-    /* Toggle */
-    .toggle-row { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid var(--border); }
-    .toggle-row:last-child { border-bottom:none; }
-    .toggle-info { flex:1; }
-    .toggle-label { font-size:12px; font-weight:500; }
-    .toggle-desc { font-size:11px; color:var(--dim); margin-top:2px; line-height:1.4; }
-    .sw { position:relative; width:36px; height:20px; flex-shrink:0; margin-top:1px; }
-    .sw input { opacity:0; width:0; height:0; }
-    .sw-track { position:absolute; inset:0; background:var(--border-hi); border-radius:20px; cursor:pointer; transition:0.2s; }
-    .sw-track:before { content:''; position:absolute; height:14px; width:14px; left:3px; bottom:3px; background:var(--dim); border-radius:50%; transition:0.2s; }
-    input:checked + .sw-track { background:var(--green); }
-    input:checked + .sw-track:before { transform:translateX(16px); background:white; }
+    .add-row { display:flex; align-items:center; gap:8px; padding:9px 12px; border:1px dashed var(--border-light); border-radius:var(--radius); color:var(--text-dim); font-size:12px; cursor:pointer; transition:all 0.15s; background:transparent; width:100%; font-family:inherit; margin-top:2px; }
+    .add-row:hover { border-color:var(--text-dimmer); color:var(--text); }
 
     /* Log */
-    .log-entry { padding:10px 12px; border:1px solid var(--border); border-radius:4px; margin-bottom:6px; }
+    .log-entry { padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:6px; }
     .log-meta { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
-    .log-dot { width:5px; height:5px; border-radius:50%; background:var(--dimmer); flex-shrink:0; }
+    .log-dot { width:5px; height:5px; border-radius:50%; background:var(--text-dimmer); flex-shrink:0; }
     .log-dot.manual { background:var(--blue); }
     .log-dot.auto { background:var(--red); }
-    .log-time { font-size:10px; color:var(--dimmer); font-family:'JetBrains Mono',monospace; }
-    .log-text { font-size:12px; color:var(--dim); line-height:1.5; }
-    .empty-state { font-size:12px; color:var(--dimmer); font-style:italic; padding:8px 0; }
+    .log-time { font-size:10px; color:var(--text-dimmer); font-family:'JetBrains Mono',monospace; }
+    .log-text { font-size:12px; color:var(--text-dim); line-height:1.5; }
+    .empty-state { font-size:12px; color:var(--text-dimmer); font-style:italic; padding:8px 0; }
 
-    /* Planta upload no painel */
-    .planta-upload { border:1px dashed var(--border-hi); border-radius:4px; padding:20px; text-align:center; position:relative; cursor:pointer; transition:border-color 0.15s; }
-    .planta-upload:hover { border-color:#444; }
+    /* Planta upload */
+    .planta-upload { border:1px dashed var(--border-light); border-radius:var(--radius); padding:20px; text-align:center; position:relative; cursor:pointer; transition:border-color 0.15s; }
+    .planta-upload:hover { border-color:var(--text-dimmer); }
     .planta-upload input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; }
-    .planta-upload-text { font-size:12px; color:var(--dim); }
-    .planta-upload-hint { font-size:10px; color:var(--dimmer); margin-top:4px; }
+    .planta-upload-text { font-size:12px; color:var(--text-dim); }
+    .planta-upload-hint { font-size:10px; color:var(--text-dimmer); margin-top:4px; }
 
     /* Planta info bar */
-    .planta-info { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--surface); border:1px solid var(--border); border-radius:4px; margin-top:8px; }
-    .planta-info-name { font-size:11px; color:var(--dim); font-family:'JetBrains Mono',monospace; }
+    .planta-info { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); margin-top:8px; }
+    .planta-info-name { font-size:11px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; }
     .planta-info-link { font-size:11px; color:var(--blue); text-decoration:none; }
     .planta-info-link:hover { text-decoration:underline; }
 
-    /* Aviso */
-    .notice { background:var(--surface); border:1px solid var(--border-hi); border-radius:4px; padding:12px 14px; font-size:12px; color:var(--dim); line-height:1.6; margin-bottom:16px; }
-    .notice strong { color:var(--text); }
+    /* Position tip */
+    .pos-tip { font-size:10px; color:var(--text-dimmer); font-style:italic; }
 
-    /* Position tip on canvas */
-    .pos-tip { font-size:10px; color:var(--dimmer); font-style:italic; }
-
-    /* ── Modal de varredura ── */
-    .modal-overlay {
-      position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:1000;
-      display:none; align-items:center; justify-content:center;
-    }
-    .modal-overlay.open { display:flex; }
-    .modal {
-      background:var(--surface); border:1px solid var(--border-hi);
-      border-radius:8px; width:560px; max-height:80vh;
-      display:flex; flex-direction:column; overflow:hidden;
-    }
-    .modal-hdr {
-      padding:16px 20px; border-bottom:1px solid var(--border);
-      display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
-    }
-    .modal-title { font-size:13px; font-weight:500; }
-    .modal-close { cursor:pointer; color:var(--dim); font-size:20px; line-height:1; }
-    .modal-close:hover { color:var(--text); }
-    .modal-body { flex:1; overflow-y:auto; padding:20px; }
-    .modal-body::-webkit-scrollbar { width:4px; }
-    .modal-body::-webkit-scrollbar-thumb { background:var(--border-hi); border-radius:2px; }
-
+    /* Scan progress (config-specific) */
     .scan-progress { margin-bottom:16px; }
-    .scan-bar-track { height:3px; background:var(--border-hi); border-radius:2px; margin-top:6px; }
+    .scan-bar-track { height:3px; background:var(--border-light); border-radius:2px; margin-top:6px; }
     .scan-bar-fill  { height:3px; background:white; border-radius:2px; width:0; transition:width 0.3s; }
-    .scan-msg { font-size:12px; color:var(--dim); }
+    .scan-msg { font-size:12px; color:var(--text-dim); }
 
+    /* Scan results */
     .device-found {
       display:grid; grid-template-columns:110px 1fr auto;
       align-items:center; gap:10px;
       padding:9px 12px; border:1px solid var(--border);
-      border-radius:4px; margin-bottom:5px;
+      border-radius:var(--radius); margin-bottom:5px;
     }
     .device-found-ip { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text); }
-    .device-found-info { font-size:11px; color:var(--dim); }
-    .device-found-mac { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dimmer); }
+    .device-found-info { font-size:11px; color:var(--text-dim); }
+    .device-found-mac { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--text-dimmer); }
     .device-found-badge {
-      font-size:10px; padding:2px 7px; border-radius:3px;
-      background:var(--border-hi); color:var(--dim);
+      font-size:10px; padding:2px 7px; border-radius:var(--radius-sm);
+      background:var(--border-light); color:var(--text-dim);
     }
     .device-found-badge.projector { background:rgba(96,165,250,0.12); color:var(--blue); }
-    .device-found-badge.tv        { background:rgba(245,158,11,0.12);  color:var(--amber); }
-    .device-found-badge.camera    { background:rgba(34,197,94,0.12);   color:var(--green); }
+    .device-found-badge.tv        { background:rgba(245,158,11,0.12); color:var(--amber); }
+    .device-found-badge.camera    { background:rgba(34,197,94,0.12);  color:var(--green); }
   </style>
 </head>
 <body>
 
 <!-- Header -->
-<header class="hdr">
-  <div class="hdr-left">
-    <img src="logo-aya-branco.png" class="hdr-logo" alt="AYA">
-    <div class="hdr-sep"></div>
-    <a href="/" style="color:var(--dim);text-decoration:none;font-size:12px;">← dashboard</a>
-    <div class="hdr-sep"></div>
-    <span class="hdr-title">configurações</span>
+<header class="sub-header" style="flex-shrink:0;height:48px;padding:0 20px;">
+  <div class="sub-header-left">
+    <img src="logo-aya-branco.png" class="sub-header-logo" style="height:20px;" alt="AYA">
+    <div class="sub-header-sep"></div>
+    <a href="/" class="sub-header-back" style="font-size:12px;">← dashboard</a>
+    <div class="sub-header-sep"></div>
+    <span class="sub-header-title">configurações</span>
   </div>
-  <div class="hdr-right">
+  <div class="sub-header-right">
     <span class="save-msg" id="saveMsg"></span>
     <button class="btn btn-white" onclick="saveConfig()">Salvar</button>
   </div>
@@ -519,7 +438,7 @@
       </div>
       <div class="section">
         <div class="section-label">Descoberta de rede</div>
-        <p style="font-size:12px;color:var(--dim);margin-bottom:12px;line-height:1.6;">
+        <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px;line-height:1.6;">
           Varre a rede e lista todos os dispositivos conectados com IP e MAC.
           Útil para descobrir IPs e MACs de TVs, projetores e câmeras que ainda não estão configurados.
         </p>
@@ -914,7 +833,7 @@ function renderDeviceDetail(type, index) {
     <div class="section">
       <div class="section-label">Posição na planta</div>
       ${hasPosn
-        ? `<div class="pos-tip" style="margin-bottom:8px;font-size:11px;color:var(--dim);">
+        ? `<div class="pos-tip" style="margin-bottom:8px;font-size:11px;color:var(--text-dim);">
              x: ${d.xPct}% &nbsp; y: ${d.yPct}%
            </div>`
         : `<div class="pos-tip" style="margin-bottom:8px;">Sem posição definida</div>`
@@ -951,12 +870,12 @@ function renderList(elId, arr, type) {
   const el = document.getElementById(elId);
   if (!arr.length) { el.innerHTML = ''; return; }
   el.innerHTML = arr.map((d,i) => `
-    <div class="device-row ${selectedDevice?.type===type && selectedDevice?.index===i ? 'active' : ''}"
+    <div class="cfg-device-row ${selectedDevice?.type===type && selectedDevice?.index===i ? 'active' : ''}"
          onclick="selectDevice('${type}',${i})">
-      <div class="device-dot" id="dot-${type}-${i}"></div>
-      <div class="device-name">${esc(d.name)}</div>
-      <div class="device-ip">${esc(d.ip||'—')}</div>
-      <div class="device-action">›</div>
+      <div class="cfg-device-dot" id="dot-${type}-${i}"></div>
+      <div class="cfg-device-name">${esc(d.name)}</div>
+      <div class="cfg-device-ip">${esc(d.ip||'—')}</div>
+      <div class="cfg-device-action">›</div>
     </div>`).join('');
 }
 
@@ -997,12 +916,12 @@ async function testDevice(type, index) {
   const resultId = `test-result-${type}-${index}`;
   const el = document.getElementById(resultId);
   if (!el) return;
-  el.innerHTML = `<div class="test-result" style="color:var(--dim);">Testando...</div>`;
+  el.innerHTML = `<div class="test-result" style="color:var(--text-dim);">Testando...</div>`;
   try {
     const res = await fetch(`/api/config/test/${type}/${index}`, {method:'POST'}).then(r=>r.json());
     el.innerHTML = `<div class="test-result ${res.ok?'ok':'fail'}">${res.ok?'✓ ':'✗ '}${res.message||''}</div>`;
     const dot = document.getElementById(`dot-${type}-${index}`);
-    if (dot) dot.className = `device-dot ${res.ok?'ok':'fail'}`;
+    if (dot) dot.className = `cfg-device-dot ${res.ok?'ok':'fail'}`;
     // Atualizar marcador
     const arr = deviceArray(type);
     if (arr[index]) arr[index]._status = res.ok ? 'ok' : 'fail';
@@ -1038,10 +957,10 @@ function renderContacts() {
   const el = document.getElementById('contacts-list');
   if (!contacts.length) { el.innerHTML = '<div class="empty-state">Nenhum contato.</div>'; return; }
   el.innerHTML = contacts.map((c,i) => `
-    <div class="device-row">
-      <div class="device-name">${esc(c.name)}</div>
-      <div class="device-ip">${esc(c.role||'')} ${c.phone ? '· '+esc(c.phone) : ''}</div>
-      <span onclick="contacts.splice(${i},1);renderContacts();" style="cursor:pointer;color:var(--dimmer);font-size:14px;padding:0 4px;">×</span>
+    <div class="cfg-device-row" style="cursor:default;">
+      <div class="cfg-device-name">${esc(c.name)}</div>
+      <div class="cfg-device-ip">${esc(c.role||'')} ${c.phone ? '· '+esc(c.phone) : ''}</div>
+      <span onclick="contacts.splice(${i},1);renderContacts();" style="cursor:pointer;color:var(--text-dimmer);font-size:14px;padding:0 4px;">×</span>
     </div>`).join('');
 }
 
@@ -1172,7 +1091,7 @@ async function discoverMac(type, index, ip) {
     return;
   }
   statusEl.textContent = '⊙ Pingando dispositivo...';
-  statusEl.style.color = 'var(--dim)';
+  statusEl.style.color = 'var(--text-dim)';
   try {
     const res = await fetch(`/api/discover/mac?ip=${encodeURIComponent(ip)}`).then(r => r.json());
     if (res.found && res.mac) {
