@@ -145,10 +145,41 @@ app.get('/api/cameras/:id/snapshot', async (req, res) => {
   try {
     const buffer = await cam.getSnapshot();
     res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'no-store');
     res.send(buffer);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ─── MJPEG stream proxy ─────────────────────────────────────
+app.get('/api/cameras/:id/stream', async (req, res) => {
+  const cam = cameras.get(req.params.id);
+  if (!cam) return res.status(404).json({ error: 'Camera not found' });
+
+  const boundary = 'AYAframe';
+  res.set({
+    'Content-Type': `multipart/x-mixed-replace; boundary=${boundary}`,
+    'Cache-Control': 'no-store',
+    'Connection': 'close',
+  });
+
+  let active = true;
+  req.on('close', () => { active = false; });
+
+  const sendFrame = async () => {
+    if (!active) return;
+    try {
+      const buffer = await cam.getSnapshot();
+      if (!active) return;
+      res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${buffer.length}\r\n\r\n`);
+      res.write(buffer);
+      res.write('\r\n');
+    } catch (_) { /* câmera inacessível, tenta de novo */ }
+    if (active) setTimeout(sendFrame, 200); // ~5 fps
+  };
+
+  sendFrame();
 });
 
 // ─── API: Network ──────────────────────────────────────────
