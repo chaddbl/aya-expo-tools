@@ -57,7 +57,68 @@
     }
     .marker:hover .marker-label, .marker.active .marker-label { color:rgba(255,255,255,0.9); }
 
-    /* Instrução de posicionamento */
+    /* ── Paleta de arrastar ── */
+    .palette {
+      position:absolute; bottom:20px; left:50%; transform:translateX(-50%);
+      display:flex; gap:6px; z-index:20;
+      background:rgba(10,10,10,0.82); border:1px solid var(--border-hi);
+      border-radius:8px; padding:8px 12px;
+      backdrop-filter:blur(8px);
+      opacity:0; transition:opacity 0.3s;
+      pointer-events:none;
+    }
+    .palette.visible { opacity:1; pointer-events:all; }
+    .palette-item {
+      display:flex; align-items:center; gap:7px;
+      padding:6px 12px; border-radius:5px;
+      border:1px solid var(--border-hi);
+      font-size:11px; color:var(--dim);
+      cursor:grab; user-select:none;
+      transition:all 0.15s;
+    }
+    .palette-item:hover { border-color:#555; color:var(--text); background:rgba(255,255,255,0.04); }
+    .palette-item:active { cursor:grabbing; }
+    .palette-icon { font-size:13px; line-height:1; }
+    .palette-hint {
+      font-size:10px; color:var(--dimmer); text-align:center;
+      margin-top:4px; letter-spacing:0.04em;
+    }
+
+    /* Ghost que segue o cursor durante drag */
+    #drag-ghost {
+      position:fixed; pointer-events:none; z-index:9999;
+      display:none; transform:translate(-50%,-50%);
+    }
+    #drag-ghost .ghost-inner {
+      display:flex; align-items:center; gap:7px;
+      padding:6px 12px; border-radius:5px;
+      border:1px solid rgba(255,255,255,0.3);
+      background:rgba(10,10,10,0.9);
+      font-size:11px; color:white;
+      backdrop-filter:blur(8px);
+    }
+
+    /* Canvas highlight durante drag-over */
+    .canvas-area.drag-over { outline:1px solid rgba(255,255,255,0.15); }
+    .canvas-area.drag-over .canvas-bg img { opacity:0.85; }
+
+    /* Crosshair drop preview */
+    #drop-preview {
+      position:absolute; pointer-events:none; z-index:15;
+      display:none; transform:translate(-50%,-50%);
+    }
+    #drop-preview::before, #drop-preview::after {
+      content:''; position:absolute; background:rgba(255,255,255,0.5);
+    }
+    #drop-preview::before { width:1px; height:16px; left:50%; top:-8px; transform:translateX(-50%); }
+    #drop-preview::after  { width:16px; height:1px; top:50%; left:-8px; transform:translateY(-50%); }
+    #drop-preview .drop-dot {
+      width:8px; height:8px; border-radius:50%;
+      border:1.5px solid rgba(255,255,255,0.8);
+      position:absolute; top:-4px; left:-4px;
+    }
+
+    /* Instrução de posicionamento (legado, mantido) */
     .placement-hint {
       position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
       background:rgba(10,10,10,0.85); border:1px solid var(--border-hi);
@@ -211,8 +272,35 @@
       </div>
     </div>
     <!-- Marcadores injetados via JS -->
+    <!-- Drop preview crosshair -->
+    <div id="drop-preview"><div class="drop-dot"></div></div>
+
+    <!-- Paleta de arrastar (aparece quando há planta) -->
+    <div class="palette" id="palette">
+      <div class="palette-item" data-type="projector"
+           onmousedown="startPaletteDrag(event,'projector')">
+        <span class="palette-icon">⬡</span><span>Projetor</span>
+      </div>
+      <div class="palette-item" data-type="camera"
+           onmousedown="startPaletteDrag(event,'camera')">
+        <span class="palette-icon">◎</span><span>Câmera</span>
+      </div>
+      <div class="palette-item" data-type="plug"
+           onmousedown="startPaletteDrag(event,'plug')">
+        <span class="palette-icon">⬟</span><span>Tomada</span>
+      </div>
+    </div>
+
     <div class="placement-hint" id="placementHint">
       Clique na planta para posicionar o dispositivo
+    </div>
+  </div>
+
+  <!-- Ghost global (fora do canvas para não ser clipado) -->
+  <div id="drag-ghost">
+    <div class="ghost-inner">
+      <span id="ghost-icon"></span>
+      <span id="ghost-label"></span>
     </div>
   </div>
 
@@ -449,6 +537,7 @@ function loadPlantaIntoCanvas(src, label, pdfSrc) {
   const bg = document.getElementById('canvasBg');
   bg.innerHTML = `<img id="plantaImg" src="${src}" alt="Planta" draggable="false">`;
   document.getElementById('plantaImg').addEventListener('click', onCanvasClick);
+  document.getElementById('palette').classList.add('visible');
   renderMarkers();
   updatePlantaInfo(label, pdfSrc);
 }
@@ -463,12 +552,150 @@ function onCanvasClick(e) {
   const { type, index } = placingDevice;
   const arr = deviceArray(type);
   if (arr[index]) {
-    arr[index].position = arr[index].position || {};
     arr[index].xPct = Number(xPct);
     arr[index].yPct = Number(yPct);
   }
   stopPlacing();
   renderMarkers();
+}
+
+// ── Drag da paleta → criar dispositivo ──────────────────
+const PALETTE_ICONS  = { projector:'⬡', camera:'◎', plug:'⬟' };
+const PALETTE_LABELS = { projector:'Projetor', camera:'Câmera', plug:'Tomada' };
+const DEVICE_MODELS  = { projector:'NEC PE456USL', camera:'Intelbras VIP 1130 B', plug:'NovaDigital' };
+
+let paletteDrag = null; // { type, ghost, startX, startY, moved }
+
+function startPaletteDrag(e, type) {
+  e.preventDefault();
+  const ghost = document.getElementById('drag-ghost');
+  document.getElementById('ghost-icon').textContent = PALETTE_ICONS[type];
+  document.getElementById('ghost-label').textContent = PALETTE_LABELS[type];
+  ghost.style.display = 'block';
+  ghost.style.left = e.clientX + 'px';
+  ghost.style.top  = e.clientY + 'px';
+
+  paletteDrag = { type, moved: false };
+
+  document.addEventListener('mousemove', onPaletteDragMove);
+  document.addEventListener('mouseup',   onPaletteDragEnd);
+}
+
+function onPaletteDragMove(e) {
+  if (!paletteDrag) return;
+  paletteDrag.moved = true;
+
+  // Mover ghost
+  const ghost = document.getElementById('drag-ghost');
+  ghost.style.left = e.clientX + 'px';
+  ghost.style.top  = e.clientY + 'px';
+
+  // Verificar se está sobre a planta
+  const img = document.getElementById('plantaImg');
+  const canvas = document.getElementById('canvasArea');
+  if (!img) return;
+  const rect = img.getBoundingClientRect();
+  const overCanvas = e.clientX >= rect.left && e.clientX <= rect.right &&
+                     e.clientY >= rect.top  && e.clientY <= rect.bottom;
+
+  canvas.classList.toggle('drag-over', overCanvas);
+
+  // Mostrar crosshair de drop preview
+  const preview = document.getElementById('drop-preview');
+  if (overCanvas) {
+    const canvasRect = canvas.getBoundingClientRect();
+    preview.style.display = 'block';
+    preview.style.left = (e.clientX - canvasRect.left) + 'px';
+    preview.style.top  = (e.clientY - canvasRect.top)  + 'px';
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+function onPaletteDragEnd(e) {
+  if (!paletteDrag) return;
+  document.removeEventListener('mousemove', onPaletteDragMove);
+  document.removeEventListener('mouseup',   onPaletteDragEnd);
+
+  document.getElementById('drag-ghost').style.display = 'none';
+  document.getElementById('drop-preview').style.display = 'none';
+  document.getElementById('canvasArea').classList.remove('drag-over');
+
+  if (!paletteDrag.moved) { paletteDrag = null; return; }
+
+  // Verificar se soltou sobre a imagem da planta
+  const img = document.getElementById('plantaImg');
+  if (img) {
+    const rect = img.getBoundingClientRect();
+    const overImg = e.clientX >= rect.left && e.clientX <= rect.right &&
+                    e.clientY >= rect.top  && e.clientY <= rect.bottom;
+
+    if (overImg) {
+      const xPct = Number(((e.clientX - rect.left) / rect.width  * 100).toFixed(1));
+      const yPct = Number(((e.clientY - rect.top)  / rect.height * 100).toFixed(1));
+      createDeviceAtPosition(paletteDrag.type, xPct, yPct);
+    }
+  }
+
+  paletteDrag = null;
+}
+
+function createDeviceAtPosition(type, xPct, yPct) {
+  const arr = deviceArray(type);
+  const index = arr.length;
+  arr.push({
+    id: `${type}-${Date.now()}`,
+    name: `${PALETTE_LABELS[type]} ${index + 1}`,
+    ip: '',
+    model: DEVICE_MODELS[type],
+    xPct,
+    yPct,
+  });
+  renderMarkers();
+  renderDeviceLists();
+  // Abrir painel de configuração imediatamente
+  switchTab('dispositivos');
+  selectDevice(type, index);
+}
+
+// ── Drag de marcador → reposicionar ─────────────────────
+let markerDrag = null; // { type, index, startX, startY }
+
+function startMarkerDrag(e, type, index) {
+  e.preventDefault();
+  e.stopPropagation();
+  markerDrag = { type, index };
+  document.getElementById('canvasArea').style.cursor = 'grabbing';
+  document.addEventListener('mousemove', onMarkerDragMove);
+  document.addEventListener('mouseup',   onMarkerDragEnd);
+}
+
+function onMarkerDragMove(e) {
+  if (!markerDrag) return;
+  const img = document.getElementById('plantaImg');
+  if (!img) return;
+  const rect = img.getBoundingClientRect();
+  const x = Math.max(0, Math.min(100, (e.clientX - rect.left) / rect.width  * 100));
+  const y = Math.max(0, Math.min(100, (e.clientY - rect.top)  / rect.height * 100));
+
+  const arr = deviceArray(markerDrag.type);
+  if (arr[markerDrag.index]) {
+    arr[markerDrag.index].xPct = Number(x.toFixed(1));
+    arr[markerDrag.index].yPct = Number(y.toFixed(1));
+  }
+  renderMarkers(); // atualiza posição em tempo real
+}
+
+function onMarkerDragEnd(e) {
+  if (!markerDrag) return;
+  document.removeEventListener('mousemove', onMarkerDragMove);
+  document.removeEventListener('mouseup',   onMarkerDragEnd);
+  document.getElementById('canvasArea').style.cursor = '';
+  // Atualizar painel se aberto
+  if (selectedDevice?.type === markerDrag.type && selectedDevice?.index === markerDrag.index) {
+    renderDeviceDetail(markerDrag.type, markerDrag.index);
+  }
+  markerDrag = null;
 }
 
 function renderMarkers() {
@@ -501,8 +728,20 @@ function renderMarkers() {
       m.style.left = x + 'px';
       m.style.top = y + 'px';
       m.title = d.name;
+      m.style.cursor = 'grab';
       m.innerHTML = `<div class="marker-dot"></div><div class="marker-label">${d.name}</div>`;
-      m.addEventListener('click', e => { e.stopPropagation(); selectDevice(d._type, d._i); });
+
+      let clickIntent = true;
+      m.addEventListener('mousedown', e => {
+        clickIntent = true;
+        e.stopPropagation();
+        startMarkerDrag(e, d._type, d._i);
+      });
+      m.addEventListener('mousemove', () => { clickIntent = false; });
+      m.addEventListener('mouseup', e => {
+        if (clickIntent) { e.stopPropagation(); selectDevice(d._type, d._i); }
+      });
+
       canvasArea.appendChild(m);
     });
   };
