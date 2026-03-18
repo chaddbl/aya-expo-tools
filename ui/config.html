@@ -289,6 +289,10 @@
            onpointerdown="startPaletteDrag(event,'plug')">
         <span class="palette-icon">⬟</span><span>Tomada</span>
       </div>
+      <div class="palette-item" data-type="tv"
+           onpointerdown="startPaletteDrag(event,'tv')">
+        <span class="palette-icon">▬</span><span>TV</span>
+      </div>
     </div>
 
     <div class="placement-hint" id="placementHint">
@@ -339,6 +343,12 @@
           <div class="section-label">Tomadas inteligentes</div>
           <div id="plug-list"></div>
           <button class="add-row" onclick="addDevice('plug')">+ Adicionar tomada</button>
+        </div>
+
+        <div class="section">
+          <div class="section-label">TVs</div>
+          <div id="tv-list"></div>
+          <button class="add-row" onclick="addDevice('tv')">+ Adicionar TV</button>
         </div>
 
       </div>
@@ -560,9 +570,9 @@ function onCanvasClick(e) {
 }
 
 // ── Drag da paleta → criar dispositivo ──────────────────
-const PALETTE_ICONS  = { projector:'⬡', camera:'◎', plug:'⬟' };
-const PALETTE_LABELS = { projector:'Projetor', camera:'Câmera', plug:'Tomada' };
-const DEVICE_MODELS  = { projector:'NEC PE456USL', camera:'Intelbras VIP 1130 B', plug:'NovaDigital' };
+const PALETTE_ICONS  = { projector:'⬡', camera:'◎', plug:'⬟', tv:'▬' };
+const PALETTE_LABELS = { projector:'Projetor', camera:'Câmera', plug:'Tomada', tv:'TV' };
+const DEVICE_MODELS  = { projector:'NEC PE456USL', camera:'Intelbras VIP 1130 B', plug:'NovaDigital', tv:'Hisense 55A51HUA' };
 
 let paletteDrag = null;
 
@@ -802,6 +812,21 @@ function renderDeviceDetail(type, index) {
         <div class="field"><label class="field-label">Usuário</label><input type="text" value="${esc(d.user||'admin')}" onchange="updateDevice('${type}',${index},'user',this.value)"></div>
         <div class="field"><label class="field-label">Senha</label><input type="password" value="${esc(d.password||'')}" onchange="updateDevice('${type}',${index},'password',this.value)"></div>
       </div>` : ''}
+      ${type === 'tv' ? `
+      <div class="field">
+        <label class="field-label">Endereço MAC</label>
+        <input type="text" value="${esc(d.mac||'')}" placeholder="AA:BB:CC:DD:EE:FF"
+               onchange="updateDevice('${type}',${index},'mac',this.value)"
+               style="font-family:'JetBrains Mono',monospace;">
+        <div class="field-hint">Necessário para ligar via rede (Wake-on-LAN).<br>
+          Onde encontrar: TV → Configurações → Rede → Status da conexão<br>
+          Ou no roteador: <a href="http://192.168.0.1" target="_blank" style="color:var(--blue);">192.168.0.1</a> → lista de dispositivos conectados</div>
+      </div>
+      <div class="field">
+        <label class="field-label">Wake-on-LAN ativado?</label>
+        <div class="field-hint" style="margin-top:0;">Ativar na TV: Configurações → Energia → Wake on LAN: <strong style="color:var(--text);">Ativado</strong><br>
+          Se a TV estiver em WiFi: Configurações → Energia → Wake on WiFi: <strong style="color:var(--text);">Ativado</strong></div>
+      </div>` : ''}
     </div>
 
     <div class="section">
@@ -835,8 +860,9 @@ function renderDeviceDetail(type, index) {
 // ── Device lists ─────────────────────────────────────────
 function renderDeviceLists() {
   renderList('proj-list', config.projectors||[], 'projector');
-  renderList('cam-list', config.cameras||[], 'camera');
+  renderList('cam-list',  config.cameras||[],    'camera');
   renderList('plug-list', config.smartplugs||[], 'plug');
+  renderList('tv-list',   config.tvs||[],        'tv');
 }
 
 function renderList(elId, arr, type) {
@@ -855,7 +881,8 @@ function renderList(elId, arr, type) {
 // ── Device CRUD ──────────────────────────────────────────
 function deviceArray(type) {
   if (type === 'projector') return config.projectors = config.projectors||[];
-  if (type === 'camera') return config.cameras = config.cameras||[];
+  if (type === 'camera')    return config.cameras    = config.cameras||[];
+  if (type === 'tv')        return config.tvs        = config.tvs||[];
   return config.smartplugs = config.smartplugs||[];
 }
 

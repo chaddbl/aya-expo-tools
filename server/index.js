@@ -13,6 +13,7 @@ const { CameraManager } = require('./cameras');
 const { Scheduler } = require('./scheduler');
 const network = require('./network');
 const commissioning = require('./commissioning');
+const tv = require('./tv');
 
 // ─── Load Config ───────────────────────────────────────────
 const configArg = process.argv.find(a => a.startsWith('--config='));
@@ -320,6 +321,60 @@ app.patch('/api/commissioning/content', (req, res) => {
   res.json({ ok: true, contentStatus: status });
 });
 
+// ─── API: TVs ─────────────────────────────────────────────
+app.get('/api/tv', (req, res) => {
+  const tvs = config.tvs || [];
+  res.json(tvs.map(t => ({ ...t, password: undefined })));
+});
+
+app.get('/api/tv/:id/status', async (req, res) => {
+  const tvs = config.tvs || [];
+  const t = tvs.find(t => t.id === req.params.id);
+  if (!t) return res.status(404).json({ error: 'TV não encontrada' });
+  try {
+    const online = await tv.isOnline(t);
+    res.json({ id: t.id, name: t.name, online });
+  } catch (e) {
+    res.json({ id: t.id, name: t.name, online: false, error: e.message });
+  }
+});
+
+app.post('/api/tv/:id/on', async (req, res) => {
+  const tvs = config.tvs || [];
+  const t = tvs.find(t => t.id === req.params.id);
+  if (!t) return res.status(404).json({ error: 'TV não encontrada' });
+  try {
+    await tv.powerOn(t);
+    res.json({ ok: true, message: `Wake-on-LAN enviado para ${t.name}` });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/tv/:id/off', async (req, res) => {
+  const tvs = config.tvs || [];
+  const t = tvs.find(t => t.id === req.params.id);
+  if (!t) return res.status(404).json({ error: 'TV não encontrada' });
+  try {
+    await tv.powerOff(t);
+    res.json({ ok: true, message: `${t.name} desligada via MQTT` });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/tv/all/on', async (req, res) => {
+  const tvs = config.tvs || [];
+  const results = await Promise.allSettled(tvs.map(t => tv.powerOn(t).then(() => ({ id: t.id, ok: true }))));
+  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
+});
+
+app.post('/api/tv/all/off', async (req, res) => {
+  const tvs = config.tvs || [];
+  const results = await Promise.allSettled(tvs.map(t => tv.powerOff(t).then(() => ({ id: t.id, ok: true }))));
+  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
+});
+
 // ─── API: Health ───────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
   const inet = await network.checkInternet();
@@ -329,6 +384,7 @@ app.get('/api/health', async (req, res) => {
     uptime: Math.floor(process.uptime()),
     projectors: projectors.getAllStatus().length,
     cameras: cameras.getAllStatus().length,
+    tvs: (config.tvs || []).length,
     internet: inet.online,
     schedule: scheduler.enabled,
     timestamp: new Date().toISOString(),

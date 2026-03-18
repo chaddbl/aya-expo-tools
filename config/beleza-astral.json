@@ -22,6 +22,7 @@
     "cameras": true,
     "audio": true,
     "smartplugs": true,
+    "tvs": true,
     "dmx": false,
     "resolume": true,
     "remoteAccess": true
@@ -58,7 +59,32 @@
     { "id": "plug-1", "name": "Smart Plug 1", "ip": "192.168.0.40", "model": "NovaDigital", "controls": "Projetores 1–2" },
     { "id": "plug-2", "name": "Smart Plug 2", "ip": "192.168.0.41", "model": "NovaDigital", "controls": "Projetores 3–4" },
     { "id": "plug-3", "name": "Smart Plug 3", "ip": "192.168.0.42", "model": "NovaDigital", "controls": "Projetores 5–6" },
-    { "id": "plug-4", "name": "Smart Plug 4", "ip": "192.168.0.43", "model": "NovaDigital", "controls": "Áudio" }
+    { "id": "plug-4", "name": "Smart Plug 4", "ip": "192.168.0.43", "model": "NovaDigital", "controls": "Áudio" },
+    { "id": "plug-5", "name": "Smart Plug 5", "ip": "192.168.0.44", "model": "NovaDigital", "controls": "" },
+    { "id": "plug-6", "name": "Smart Plug 6", "ip": "192.168.0.45", "model": "NovaDigital", "controls": "" }
+  ],
+
+  "tvs": [
+    {
+      "id": "tv-1",
+      "name": "TV 1",
+      "ip": "192.168.0.50",
+      "mac": "TBD",
+      "model": "Hisense 55A51HUA",
+      "zone": "",
+      "broadcastAddr": "192.168.0.255",
+      "notes": "MAC: verificar no roteador (192.168.0.1) ou nas configurações da TV → Rede → Status"
+    },
+    {
+      "id": "tv-2",
+      "name": "TV 2",
+      "ip": "192.168.0.51",
+      "mac": "TBD",
+      "model": "Hisense 55A51HUA",
+      "zone": "",
+      "broadcastAddr": "192.168.0.255",
+      "notes": "MAC: verificar no roteador (192.168.0.1) ou nas configurações da TV → Rede → Status"
+    }
   ],
 
   "space": {
