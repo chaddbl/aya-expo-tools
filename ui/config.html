@@ -113,6 +113,12 @@
     .upload-area-text { font-size:13px; color:var(--text-dim); }
     .upload-area-hint { font-size:11px; color:var(--text-dimmer); margin-top:4px; }
     .upload-preview { max-width:100%; max-height:200px; border-radius:6px; margin-top:12px; }
+    .upload-pdf { margin-top:12px; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+    .upload-pdf iframe { width:100%; height:420px; border:none; display:block; }
+    .upload-pdf-bar { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid var(--border); }
+    .upload-pdf-name { font-size:12px; color:var(--text-dim); font-family:'JetBrains Mono',monospace; }
+    .upload-pdf-link { font-size:12px; color:var(--blue); text-decoration:none; }
+    .upload-pdf-link:hover { text-decoration:underline; }
 
     /* Log */
     .log-list { display:flex; flex-direction:column; gap:6px; }
@@ -231,11 +237,12 @@
       <div class="section-title">Planta da sala</div>
       <div class="section-desc">Imagem mostrando o layout físico da sala — posição das paredes, entradas, saída de emergência. Serve de referência para a equipe de montagem.</div>
       <div class="upload-area" id="upload-planta">
-        <input type="file" accept="image/*" onchange="handleUpload('planta', this)">
+        <input type="file" accept="image/*,application/pdf" onchange="handleUpload('planta', this)">
         <div class="upload-area-text">📐 Clique para fazer upload da planta</div>
-        <div class="upload-area-hint">JPG, PNG ou PDF · Qualquer tamanho</div>
+        <div class="upload-area-hint">JPG, PNG ou PDF</div>
         <img class="upload-preview" id="preview-planta" style="display:none">
       </div>
+      <div id="pdf-planta" style="display:none"></div>
     </div>
 
     <div class="section">
@@ -425,6 +432,10 @@ function populateForm() {
 
   setValue('cfg-pixelmap-notes', config.resolume?.pixelmapNotes);
   setValue('cfg-space-notes', config.space?.notes);
+
+  // Restaurar planta e pixelmap salvos
+  if (config.space?.planta) showFilePreview('planta', config.space.planta, config.space.plantaVersao);
+  if (config.space?.pixelmap) showFilePreview('pixelmap', config.space.pixelmap);
 
   renderProjectors();
   renderCameras();
@@ -679,18 +690,44 @@ function toggleSchedule() {
   document.getElementById('schedule-fields').style.display = enabled ? 'block' : 'none';
 }
 
-// ─── Upload images ────────────────────────────────────────
+// ─── Upload images / PDFs ─────────────────────────────────
 function handleUpload(type, input) {
   const file = input.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    const preview = document.getElementById(`preview-${type}`);
-    preview.src = e.target.result;
-    preview.style.display = 'block';
     if (!config.space) config.space = {};
     config.space[type] = e.target.result;
+    showFilePreview(type, e.target.result, file.name);
   };
   reader.readAsDataURL(file);
+}
+
+function showFilePreview(type, src, label) {
+  const isPdf = src.startsWith('data:application/pdf') || src.endsWith('.pdf') || (src.startsWith('/') && src.includes('.pdf'));
+  const imgEl = document.getElementById(`preview-${type}`);
+  const pdfEl = document.getElementById(`pdf-${type}`);
+
+  if (isPdf) {
+    // Esconde img, mostra iframe
+    if (imgEl) imgEl.style.display = 'none';
+    if (pdfEl) {
+      const filename = label || src.split('/').pop() || 'planta.pdf';
+      const href = src.startsWith('data:') ? src : src;
+      pdfEl.style.display = 'block';
+      pdfEl.innerHTML = `
+        <div class="upload-pdf">
+          <div class="upload-pdf-bar">
+            <span class="upload-pdf-name">📄 ${filename}</span>
+            <a class="upload-pdf-link" href="${href}" target="_blank">Abrir em nova aba ↗</a>
+          </div>
+          <iframe src="${href}"></iframe>
+        </div>`;
+    }
+  } else {
+    // É imagem
+    if (pdfEl) pdfEl.style.display = 'none';
+    if (imgEl) { imgEl.src = src; imgEl.style.display = 'block'; }
+  }
 }
 
 // ─── Save ─────────────────────────────────────────────────
