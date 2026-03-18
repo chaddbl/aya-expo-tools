@@ -62,10 +62,11 @@
   ],
 
   "space": {
-    "planta": "/files/planta-expografia-R02.pdf",
+    "planta": "/files/planta-samuel-de-saboia-dark.png",
+    "plantaPdf": "/files/planta-expografia-R02.pdf",
     "plantaVersao": "R02 — Janeiro 2026 (Brígida Garrido)",
-    "notas": "Exposição Samuel de Saboia. 22º andar do Farol Santander SP. R02 é a versão aprovada para orçamento de cenografia (jan/2026).",
-    "andares": "22º andar — galeria + sala imersiva"
+    "notas": "Exposição Samuel de Saboia — Introdução ao Infinito. 22º andar do Farol Santander SP.\nZonas: Entrada · Obras · Sala Imersiva · Sala Técnica · Vídeo 1 · Vídeo 2.\nR02 aprovada para orçamento de cenografia (13/01/2026).",
+    "andares": "22º andar"
   },
 
   "resolume": {

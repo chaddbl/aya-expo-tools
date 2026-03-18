@@ -434,7 +434,7 @@ function populateForm() {
   setValue('cfg-space-notes', config.space?.notes);
 
   // Restaurar planta e pixelmap salvos
-  if (config.space?.planta) showFilePreview('planta', config.space.planta, config.space.plantaVersao);
+  if (config.space?.planta) showFilePreview('planta', config.space.planta, config.space.plantaVersao, config.space.plantaPdf);
   if (config.space?.pixelmap) showFilePreview('pixelmap', config.space.pixelmap);
 
   renderProjectors();
@@ -702,31 +702,45 @@ function handleUpload(type, input) {
   reader.readAsDataURL(file);
 }
 
-function showFilePreview(type, src, label) {
-  const isPdf = src.startsWith('data:application/pdf') || src.endsWith('.pdf') || (src.startsWith('/') && src.includes('.pdf'));
+function showFilePreview(type, src, label, pdfSrc) {
+  const isPdf = src && (src.startsWith('data:application/pdf') || (src.startsWith('/') && src.endsWith('.pdf')));
   const imgEl = document.getElementById(`preview-${type}`);
   const pdfEl = document.getElementById(`pdf-${type}`);
 
   if (isPdf) {
-    // Esconde img, mostra iframe
     if (imgEl) imgEl.style.display = 'none';
     if (pdfEl) {
       const filename = label || src.split('/').pop() || 'planta.pdf';
-      const href = src.startsWith('data:') ? src : src;
       pdfEl.style.display = 'block';
       pdfEl.innerHTML = `
         <div class="upload-pdf">
           <div class="upload-pdf-bar">
             <span class="upload-pdf-name">📄 ${filename}</span>
-            <a class="upload-pdf-link" href="${href}" target="_blank">Abrir em nova aba ↗</a>
+            <a class="upload-pdf-link" href="${src}" target="_blank">Abrir em nova aba ↗</a>
           </div>
-          <iframe src="${href}"></iframe>
+          <iframe src="${src}"></iframe>
         </div>`;
     }
-  } else {
-    // É imagem
+  } else if (src) {
+    // PNG/imagem — exibir com fundo escuro
     if (pdfEl) pdfEl.style.display = 'none';
-    if (imgEl) { imgEl.src = src; imgEl.style.display = 'block'; }
+    if (imgEl) {
+      imgEl.src = src;
+      imgEl.style.cssText = 'display:block;max-width:100%;border-radius:6px;background:#0a0a0a;margin-top:12px;';
+    }
+    // Link para PDF original, se disponível
+    if (pdfSrc && pdfEl) {
+      pdfEl.style.display = 'block';
+      pdfEl.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border:1px solid var(--border);border-radius:6px;margin-top:8px;">
+          <span style="font-size:11px;color:var(--text-dimmer);font-family:'JetBrains Mono',monospace;">
+            ${label || 'Planta'}
+          </span>
+          <a href="${pdfSrc}" target="_blank" style="font-size:11px;color:var(--blue);text-decoration:none;">
+            Ver PDF original ↗
+          </a>
+        </div>`;
+    }
   }
 }
 
