@@ -6,178 +6,8 @@
   <title>AYA Expo Tools</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared.css">
   <style>
-    :root {
-      --bg: #0a0a0a;
-      --bg-card: #141414;
-      --bg-card-hover: #1a1a1a;
-      --border: #222;
-      --border-light: #333;
-      --text: #e5e5e5;
-      --text-dim: #888;
-      --text-dimmer: #555;
-      --accent: #fff;
-      --green: #22c55e;
-      --green-dim: #16a34a;
-      --red: #ef4444;
-      --red-dim: #dc2626;
-      --amber: #f59e0b;
-      --blue: #3b82f6;
-      --cyan: #06b6d4;
-    }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: 'Inter', -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* ─── Header ─── */
-    .header {
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      backdrop-filter: blur(12px);
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .header-logo {
-      height: 28px;
-      width: auto;
-      opacity: 0.9;
-    }
-
-    .header-divider {
-      width: 1px;
-      height: 20px;
-      background: var(--border-light);
-    }
-
-    .header-title {
-      font-size: 14px;
-      font-weight: 500;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      color: var(--text-dim);
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .header-exhibition {
-      font-size: 13px;
-      color: var(--text-dim);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--green);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    .status-dot.offline { background: var(--red); animation: none; }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    /* ─── Main Layout ─── */
-    .main {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 24px;
-    }
-
-    /* ─── Section ─── */
-    .section {
-      margin-bottom: 32px;
-    }
-
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .section-title {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--text-dim);
-    }
-
-    .section-actions {
-      display: flex;
-      gap: 8px;
-    }
-
-    /* ─── Buttons ─── */
-    .btn {
-      font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      font-weight: 500;
-      padding: 8px 16px;
-      border: 1px solid var(--border-light);
-      border-radius: 6px;
-      background: var(--bg-card);
-      color: var(--text);
-      cursor: pointer;
-      transition: all 0.15s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .btn:hover { background: var(--bg-card-hover); border-color: var(--text-dimmer); }
-    .btn:active { transform: scale(0.97); }
-
-    .btn-on {
-      background: rgba(34, 197, 94, 0.1);
-      border-color: rgba(34, 197, 94, 0.3);
-      color: var(--green);
-    }
-    .btn-on:hover { background: rgba(34, 197, 94, 0.2); }
-
-    .btn-off {
-      background: rgba(239, 68, 68, 0.1);
-      border-color: rgba(239, 68, 68, 0.3);
-      color: var(--red);
-    }
-    .btn-off:hover { background: rgba(239, 68, 68, 0.2); }
-
-    .btn-sm { padding: 5px 10px; font-size: 11px; }
-
-    .btn:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-    }
-
     /* ─── Projector Grid ─── */
     .projector-grid {
       display: grid;
@@ -195,83 +25,73 @@
       overflow: hidden;
     }
 
-    .projector-card:hover {
-      border-color: var(--border-light);
-      background: var(--bg-card-hover);
-    }
+    .projector-card:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
 
     .projector-card::before {
       content: '';
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
+      top: 0; left: 0; right: 0;
       height: 2px;
       background: var(--border);
       transition: background 0.3s;
     }
 
-    .projector-card.power-on::before { background: var(--green); }
-    .projector-card.power-off::before { background: var(--text-dimmer); }
+    .projector-card.power-on::before     { background: var(--green); }
+    .projector-card.power-off::before    { background: var(--text-dimmer); }
     .projector-card.power-warmup::before { background: var(--amber); }
-    .projector-card.power-cooling::before { background: var(--blue); }
+    .projector-card.power-cooling::before{ background: var(--blue); }
     .projector-card.power-unreachable::before { background: var(--red); }
 
-    .proj-name {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
+    .proj-name  { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .proj-ip    { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dimmer); margin-bottom: 12px; }
 
-    .proj-ip {
-      font-size: 11px;
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--text-dimmer);
+    .proj-status { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+
+    .proj-status-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .proj-status-dot.on          { background: var(--green); }
+    .proj-status-dot.off         { background: var(--text-dimmer); }
+    .proj-status-dot.warmup      { background: var(--amber); }
+    .proj-status-dot.cooling     { background: var(--blue); }
+    .proj-status-dot.unreachable { background: var(--red); }
+    .proj-status-dot.unknown     { background: var(--text-dimmer); opacity: 0.5; }
+
+    .proj-status-text { font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    .proj-meta        { font-size: 11px; color: var(--text-dimmer); margin-bottom: 12px; }
+    .proj-actions     { display: flex; gap: 6px; }
+
+    /* ─── Mini-mapa ─── */
+    .minimap-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
       margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
     }
 
-    .proj-status {
+    .minimap-wrap svg { flex-shrink: 0; }
+
+    .minimap-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+    }
+
+    .minimap-legend-item {
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-bottom: 8px;
-    }
-
-    .proj-status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-    }
-
-    .proj-status-dot.on { background: var(--green); }
-    .proj-status-dot.off { background: var(--text-dimmer); }
-    .proj-status-dot.warmup { background: var(--amber); }
-    .proj-status-dot.cooling { background: var(--blue); }
-    .proj-status-dot.unreachable { background: var(--red); }
-    .proj-status-dot.unknown { background: var(--text-dimmer); opacity: 0.5; }
-
-    .proj-status-text {
-      font-size: 12px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .proj-meta {
       font-size: 11px;
-      color: var(--text-dimmer);
-      margin-bottom: 12px;
-    }
-
-    .proj-actions {
-      display: flex;
-      gap: 6px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
     }
 
     /* ─── Camera Grid ─── */
     .camera-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 12px;
     }
 
@@ -279,40 +99,34 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 16px;
+      overflow: hidden;
       transition: all 0.2s;
     }
 
-    .camera-card:hover {
-      border-color: var(--border-light);
+    .camera-card:hover { border-color: var(--border-light); }
+
+    .camera-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px 8px;
     }
 
-    .cam-name {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-
-    .cam-ip {
-      font-size: 11px;
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--text-dimmer);
-      margin-bottom: 8px;
-    }
+    .cam-name   { font-size: 13px; font-weight: 600; }
+    .cam-ip     { font-size: 10px; font-family: 'JetBrains Mono', monospace; color: var(--text-dimmer); margin-top: 2px; }
 
     .cam-status {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 12px;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-dim);
     }
 
     .cam-snapshot {
       width: 100%;
-      height: 180px;
-      background: #111;
-      border-radius: 6px;
-      margin-top: 10px;
+      aspect-ratio: 16/9;
+      background: #0d0d0d;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -321,11 +135,7 @@
       overflow: hidden;
     }
 
-    .cam-snapshot img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+    .cam-snapshot img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
     /* ─── Schedule ─── */
     .schedule-bar {
@@ -340,164 +150,67 @@
       gap: 12px;
     }
 
-    .schedule-times {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .schedule-label {
-      font-size: 11px;
-      color: var(--text-dimmer);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .schedule-time {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 20px;
-      font-weight: 500;
-    }
-
-    .schedule-arrow {
-      color: var(--text-dimmer);
-      font-size: 18px;
-    }
+    .schedule-times { display: flex; align-items: center; gap: 16px; }
+    .schedule-label { font-size: 11px; color: var(--text-dimmer); text-transform: uppercase; letter-spacing: 0.5px; }
+    .schedule-time  { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 500; }
+    .schedule-arrow { color: var(--text-dimmer); font-size: 18px; }
 
     .toggle {
-      width: 40px;
-      height: 22px;
+      width: 40px; height: 22px;
       background: var(--border-light);
       border-radius: 11px;
       cursor: pointer;
       position: relative;
       transition: background 0.2s;
     }
-
     .toggle.active { background: var(--green); }
-
     .toggle::after {
       content: '';
       position: absolute;
-      width: 16px;
-      height: 16px;
+      width: 16px; height: 16px;
       border-radius: 50%;
       background: white;
-      top: 3px;
-      left: 3px;
+      top: 3px; left: 3px;
       transition: transform 0.2s;
     }
+    .toggle.active::after { transform: translateX(18px); }
 
-    .toggle.active::after {
-      transform: translateX(18px);
-    }
+    /* ─── Scan dropdown ─── */
+    .scan-chip-wrap { position: relative; }
 
-    /* ─── Network Status ─── */
-    .network-bar {
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .net-chip {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-    }
-
-    .net-chip .label { color: var(--text-dim); }
-    .net-chip .value { font-weight: 500; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
-
-    /* ─── Footer ─── */
-    .footer {
-      border-top: 1px solid var(--border);
-      padding: 16px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 40px;
-    }
-
-    .footer-left {
-      font-size: 11px;
-      color: var(--text-dimmer);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .footer-right {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: var(--text-dimmer);
-    }
-
-    .pi-mark {
-      height: 14px;
-      width: 14px;
-    }
-
-    /* ─── Loading ─── */
-    .loading-spinner {
-      width: 14px;
-      height: 14px;
-      border: 2px solid var(--border-light);
-      border-top-color: var(--text);
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-      display: inline-block;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ─── Toast ─── */
-    .toast-container {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 200;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .toast {
+    .scan-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
       background: var(--bg-card);
       border: 1px solid var(--border-light);
       border-radius: 8px;
-      padding: 12px 16px;
-      font-size: 12px;
-      animation: slideIn 0.2s ease-out;
-      max-width: 320px;
+      padding: 12px;
+      min-width: 340px;
+      z-index: 200;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
     }
 
-    .toast.success { border-color: rgba(34, 197, 94, 0.3); }
-    .toast.error { border-color: rgba(239, 68, 68, 0.3); }
+    .scan-dropdown.open { display: block; }
 
-    @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
+    .scan-dropdown table { width: 100%; border-collapse: collapse; }
+    .scan-dropdown th   { color: var(--text-dim); text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--border); font-weight: 500; }
+    .scan-dropdown td   { padding: 4px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .scan-dropdown td:first-child { color: var(--cyan); }
 
     /* ─── Responsive ─── */
     @media (max-width: 768px) {
-      .main { padding: 16px; }
+      .camera-grid    { grid-template-columns: repeat(2, 1fr); }
       .projector-grid { grid-template-columns: repeat(2, 1fr); }
-      .camera-grid { grid-template-columns: repeat(2, 1fr); }
-      .header-exhibition { display: none; }
-      .schedule-time { font-size: 16px; }
+      .minimap-wrap   { flex-direction: column; align-items: flex-start; }
     }
 
     @media (max-width: 480px) {
+      .camera-grid    { grid-template-columns: 1fr; }
       .projector-grid { grid-template-columns: 1fr; }
-      .camera-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -506,23 +219,30 @@
   <!-- Header -->
   <header class="header">
     <div class="header-left">
-      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAACQCAYAAADnY7WRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAFzGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgMTAuMC1jMDAwIDI1LkcuZWY3MmU0ZSwgMjAyNS8wNi8yNy0xODo1NDowNSAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0RXZ0PSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VFdmVudCMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDI3LjMgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAyNi0wMS0zMFQxNDoyMjo0Ny0wMzowMCIgeG1wOk1vZGlmeURhdGU9IjIwMjYtMDItMjRUMTM6MzY6MjMtMDM6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMjYtMDItMjRUMTM6MzY6MjMtMDM6MDAiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOmMyNmVhNWJlLTA4YjktOTQ0NC04MWViLTA1MDAzOTk5MzllMCIgeG1wTU06RG9jdW1lbnRJ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"
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAACQCAYAAADnY7WRAAAACXBIWXMAAAsTAAALEwEAmpwYAAAFzGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgMTAuMC1jMDAwIDI1LkcuZWY3MmU0ZSwgMjAyNS8wNi8yNy0xODo1NDowNSAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0RXZ0PSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VFdmVudCMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDI3LjMgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAyNi0wMS0zMFQxNDoyMjo0Ny0wMzowMCIgeG1wOk1vZGlmeURhdGU9IjIwMjYtMDItMjRUMTM6MzY6MjMtMDM6MDAiIHhtcDpNZXRhZGF0YURhdGU9IjIwMjYtMDItMjRUMTM6MzY6MjMtMDM6MDAiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOmMyNmVhNWJlLTA4YjktOTQ0NC04MWViLTA1MDAzOTk5MzllMCIgeG1wTU06RG9jdW1lbnRJ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"
            class="header-logo" alt="AYA">
       <div class="header-divider"></div>
-      <span class="header-title">Expo Tools</span>
+      <span class="header-label">Expo Tools</span>
     </div>
+
+    <!-- Centro: nome da exposição + badge de estado -->
+    <div class="header-center">
+      <span class="header-exhibition-title" id="exhibition-name">—</span>
+      <span class="header-exhibition-venue" id="exhibition-venue"></span>
+      <span class="state-badge" id="state-badge">●&nbsp;CARREGANDO</span>
+    </div>
+
     <div class="header-right">
-      <a href="/verificacao.html" style="font-size:12px;color:var(--text-dim);text-decoration:none;border:1px solid var(--border-light);padding:5px 12px;border-radius:4px;transition:all 0.15s;" onmouseover="this.style.borderColor='#555';this.style.color='#e5e5e5'" onmouseout="this.style.borderColor='var(--border-light)';this.style.color='var(--text-dim)'">✓ Verificação</a>
-      <a href="/config.html" style="font-size:12px;color:var(--text-dim);text-decoration:none;border:1px solid var(--border-light);padding:5px 12px;border-radius:4px;transition:all 0.15s;" onmouseover="this.style.borderColor='#555';this.style.color='#e5e5e5'" onmouseout="this.style.borderColor='var(--border-light)';this.style.color='var(--text-dim)'">⚙ Configurações</a>
-      <span class="header-exhibition" id="exhibition-name">—</span>
+      <a href="/verificacao.html" class="nav-btn">✓ Verificação</a>
+      <a href="/config.html"      class="nav-btn">⚙ Configurações</a>
       <div class="status-dot" id="ws-status"></div>
     </div>
   </header>
 
   <main class="main">
 
-    <!-- Network Status -->
-    <section class="section">
+    <!-- Network bar (com scan integrado) -->
+    <section class="section" style="margin-bottom:20px;">
       <div class="network-bar" id="network-bar">
         <div class="net-chip">
           <div class="status-dot" id="net-internet" style="width:6px;height:6px;"></div>
@@ -540,10 +260,32 @@
           <span class="label">Uptime</span>
           <span class="value" id="net-uptime">—</span>
         </div>
+        <!-- Scan integrado -->
+        <div class="net-chip scan-chip-wrap" style="cursor:pointer;" onclick="toggleScan()">
+          <span class="loading-spinner" id="scan-spinner" style="display:none"></span>
+          <span class="label">Rede</span>
+          <span class="value" id="net-devices-count">—</span>
+          <div class="scan-dropdown" id="scan-dropdown">
+            <div style="color:var(--text-dim);padding:4px 0 8px;">clique para escanear</div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <!-- Projectors -->
+    <!-- ① CÂMERAS — olhos no espaço, primeiro plano -->
+    <section class="section">
+      <div class="section-header">
+        <span class="section-title">Câmeras</span>
+        <div class="section-actions">
+          <button class="btn btn-sm" onclick="checkCameras()">Verificar</button>
+        </div>
+      </div>
+      <div class="camera-grid" id="camera-grid">
+        <!-- Dynamic -->
+      </div>
+    </section>
+
+    <!-- ② PROJETORES — controle depois do feedback visual -->
     <section class="section">
       <div class="section-header">
         <span class="section-title">Projetores</span>
@@ -552,16 +294,26 @@
             <span class="loading-spinner" id="poll-spinner" style="display:none"></span>
             Atualizar
           </button>
-          <button class="btn btn-on btn-sm" onclick="allProjectors('on')">⏻ Ligar Todos</button>
+          <button class="btn btn-on btn-sm"  onclick="allProjectors('on')">⏻ Ligar Todos</button>
           <button class="btn btn-off btn-sm" onclick="allProjectors('off')">⏻ Desligar Todos</button>
         </div>
+      </div>
+      <!-- Mini-mapa circular da sala -->
+      <div class="minimap-wrap" id="minimap-wrap">
+        <svg id="minimap-svg" width="140" height="140" viewBox="0 0 140 140">
+          <!-- sala: círculo de fundo -->
+          <circle cx="70" cy="70" r="60" fill="none" stroke="#1e1e1e" stroke-width="1.5"/>
+          <circle cx="70" cy="70" r="4" fill="#1e1e1e"/>
+          <!-- dots dos dispositivos renderizados via JS -->
+        </svg>
+        <div class="minimap-legend" id="minimap-legend"></div>
       </div>
       <div class="projector-grid" id="projector-grid">
         <!-- Dynamic -->
       </div>
     </section>
 
-    <!-- Schedule -->
+    <!-- ③ SCHEDULE -->
     <section class="section">
       <div class="section-header">
         <span class="section-title">Agenda</span>
@@ -585,35 +337,6 @@
       </div>
     </section>
 
-    <!-- Cameras -->
-    <section class="section">
-      <div class="section-header">
-        <span class="section-title">Câmeras</span>
-        <div class="section-actions">
-          <button class="btn btn-sm" onclick="checkCameras()">Verificar</button>
-        </div>
-      </div>
-      <div class="camera-grid" id="camera-grid">
-        <!-- Dynamic -->
-      </div>
-    </section>
-
-    <!-- Network Scan -->
-    <section class="section">
-      <div class="section-header">
-        <span class="section-title">Rede</span>
-        <div class="section-actions">
-          <button class="btn btn-sm" onclick="scanNetwork()">
-            <span class="loading-spinner" id="scan-spinner" style="display:none"></span>
-            Escanear Rede
-          </button>
-        </div>
-      </div>
-      <div id="network-results" style="font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;">
-        Clique em "Escanear Rede" para descobrir dispositivos
-      </div>
-    </section>
-
   </main>
 
   <!-- Footer -->
@@ -630,28 +353,22 @@
     </div>
   </footer>
 
-  <!-- Toast Container -->
   <div class="toast-container" id="toast-container"></div>
 
   <script>
-    // ─── State ──────────────────────────────────────
     let ws;
     let state = { projectors: [], cameras: [], schedule: {}, exhibition: {} };
+    let scanOpen = false;
 
-    // ─── WebSocket ──────────────────────────────────
+    // ─── WebSocket ───────────────────────────────────────────
     function connectWS() {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       ws = new WebSocket(`${proto}//${location.host}`);
-
-      ws.onopen = () => {
-        document.getElementById('ws-status').classList.remove('offline');
-      };
-
+      ws.onopen  = () => document.getElementById('ws-status').classList.remove('offline');
       ws.onclose = () => {
         document.getElementById('ws-status').classList.add('offline');
         setTimeout(connectWS, 3000);
       };
-
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         switch (msg.type) {
@@ -662,11 +379,13 @@
           case 'projectors':
             state.projectors = msg.data;
             renderProjectors();
+            renderMinimap();
             break;
           case 'projector':
             const idx = state.projectors.findIndex(p => p.id === msg.data.id);
             if (idx >= 0) state.projectors[idx] = msg.data;
             renderProjectors();
+            renderMinimap();
             break;
           case 'cameras':
             state.cameras = msg.data;
@@ -676,17 +395,123 @@
       };
     }
 
-    // ─── Render ─────────────────────────────────────
+    // ─── Render ──────────────────────────────────────────────
     function renderAll() {
-      document.getElementById('exhibition-name').textContent =
-        `${state.exhibition.name || ''} · ${state.exhibition.venue || ''}`;
-      document.title = `AYA · ${state.exhibition.name || 'Expo Tools'}`;
+      const ex = state.exhibition || {};
+      document.getElementById('exhibition-name').textContent  = ex.name  || '—';
+      document.getElementById('exhibition-venue').textContent = ex.venue ? `· ${ex.venue}` : '';
+      document.title = `AYA · ${ex.name || 'Expo Tools'}`;
       renderProjectors();
+      renderMinimap();
       renderCameras();
       renderSchedule();
       updateNetworkBar();
+      updateStateBadge();
     }
 
+    // ─── Badge de estado ─────────────────────────────────────
+    function updateStateBadge() {
+      const badge = document.getElementById('state-badge');
+      const s = state.schedule || {};
+      const now = new Date();
+      const hm = h => {
+        if (!h || h === '—') return null;
+        const [hh, mm] = h.split(':').map(Number);
+        const d = new Date(); d.setHours(hh, mm, 0, 0); return d;
+      };
+      const on  = hm(s.powerOn);
+      const off = hm(s.powerOff);
+
+      if (!s.enabled) {
+        badge.textContent = '○ MANUTENÇÃO';
+        badge.style.color = 'var(--text-dimmer)';
+        badge.style.borderColor = 'var(--border)';
+      } else if (on && off && now >= on && now <= off) {
+        badge.textContent = '● AO VIVO';
+        badge.style.color = 'var(--green)';
+        badge.style.borderColor = 'rgba(34,197,94,0.3)';
+      } else {
+        badge.textContent = '◐ FORA DO HORÁRIO';
+        badge.style.color = 'var(--amber)';
+        badge.style.borderColor = 'rgba(245,158,11,0.3)';
+      }
+    }
+
+    // ─── Mini-mapa circular ──────────────────────────────────
+    function renderMinimap() {
+      const svg    = document.getElementById('minimap-svg');
+      const legend = document.getElementById('minimap-legend');
+      const projs  = state.projectors;
+      if (!projs.length) return;
+
+      // Remover dots anteriores (manter círculo de fundo)
+      svg.querySelectorAll('.mm-dot, .mm-label').forEach(e => e.remove());
+
+      const cx = 70, cy = 70, r = 52;
+      const n = projs.length;
+
+      const colorOf = p => {
+        if (!p.online) return '#3f3f3f';
+        if (p.power === 'on')       return '#22c55e';
+        if (p.power === 'warmup')   return '#f59e0b';
+        if (p.power === 'cooling')  return '#3b82f6';
+        if (p.power === 'off')      return '#555';
+        return '#555';
+      };
+
+      projs.forEach((p, i) => {
+        // Posição: usar config x/y (0-100) ou distribuir em círculo
+        let px, py;
+        if (p.x != null && p.y != null) {
+          px = 10 + (p.x / 100) * 120;
+          py = 10 + (p.y / 100) * 120;
+        } else {
+          const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+          px = cx + r * Math.cos(angle);
+          py = cy + r * Math.sin(angle);
+        }
+
+        const col = colorOf(p);
+
+        // Dot
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('class', 'mm-dot');
+        dot.setAttribute('cx', px.toFixed(1));
+        dot.setAttribute('cy', py.toFixed(1));
+        dot.setAttribute('r', '7');
+        dot.setAttribute('fill', col);
+        dot.setAttribute('stroke', '#0a0a0a');
+        dot.setAttribute('stroke-width', '2');
+        dot.style.cursor = 'pointer';
+        dot.title = p.name;
+        svg.appendChild(dot);
+
+        // Número
+        const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        lbl.setAttribute('class', 'mm-label');
+        lbl.setAttribute('x', px.toFixed(1));
+        lbl.setAttribute('y', (py + 4).toFixed(1));
+        lbl.setAttribute('text-anchor', 'middle');
+        lbl.setAttribute('font-size', '8');
+        lbl.setAttribute('font-family', 'JetBrains Mono, monospace');
+        lbl.setAttribute('fill', '#0a0a0a');
+        lbl.setAttribute('font-weight', '700');
+        lbl.textContent = i + 1;
+        svg.appendChild(lbl);
+      });
+
+      // Legenda
+      legend.innerHTML = projs.map((p, i) => `
+        <div class="minimap-legend-item">
+          <svg width="8" height="8" viewBox="0 0 8 8">
+            <circle cx="4" cy="4" r="4" fill="${colorOf(p)}"/>
+          </svg>
+          P${i+1} ${p.power !== 'unknown' ? p.power.toUpperCase() : '—'}
+        </div>
+      `).join('');
+    }
+
+    // ─── Projectors ──────────────────────────────────────────
     function renderProjectors() {
       const grid = document.getElementById('projector-grid');
       grid.innerHTML = state.projectors.map(p => `
@@ -704,7 +529,7 @@
           <div class="proj-actions">
             ${p.power === 'on'
               ? `<button class="btn btn-off btn-sm" onclick="projectorAction('${p.id}','off')">Desligar</button>`
-              : `<button class="btn btn-on btn-sm" onclick="projectorAction('${p.id}','on')">Ligar</button>`
+              : `<button class="btn btn-on btn-sm"  onclick="projectorAction('${p.id}','on')">Ligar</button>`
             }
           </div>
         </div>
@@ -712,24 +537,29 @@
       updateNetworkBar();
     }
 
+    // ─── Cameras ─────────────────────────────────────────────
     function renderCameras() {
       const grid = document.getElementById('camera-grid');
-      if (state.cameras.length === 0) {
+      if (!state.cameras.length) {
         grid.innerHTML = '<div style="color:var(--text-dimmer);font-size:13px;">Nenhuma câmera configurada</div>';
         return;
       }
       grid.innerHTML = state.cameras.map(c => `
         <div class="camera-card">
-          <div class="cam-name">${c.name}</div>
-          <div class="cam-ip">${c.ip}</div>
-          <div class="cam-status">
-            <div class="status-dot ${c.online ? '' : 'offline'}" style="width:6px;height:6px;"></div>
-            <span>${c.online ? 'Online' : 'Offline'}</span>
+          <div class="camera-card-header">
+            <div>
+              <div class="cam-name">${c.name}</div>
+              <div class="cam-ip">${c.ip}</div>
+            </div>
+            <div class="cam-status">
+              <div class="status-dot ${c.online ? '' : 'offline'}" style="width:6px;height:6px;"></div>
+              <span>${c.online ? 'Online' : 'Offline'}</span>
+            </div>
           </div>
-          <div class="cam-snapshot" id="snap-${c.id}">
+          <div class="cam-snapshot">
             ${c.online
               ? `<img src="/api/cameras/${c.id}/stream" onerror="this.src='/api/cameras/${c.id}/snapshot?t='+Date.now()">`
-              : 'Sem conexão'
+              : '<span>Sem conexão</span>'
             }
           </div>
         </div>
@@ -737,51 +567,88 @@
       updateNetworkBar();
     }
 
+    // ─── Schedule ────────────────────────────────────────────
     function renderSchedule() {
       const s = state.schedule || {};
-      document.getElementById('sched-on').textContent = s.powerOn || '—';
+      document.getElementById('sched-on').textContent  = s.powerOn  || '—';
       document.getElementById('sched-off').textContent = s.powerOff || '—';
       const toggle = document.getElementById('sched-toggle');
-      const label = document.getElementById('sched-label');
-      if (s.enabled) {
-        toggle.classList.add('active');
-        label.textContent = 'Ativo';
-      } else {
-        toggle.classList.remove('active');
-        label.textContent = 'Desativado';
-      }
+      const label  = document.getElementById('sched-label');
+      if (s.enabled) { toggle.classList.add('active');    label.textContent = 'Ativo'; }
+      else           { toggle.classList.remove('active'); label.textContent = 'Desativado'; }
+      updateStateBadge();
     }
 
+    // ─── Network bar ─────────────────────────────────────────
     function updateNetworkBar() {
-      const projOn = state.projectors.filter(p => p.online).length;
+      const projOn   = state.projectors.filter(p => p.online).length;
       const projTotal = state.projectors.length;
-      const camOn = state.cameras.filter(c => c.online).length;
-      const camTotal = state.cameras.length;
-
+      const camOn    = state.cameras.filter(c => c.online).length;
+      const camTotal  = state.cameras.length;
       document.getElementById('net-proj-count').textContent = `${projOn}/${projTotal}`;
-      document.getElementById('net-cam-count').textContent = `${camOn}/${camTotal}`;
+      document.getElementById('net-cam-count').textContent  = `${camOn}/${camTotal}`;
     }
 
-    // ─── API Calls ──────────────────────────────────
-    async function api(method, path, body) {
-      try {
-        const opts = { method, headers: { 'Content-Type': 'application/json' } };
-        if (body) opts.body = JSON.stringify(body);
-        const res = await fetch(`/api${path}`, opts);
-        return await res.json();
-      } catch (err) {
-        toast(`Erro: ${err.message}`, 'error');
-        throw err;
+    // ─── Scan de rede (integrado no network-bar) ─────────────
+    function toggleScan() {
+      const dd      = document.getElementById('scan-dropdown');
+      const spinner = document.getElementById('scan-spinner');
+      const counter = document.getElementById('net-devices-count');
+
+      if (scanOpen) {
+        dd.classList.remove('open');
+        scanOpen = false;
+        return;
       }
+
+      dd.classList.add('open');
+      scanOpen = true;
+      spinner.style.display = 'inline-block';
+      dd.innerHTML = '<div style="color:var(--text-dim);padding:4px 0;">Escaneando...</div>';
+
+      api('POST', '/network/scan').then(data => {
+        counter.textContent = data.devices.length;
+        dd.innerHTML = `
+          <div style="color:var(--text-dim);margin-bottom:6px;font-size:10px;">${data.devices.length} dispositivos · ${data.subnet}</div>
+          <table>
+            <tr><th>IP</th><th>Tipo</th><th>Serviços</th></tr>
+            ${data.devices.map(d => `
+              <tr>
+                <td>${d.ip}</td>
+                <td style="color:${d.type==='camera'?'var(--cyan)':d.type==='device'?'var(--amber)':'var(--text-dim)'};">${d.type}</td>
+                <td style="color:var(--text-dim);">${d.services.join(', ') || '—'}</td>
+              </tr>
+            `).join('')}
+          </table>
+        `;
+        spinner.style.display = 'none';
+      }).catch(() => {
+        dd.innerHTML = '<div style="color:var(--red);">Erro ao escanear</div>';
+        spinner.style.display = 'none';
+      });
+    }
+
+    // Fechar scan ao clicar fora
+    document.addEventListener('click', e => {
+      if (scanOpen && !e.target.closest('.scan-chip-wrap')) {
+        document.getElementById('scan-dropdown').classList.remove('open');
+        scanOpen = false;
+      }
+    });
+
+    // ─── API ─────────────────────────────────────────────────
+    async function api(method, path, body) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(`/api${path}`, opts);
+      return res.json();
     }
 
     async function pollProjectors() {
       const spinner = document.getElementById('poll-spinner');
       spinner.style.display = 'inline-block';
-      try {
-        await api('POST', '/projectors/poll');
-        toast('Projetores atualizados');
-      } catch (e) {}
+      await api('POST', '/projectors/poll');
+      toast('Projetores atualizados');
       spinner.style.display = 'none';
     }
 
@@ -808,46 +675,13 @@
       toast(result.enabled ? 'Agenda ativada' : 'Agenda desativada');
     }
 
-    async function scanNetwork() {
-      const spinner = document.getElementById('scan-spinner');
-      const results = document.getElementById('network-results');
-      spinner.style.display = 'inline-block';
-      results.innerHTML = 'Escaneando...';
-      try {
-        const data = await api('POST', '/network/scan');
-        results.innerHTML = `
-          <div style="margin-bottom:8px;color:var(--text);">
-            ${data.devices.length} dispositivos encontrados em ${data.subnet}
-          </div>
-          <table style="width:100%;border-collapse:collapse;">
-            <tr style="color:var(--text-dim);">
-              <th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--border);">IP</th>
-              <th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--border);">Tipo</th>
-              <th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--border);">Serviços</th>
-            </tr>
-            ${data.devices.map(d => `
-              <tr>
-                <td style="padding:4px 8px;border-bottom:1px solid var(--border);">${d.ip}</td>
-                <td style="padding:4px 8px;border-bottom:1px solid var(--border);">${d.type}</td>
-                <td style="padding:4px 8px;border-bottom:1px solid var(--border);">${d.services.join(', ')}</td>
-              </tr>
-            `).join('')}
-          </table>
-        `;
-      } catch (e) {
-        results.innerHTML = 'Erro ao escanear';
-      }
-      spinner.style.display = 'none';
-    }
-
-    // ─── Health polling ─────────────────────────────
+    // ─── Health ──────────────────────────────────────────────
     async function pollHealth() {
       try {
         const h = await api('GET', '/health');
         document.getElementById('net-uptime').textContent = formatUptime(h.uptime);
-        const inetDot = document.getElementById('net-internet');
-        inetDot.classList.toggle('offline', !h.internet);
-      } catch (e) {}
+        document.getElementById('net-internet').classList.toggle('offline', !h.internet);
+      } catch (_) {}
     }
 
     function formatUptime(s) {
@@ -856,7 +690,7 @@
       return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}min`;
     }
 
-    // ─── Toast ──────────────────────────────────────
+    // ─── Toast ───────────────────────────────────────────────
     function toast(msg, type = 'success') {
       const container = document.getElementById('toast-container');
       const el = document.createElement('div');
@@ -866,9 +700,10 @@
       setTimeout(() => el.remove(), 4000);
     }
 
-    // ─── Init ───────────────────────────────────────
+    // ─── Init ────────────────────────────────────────────────
     connectWS();
     setInterval(pollHealth, 30000);
+    setInterval(updateStateBadge, 60000);
     pollHealth();
   </script>
 </body>
