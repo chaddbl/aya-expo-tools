@@ -278,15 +278,15 @@
     <!-- Paleta de arrastar (aparece quando há planta) -->
     <div class="palette" id="palette">
       <div class="palette-item" data-type="projector"
-           onmousedown="startPaletteDrag(event,'projector')">
+           onpointerdown="startPaletteDrag(event,'projector')">
         <span class="palette-icon">⬡</span><span>Projetor</span>
       </div>
       <div class="palette-item" data-type="camera"
-           onmousedown="startPaletteDrag(event,'camera')">
+           onpointerdown="startPaletteDrag(event,'camera')">
         <span class="palette-icon">◎</span><span>Câmera</span>
       </div>
       <div class="palette-item" data-type="plug"
-           onmousedown="startPaletteDrag(event,'plug')">
+           onpointerdown="startPaletteDrag(event,'plug')">
         <span class="palette-icon">⬟</span><span>Tomada</span>
       </div>
     </div>
@@ -564,80 +564,78 @@ const PALETTE_ICONS  = { projector:'⬡', camera:'◎', plug:'⬟' };
 const PALETTE_LABELS = { projector:'Projetor', camera:'Câmera', plug:'Tomada' };
 const DEVICE_MODELS  = { projector:'NEC PE456USL', camera:'Intelbras VIP 1130 B', plug:'NovaDigital' };
 
-let paletteDrag = null; // { type, ghost, startX, startY, moved }
+let paletteDrag = null;
 
 function startPaletteDrag(e, type) {
   e.preventDefault();
-  const ghost = document.getElementById('drag-ghost');
-  document.getElementById('ghost-icon').textContent = PALETTE_ICONS[type];
+
+  const ghost  = document.getElementById('drag-ghost');
+  const canvas = document.getElementById('canvasArea');
+  const preview = document.getElementById('drop-preview');
+
+  document.getElementById('ghost-icon').textContent  = PALETTE_ICONS[type];
   document.getElementById('ghost-label').textContent = PALETTE_LABELS[type];
+  ghost.style.left    = e.clientX + 'px';
+  ghost.style.top     = e.clientY + 'px';
   ghost.style.display = 'block';
-  ghost.style.left = e.clientX + 'px';
-  ghost.style.top  = e.clientY + 'px';
 
   paletteDrag = { type, moved: false };
 
-  document.addEventListener('mousemove', onPaletteDragMove);
-  document.addEventListener('mouseup',   onPaletteDragEnd);
-}
+  // setPointerCapture garante que todos os eventos chegam aqui,
+  // mesmo se o cursor sair da janela durante o arrastar
+  const el = e.currentTarget;
+  el.setPointerCapture(e.pointerId);
 
-function onPaletteDragMove(e) {
-  if (!paletteDrag) return;
-  paletteDrag.moved = true;
+  function onMove(ev) {
+    paletteDrag.moved = true;
+    ghost.style.left = ev.clientX + 'px';
+    ghost.style.top  = ev.clientY + 'px';
 
-  // Mover ghost
-  const ghost = document.getElementById('drag-ghost');
-  ghost.style.left = e.clientX + 'px';
-  ghost.style.top  = e.clientY + 'px';
-
-  // Verificar se está sobre a planta
-  const img = document.getElementById('plantaImg');
-  const canvas = document.getElementById('canvasArea');
-  if (!img) return;
-  const rect = img.getBoundingClientRect();
-  const overCanvas = e.clientX >= rect.left && e.clientX <= rect.right &&
-                     e.clientY >= rect.top  && e.clientY <= rect.bottom;
-
-  canvas.classList.toggle('drag-over', overCanvas);
-
-  // Mostrar crosshair de drop preview
-  const preview = document.getElementById('drop-preview');
-  if (overCanvas) {
+    const img = document.getElementById('plantaImg');
+    if (!img) return;
+    const imgRect    = img.getBoundingClientRect();
     const canvasRect = canvas.getBoundingClientRect();
-    preview.style.display = 'block';
-    preview.style.left = (e.clientX - canvasRect.left) + 'px';
-    preview.style.top  = (e.clientY - canvasRect.top)  + 'px';
-  } else {
-    preview.style.display = 'none';
-  }
-}
+    const overImg = ev.clientX >= imgRect.left && ev.clientX <= imgRect.right &&
+                    ev.clientY >= imgRect.top  && ev.clientY <= imgRect.bottom;
 
-function onPaletteDragEnd(e) {
-  if (!paletteDrag) return;
-  document.removeEventListener('mousemove', onPaletteDragMove);
-  document.removeEventListener('mouseup',   onPaletteDragEnd);
-
-  document.getElementById('drag-ghost').style.display = 'none';
-  document.getElementById('drop-preview').style.display = 'none';
-  document.getElementById('canvasArea').classList.remove('drag-over');
-
-  if (!paletteDrag.moved) { paletteDrag = null; return; }
-
-  // Verificar se soltou sobre a imagem da planta
-  const img = document.getElementById('plantaImg');
-  if (img) {
-    const rect = img.getBoundingClientRect();
-    const overImg = e.clientX >= rect.left && e.clientX <= rect.right &&
-                    e.clientY >= rect.top  && e.clientY <= rect.bottom;
-
+    canvas.classList.toggle('drag-over', overImg);
     if (overImg) {
-      const xPct = Number(((e.clientX - rect.left) / rect.width  * 100).toFixed(1));
-      const yPct = Number(((e.clientY - rect.top)  / rect.height * 100).toFixed(1));
-      createDeviceAtPosition(paletteDrag.type, xPct, yPct);
+      preview.style.display = 'block';
+      preview.style.left = (ev.clientX - canvasRect.left) + 'px';
+      preview.style.top  = (ev.clientY - canvasRect.top)  + 'px';
+    } else {
+      preview.style.display = 'none';
     }
   }
 
-  paletteDrag = null;
+  function onEnd(ev) {
+    el.removeEventListener('pointermove', onMove);
+    el.removeEventListener('pointerup',   onEnd);
+    el.removeEventListener('pointercancel', onEnd);
+
+    ghost.style.display   = 'none';
+    preview.style.display = 'none';
+    canvas.classList.remove('drag-over');
+
+    if (paletteDrag.moved) {
+      const img = document.getElementById('plantaImg');
+      if (img) {
+        const r = img.getBoundingClientRect();
+        const over = ev.clientX >= r.left && ev.clientX <= r.right &&
+                     ev.clientY >= r.top  && ev.clientY <= r.bottom;
+        if (over) {
+          const xPct = Number(((ev.clientX - r.left) / r.width  * 100).toFixed(1));
+          const yPct = Number(((ev.clientY - r.top)  / r.height * 100).toFixed(1));
+          createDeviceAtPosition(type, xPct, yPct);
+        }
+      }
+    }
+    paletteDrag = null;
+  }
+
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup',   onEnd);
+  el.addEventListener('pointercancel', onEnd);
 }
 
 function createDeviceAtPosition(type, xPct, yPct) {
@@ -646,56 +644,49 @@ function createDeviceAtPosition(type, xPct, yPct) {
   arr.push({
     id: `${type}-${Date.now()}`,
     name: `${PALETTE_LABELS[type]} ${index + 1}`,
-    ip: '',
-    model: DEVICE_MODELS[type],
-    xPct,
-    yPct,
+    ip: '', model: DEVICE_MODELS[type],
+    xPct, yPct,
   });
   renderMarkers();
   renderDeviceLists();
-  // Abrir painel de configuração imediatamente
   switchTab('dispositivos');
   selectDevice(type, index);
 }
 
 // ── Drag de marcador → reposicionar ─────────────────────
-let markerDrag = null; // { type, index, startX, startY }
-
 function startMarkerDrag(e, type, index) {
   e.preventDefault();
   e.stopPropagation();
-  markerDrag = { type, index };
-  document.getElementById('canvasArea').style.cursor = 'grabbing';
-  document.addEventListener('mousemove', onMarkerDragMove);
-  document.addEventListener('mouseup',   onMarkerDragEnd);
-}
 
-function onMarkerDragMove(e) {
-  if (!markerDrag) return;
-  const img = document.getElementById('plantaImg');
-  if (!img) return;
-  const rect = img.getBoundingClientRect();
-  const x = Math.max(0, Math.min(100, (e.clientX - rect.left) / rect.width  * 100));
-  const y = Math.max(0, Math.min(100, (e.clientY - rect.top)  / rect.height * 100));
+  const el     = e.currentTarget;
+  const canvas = document.getElementById('canvasArea');
+  canvas.style.cursor = 'grabbing';
+  el.setPointerCapture(e.pointerId);
 
-  const arr = deviceArray(markerDrag.type);
-  if (arr[markerDrag.index]) {
-    arr[markerDrag.index].xPct = Number(x.toFixed(1));
-    arr[markerDrag.index].yPct = Number(y.toFixed(1));
+  function onMove(ev) {
+    const img = document.getElementById('plantaImg');
+    if (!img) return;
+    const r = img.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, (ev.clientX - r.left) / r.width  * 100));
+    const y = Math.max(0, Math.min(100, (ev.clientY - r.top)  / r.height * 100));
+    const arr = deviceArray(type);
+    if (arr[index]) { arr[index].xPct = Number(x.toFixed(1)); arr[index].yPct = Number(y.toFixed(1)); }
+    renderMarkers();
   }
-  renderMarkers(); // atualiza posição em tempo real
-}
 
-function onMarkerDragEnd(e) {
-  if (!markerDrag) return;
-  document.removeEventListener('mousemove', onMarkerDragMove);
-  document.removeEventListener('mouseup',   onMarkerDragEnd);
-  document.getElementById('canvasArea').style.cursor = '';
-  // Atualizar painel se aberto
-  if (selectedDevice?.type === markerDrag.type && selectedDevice?.index === markerDrag.index) {
-    renderDeviceDetail(markerDrag.type, markerDrag.index);
+  function onEnd() {
+    el.removeEventListener('pointermove', onMove);
+    el.removeEventListener('pointerup',   onEnd);
+    el.removeEventListener('pointercancel', onEnd);
+    canvas.style.cursor = '';
+    if (selectedDevice?.type === type && selectedDevice?.index === index) {
+      renderDeviceDetail(type, index);
+    }
   }
-  markerDrag = null;
+
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup',   onEnd);
+  el.addEventListener('pointercancel', onEnd);
 }
 
 function renderMarkers() {
@@ -731,15 +722,15 @@ function renderMarkers() {
       m.style.cursor = 'grab';
       m.innerHTML = `<div class="marker-dot"></div><div class="marker-label">${d.name}</div>`;
 
-      let clickIntent = true;
-      m.addEventListener('mousedown', e => {
-        clickIntent = true;
+      let dragMoved = false;
+      m.addEventListener('pointerdown', e => {
+        dragMoved = false;
         e.stopPropagation();
         startMarkerDrag(e, d._type, d._i);
       });
-      m.addEventListener('mousemove', () => { clickIntent = false; });
-      m.addEventListener('mouseup', e => {
-        if (clickIntent) { e.stopPropagation(); selectDevice(d._type, d._i); }
+      m.addEventListener('pointermove', () => { dragMoved = true; });
+      m.addEventListener('pointerup', e => {
+        if (!dragMoved) { e.stopPropagation(); selectDevice(d._type, d._i); }
       });
 
       canvasArea.appendChild(m);
