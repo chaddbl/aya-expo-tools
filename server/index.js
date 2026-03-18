@@ -176,6 +176,9 @@ app.post('/api/schedule', (req, res) => {
   res.json(scheduler.getStatus());
 });
 
+// ─── Static: config files (plants, pixelmaps) ─────────────
+app.use('/files', express.static(path.join(__dirname, '..', 'config')));
+
 // ─── API: Config editor ────────────────────────────────────
 app.get('/api/config', (req, res) => {
   res.json(config);

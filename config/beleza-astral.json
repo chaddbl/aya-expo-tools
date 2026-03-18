@@ -61,6 +61,13 @@
     { "id": "plug-4", "name": "Smart Plug 4", "ip": "192.168.0.43", "model": "NovaDigital", "controls": "Áudio" }
   ],
 
+  "space": {
+    "planta": "/files/planta-expografia-R02.pdf",
+    "plantaVersao": "R02 — Janeiro 2026 (Brígida Garrido)",
+    "notas": "Exposição Samuel de Saboia. 22º andar do Farol Santander SP. R02 é a versão aprovada para orçamento de cenografia (jan/2026).",
+    "andares": "22º andar — galeria + sala imersiva"
+  },
+
   "resolume": {
     "process": "Arena.exe",
     "pixelmap": "",
