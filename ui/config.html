@@ -414,6 +414,10 @@
       <div class="section">
         <div class="section-label">Sobre o espaço</div>
         <div class="field">
+          <label class="field-label">Nome da exposição</label>
+          <input type="text" id="cfg-exhibition-name" placeholder="ex: Beleza Astral">
+        </div>
+        <div class="field">
           <label class="field-label">Venue</label>
           <input type="text" id="cfg-venue" placeholder="ex: Farol Santander">
         </div>
@@ -587,6 +591,7 @@ async function init() {
 function populateForm() {
   const e = config.exhibition || {};
   const net = e.network || {};
+  setValue('cfg-exhibition-name', e.name);
   setValue('cfg-venue', config.space?.venue || e.venue);
   setValue('cfg-andares', config.space?.andares);
   setValue('cfg-space-notes', config.space?.notes);
@@ -1087,6 +1092,7 @@ async function saveConfig() {
     ...config,
     exhibition: {
       ...config.exhibition,
+      name: getValue('cfg-exhibition-name') || config.exhibition?.name,
       venue: getValue('cfg-venue'),
       network: {
         ...config.exhibition?.network,
