@@ -5,7 +5,85 @@
  */
 
 const http = require('http');
+const crypto = require('crypto');
 const { URL } = require('url');
+
+/**
+ * Digest auth helper — parses WWW-Authenticate header and computes response
+ * Used by Intelbras iMD 3C and most modern Dahua-based cameras
+ */
+function parseDigestHeader(header) {
+  const fields = {};
+  const re = /(\w+)="([^"]+)"/g;
+  let m;
+  while ((m = re.exec(header)) !== null) fields[m[1]] = m[2];
+  return fields;
+}
+
+function buildDigestAuth(method, uri, user, password, digest) {
+  const { realm, nonce, qop } = digest;
+  const nc = '00000001';
+  const cnonce = crypto.randomBytes(8).toString('hex');
+  const ha1 = crypto.createHash('md5').update(`${user}:${realm}:${password}`).digest('hex');
+  const ha2 = crypto.createHash('md5').update(`${method}:${uri}`).digest('hex');
+  const response = qop
+    ? crypto.createHash('md5').update(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`).digest('hex')
+    : crypto.createHash('md5').update(`${ha1}:${nonce}:${ha2}`).digest('hex');
+
+  let auth = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}"`;
+  if (qop) auth += `, qop=${qop}, nc=${nc}, cnonce="${cnonce}"`;
+  if (digest.opaque) auth += `, opaque="${digest.opaque}"`;
+  return auth;
+}
+
+function httpGetWithDigest(url, user, password, timeout = 5000) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const path = parsed.pathname + parsed.search;
+
+    const doRequest = (authHeader) => {
+      const opts = {
+        hostname: parsed.hostname,
+        port: parsed.port || 80,
+        path,
+        method: 'GET',
+        timeout,
+        headers: authHeader ? { Authorization: authHeader } : {},
+      };
+
+      const req = http.request(opts, (res) => {
+        if (res.statusCode === 401) {
+          const wwwAuth = res.headers['www-authenticate'] || '';
+          res.resume();
+          if (authHeader) return reject(new Error('Auth failed (credentials incorretos?)'));
+          if (wwwAuth.toLowerCase().startsWith('digest')) {
+            const digest = parseDigestHeader(wwwAuth);
+            const auth = buildDigestAuth('GET', path, user, password, digest);
+            doRequest(auth);
+          } else if (wwwAuth.toLowerCase().startsWith('basic')) {
+            const basic = 'Basic ' + Buffer.from(`${user}:${password}`).toString('base64');
+            doRequest(basic);
+          } else {
+            reject(new Error('Auth scheme não suportado'));
+          }
+          return;
+        }
+        if (res.statusCode !== 200) {
+          res.resume();
+          return reject(new Error(`HTTP ${res.statusCode}`));
+        }
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => resolve({ buffer: Buffer.concat(chunks), statusCode: res.statusCode }));
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+      req.end();
+    };
+
+    doRequest(null); // primeiro disparo sem auth — câmera devolve 401 com scheme
+  });
+}
 
 class Camera {
   constructor(config) {
@@ -36,27 +114,29 @@ class Camera {
   }
 
   /**
-   * Check if camera HTTP interface is reachable
+   * Check if camera HTTP interface is reachable (TCP connect on port 80)
+   * iMD 3C retorna 401 no GET / — consideramos online se o TCP responde
    */
   async checkOnline() {
     return new Promise((resolve) => {
-      const req = http.get(`http://${this.ip}:${this.httpPort}/`, { timeout: 3000 }, (res) => {
+      const net = require('net');
+      const socket = new net.Socket();
+      socket.setTimeout(3000);
+      socket.connect(this.httpPort, this.ip, () => {
+        socket.destroy();
         this.state.online = true;
         this.state.lastCheck = new Date().toISOString();
-        res.resume();
         resolve(true);
       });
-
-      req.on('error', () => {
+      socket.on('error', () => {
         this.state.online = false;
         this.state.lastCheck = new Date().toISOString();
         resolve(false);
       });
-
-      req.on('timeout', () => {
+      socket.on('timeout', () => {
+        socket.destroy();
         this.state.online = false;
         this.state.lastCheck = new Date().toISOString();
-        req.destroy();
         resolve(false);
       });
     });
@@ -64,39 +144,20 @@ class Camera {
 
   /**
    * Get JPEG snapshot via HTTP (Intelbras/Dahua compatible)
+   * Auto-negotiates Digest or Basic auth — iMD 3C Black uses Digest by default
    */
   async getSnapshot() {
-    return new Promise((resolve, reject) => {
-      const auth = Buffer.from(`${this.user}:${this.password}`).toString('base64');
-      const url = `http://${this.ip}:${this.httpPort}/cgi-bin/snapshot.cgi?channel=${this.channel}`;
-
-      const req = http.get(url, {
-        timeout: 5000,
-        headers: { 'Authorization': `Basic ${auth}` }
-      }, (res) => {
-        if (res.statusCode === 401) {
-          // Try digest auth fallback — for now just report
-          reject(new Error('Authentication required (Digest)'));
-          return;
-        }
-        if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode}`));
-          return;
-        }
-
-        const chunks = [];
-        res.on('data', chunk => chunks.push(chunk));
-        res.on('end', () => {
-          const buffer = Buffer.concat(chunks);
-          this.state.online = true;
-          this.state.lastCheck = new Date().toISOString();
-          resolve(buffer);
-        });
-      });
-
-      req.on('error', (err) => reject(err));
-      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
-    });
+    const url = `http://${this.ip}:${this.httpPort}/cgi-bin/snapshot.cgi?channel=${this.channel}`;
+    try {
+      const { buffer } = await httpGetWithDigest(url, this.user, this.password);
+      this.state.online = true;
+      this.state.lastCheck = new Date().toISOString();
+      return buffer;
+    } catch (err) {
+      this.state.online = false;
+      this.state.lastCheck = new Date().toISOString();
+      throw err;
+    }
   }
 
   getStatus() {

@@ -38,10 +38,10 @@
   ],
 
   "cameras": [
-    { "id": "cam-1", "name": "Câmera 1", "ip": "192.168.0.30", "model": "Intelbras VIP 1130 B", "user": "admin", "password": "" },
-    { "id": "cam-2", "name": "Câmera 2", "ip": "192.168.0.31", "model": "Intelbras VIP 1130 B", "user": "admin", "password": "" },
-    { "id": "cam-3", "name": "Câmera 3", "ip": "192.168.0.32", "model": "Intelbras VIP 1130 B", "user": "admin", "password": "" },
-    { "id": "cam-4", "name": "Câmera 4", "ip": "192.168.0.33", "model": "Intelbras VIP 1130 B", "user": "admin", "password": "" }
+    { "id": "cam-1", "name": "Câmera 1", "ip": "192.168.0.30", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "", "serial": "FJ1M24007238M" },
+    { "id": "cam-2", "name": "Câmera 2", "ip": "192.168.0.31", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "" },
+    { "id": "cam-3", "name": "Câmera 3", "ip": "192.168.0.32", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "" },
+    { "id": "cam-4", "name": "Câmera 4", "ip": "192.168.0.33", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "" }
   ],
 
   "audio": {
