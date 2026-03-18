@@ -40,7 +40,7 @@
   "cameras": [
     { "id": "cam-1", "name": "Câmera 1", "ip": "192.168.0.181", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac", "serial": "FJ1M24007238M" },
     { "id": "cam-2", "name": "Câmera 2", "ip": "192.168.0.108", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" },
-    { "id": "cam-3", "name": "Câmera 3", "ip": "192.168.0.32", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "" },
+    { "id": "cam-3", "name": "Câmera 3", "ip": "192.168.0.101", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" },
     { "id": "cam-4", "name": "Câmera 4", "ip": "192.168.0.33", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "" }
   ],
 
