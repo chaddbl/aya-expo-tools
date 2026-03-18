@@ -18,6 +18,11 @@
   --amber: #f59e0b;
   --blue: #3b82f6;
   --cyan: #06b6d4;
+
+  /* Raio padrão AYA — angular, não arredondado */
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-md: 6px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -87,7 +92,7 @@ body {
   letter-spacing: 1px;
   text-transform: uppercase;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   color: var(--text-dimmer);
   font-family: 'JetBrains Mono', monospace;
@@ -108,7 +113,7 @@ body {
   text-decoration: none;
   border: 1px solid var(--border-light);
   padding: 5px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   transition: border-color 0.15s, color 0.15s;
   white-space: nowrap;
 }
@@ -167,7 +172,7 @@ body {
   font-weight: 500;
   padding: 8px 16px;
   border: 1px solid var(--border-light);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   color: var(--text);
   cursor: pointer;
@@ -196,7 +201,7 @@ body {
 .net-chip {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 9px 14px;
   display: flex;
   align-items: center;
@@ -244,7 +249,7 @@ body {
 .toast {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 11px 16px;
   font-size: 12px;
   animation: slideIn 0.2s ease-out;
