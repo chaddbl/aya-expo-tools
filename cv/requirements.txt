@@ -1,0 +1,7 @@
+# AYA Expo Tools — Computer Vision dependencies
+# GPU: NVIDIA GTX 1080 Ti (CUDA 12.x)
+# Install: pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121
+
+ultralytics>=8.3.0
+opencv-python-headless>=4.9.0
+numpy>=1.24.0

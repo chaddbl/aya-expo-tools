@@ -12,6 +12,7 @@ const { ProjectorManager } = require('./pjlink');
 const { CameraManager } = require('./cameras');
 const { Scheduler } = require('./scheduler');
 const { PortalSync } = require('./portal-sync');
+const { CVManager } = require('./cv');
 const network = require('./network');
 const commissioning = require('./commissioning');
 const tv = require('./tv');
@@ -58,7 +59,8 @@ const session = {
 const projectors = new ProjectorManager(config);
 const cameras = new CameraManager(config);
 const scheduler = new Scheduler(projectors, config);
-const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog, session);
+const cvManager = new CVManager(config);
+const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog, session, cvManager);
 
 function isRemoteCommand(req) {
   // Comandos do portal vêm com header X-Remote-Command
@@ -323,6 +325,7 @@ app.put('/api/config', (req, res) => {
     projectors.reload(config);
     cameras.reload(config);
     scheduler.updateConfig(config);
+    cvManager.reload(config);
     res.json({ ok: true, config: updated });
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -533,9 +536,65 @@ app.post('/api/tv/all/off', async (req, res) => {
   res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
 });
 
+// ─── API: Computer Vision ──────────────────────────────────
+app.get('/api/cv/status', (req, res) => {
+  res.json(cvManager.getStatus());
+});
+
+app.get('/api/cv/count', (req, res) => {
+  const detections = cvManager.getDetections();
+  if (!detections) return res.json({ count: null, running: cvManager.getStatus().running });
+  res.json({
+    count: detections.count,
+    camera: detections.camera,
+    fps: detections.fps,
+    timestamp: detections.timestamp,
+  });
+});
+
+app.get('/api/cv/detections', (req, res) => {
+  const detections = cvManager.getDetections();
+  if (!detections) return res.status(503).json({ error: 'CV not running or no data yet' });
+  res.json(detections);
+});
+
+app.get('/api/cv/heatmap', (req, res) => {
+  const buffer = cvManager.getHeatmap();
+  if (!buffer) return res.status(404).json({ error: 'No heatmap available' });
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'no-store');
+  res.send(buffer);
+});
+
+app.get('/api/cv/frame', (req, res) => {
+  const buffer = cvManager.getFrame();
+  if (!buffer) return res.status(404).json({ error: 'No frame available' });
+  res.set('Content-Type', 'image/jpeg');
+  res.set('Cache-Control', 'no-store');
+  res.send(buffer);
+});
+
+app.post('/api/cv/start', (req, res) => {
+  if (cvManager.getStatus().running) return res.json({ ok: true, message: 'Already running' });
+  cvManager.enabled = true;
+  cvManager.start();
+  res.json({ ok: true, message: 'CV starting' });
+});
+
+app.post('/api/cv/stop', (req, res) => {
+  cvManager.stop();
+  res.json({ ok: true, message: 'CV stopping' });
+});
+
+app.post('/api/cv/heatmap/reset', (req, res) => {
+  const ok = cvManager.resetHeatmap();
+  res.json({ ok, message: ok ? 'Heatmap reset' : 'Failed to reset' });
+});
+
 // ─── API: Health ───────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
   const inet = await network.checkInternet();
+  const cvStatus = cvManager.getStatus();
   res.json({
     status: 'ok',
     exhibition: config.exhibition.name,
@@ -545,6 +604,7 @@ app.get('/api/health', async (req, res) => {
     tvs: (config.tvs || []).length,
     internet: inet.online,
     schedule: scheduler.enabled,
+    cv: { enabled: cvStatus.enabled, running: cvStatus.running, count: cvStatus.detections?.count ?? null },
     timestamp: new Date().toISOString(),
   });
 });
@@ -591,6 +651,7 @@ server.listen(PORT, HOST, () => {
   cameras.startPolling(30000);
   scheduler.start();
   portalSync.start();
+  cvManager.start();
 });
 
 // ─── Graceful shutdown ─────────────────────────────────────
@@ -600,6 +661,7 @@ process.on('SIGINT', () => {
   cameras.stopPolling();
   scheduler.stop();
   portalSync.stop();
+  cvManager.stop();
   server.close();
   process.exit(0);
 });

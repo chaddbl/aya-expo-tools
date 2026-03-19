@@ -24,6 +24,15 @@
     "powerOff": "20:00",
     "timezone": "America/Sao_Paulo"
   },
+  "cv": {
+    "enabled": false,
+    "camera": "cam-1",
+    "gpu": 1,
+    "model": "yolov8n",
+    "interval": 2,
+    "confidence": 0.4,
+    "heatmapDecay": 0.999
+  },
   "server": {
     "port": 3000,
     "host": "0.0.0.0"

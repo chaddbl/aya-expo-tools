@@ -104,9 +104,84 @@ if %errorLevel% neq 0 (
 )
 echo         Dependencias instaladas. OK.
 
-:: ─── Step 3: RustDesk ────────────────────────────────────────
+:: ─── Step 3: Python + Computer Vision ────────────────────────
 echo.
-echo   [3/5] Verificando RustDesk...
+echo   [3/7] Verificando Python para Computer Vision...
+
+set PYTHON_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe
+set CV_DIR=%INSTALL_DIR%\cv
+set VENV_DIR=%CV_DIR%\venv
+
+where python >nul 2>&1
+if %errorLevel% equ 0 (
+  for /f "tokens=*" %%v in ('python --version 2^>^&1') do echo         %%v ja instalado.
+  goto :python_ok
+)
+
+echo         Python nao encontrado. Instalando...
+where winget >nul 2>&1
+if %errorLevel% equ 0 (
+  winget install Python.Python.3.11 --silent --accept-package-agreements --accept-source-agreements
+) else (
+  mkdir "%TEMP_DIR%" >nul 2>&1
+  echo         Baixando Python 3.11...
+  curl -L -o "%TEMP_DIR%\python-installer.exe" "%PYTHON_URL%" --progress-bar
+  echo         Instalando Python...
+  "%TEMP_DIR%\python-installer.exe" /quiet InstallAllUsers=1 PrependPath=1 Include_pip=1
+)
+
+:: Reload PATH
+for /f "tokens=*" %%p in ('powershell -Command "[System.Environment]::GetEnvironmentVariable(\"PATH\",\"Machine\")"') do set PATH=%%p;%PATH%
+
+where python >nul 2>&1
+if %errorLevel% neq 0 (
+  echo   [!] Falha ao instalar Python. CV nao estara disponivel.
+  echo       Instale manualmente: https://www.python.org/downloads/
+  goto :skip_cv
+)
+echo         Python instalado com sucesso.
+
+:python_ok
+:: Verifica se tem GPU NVIDIA (para CUDA)
+echo.
+echo   [3b/7] Configurando ambiente CV...
+where nvidia-smi >nul 2>&1
+if %errorLevel% equ 0 (
+  echo         GPU NVIDIA detectada. Instalando PyTorch com CUDA...
+  set TORCH_INDEX=--extra-index-url https://download.pytorch.org/whl/cu121
+) else (
+  echo         GPU NVIDIA nao detectada. Instalando PyTorch CPU...
+  set TORCH_INDEX=
+)
+
+:: Criar venv se nao existe
+if not exist "%VENV_DIR%\Scripts\python.exe" (
+  echo         Criando ambiente virtual Python...
+  python -m venv "%VENV_DIR%"
+)
+
+:: Instalar dependencias
+echo         Instalando dependencias CV (PyTorch + YOLO + OpenCV)...
+echo         Isso pode demorar 5-10 minutos na primeira vez...
+"%VENV_DIR%\Scripts\pip.exe" install --quiet torch torchvision --index-url https://download.pytorch.org/whl/cu121
+"%VENV_DIR%\Scripts\pip.exe" install --quiet -r "%CV_DIR%\requirements.txt"
+
+if %errorLevel% neq 0 (
+  echo   [!] Erro ao instalar dependencias CV.
+  goto :skip_cv
+)
+
+:: Download YOLO model (yolov8n — 6MB, muito rapido)
+echo         Baixando modelo YOLO...
+"%VENV_DIR%\Scripts\python.exe" -c "from ultralytics import YOLO; YOLO('yolov8n')" 2>nul
+echo         Modelo YOLOv8-nano pronto.
+echo         Computer Vision configurado. OK.
+
+:skip_cv
+
+:: ─── Step 4: RustDesk ────────────────────────────────────────
+echo.
+echo   [4/7] Verificando RustDesk...
 tasklist /FI "IMAGENAME eq rustdesk.exe" 2>nul | find /I "rustdesk.exe" >nul
 if %errorLevel% equ 0 (
   echo         RustDesk ja esta rodando. OK.
@@ -126,9 +201,9 @@ if %errorLevel% equ 0 (
   )
 )
 
-:: ─── Step 4: Auto-start ──────────────────────────────────────
+:: ─── Step 5: Auto-start ──────────────────────────────────────
 echo.
-echo   [4/5] Configurando inicializacao automatica...
+echo   [5/7] Configurando inicializacao automatica...
 
 set START_SCRIPT=%INSTALL_DIR%\start.bat
 echo @echo off > "%START_SCRIPT%"
@@ -146,9 +221,9 @@ if %errorLevel% neq 0 (
   echo         Task Scheduler atualizado.
 )
 
-:: ─── Step 5: Atalho na area de trabalho ──────────────────────
+:: ─── Step 6: Atalho na area de trabalho ──────────────────────
 echo.
-echo   [5/5] Criando atalho na area de trabalho...
+echo   [6/7] Criando atalho na area de trabalho...
 
 set SHORTCUT=%PUBLIC%\Desktop\AYA Expo Tools.lnk
 powershell -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%SHORTCUT%'); $s.TargetPath='%START_SCRIPT%'; $s.WorkingDirectory='%INSTALL_DIR%'; $s.Description='AYA Expo Tools'; $s.Save()"

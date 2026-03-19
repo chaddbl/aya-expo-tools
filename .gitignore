@@ -2,3 +2,7 @@ node_modules/
 *.log
 .env
 tmp-*
+cv/output/
+cv/venv/
+cv/*.pt
+cv/*.onnx

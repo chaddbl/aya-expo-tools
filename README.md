@@ -171,6 +171,14 @@ localhost:3000/setup
 | GET | `/api/schedule` | Status da agenda |
 | POST | `/api/schedule` | Atualiza liga/desliga |
 | GET | `/api/server/health` | CPU, GPU, RAM, temp, uptime |
+| GET | `/api/cv/status` | Status do detector CV |
+| GET | `/api/cv/count` | Contagem atual de pessoas |
+| GET | `/api/cv/detections` | Detecções completas (bounding boxes) |
+| GET | `/api/cv/heatmap` | Heatmap acumulado (PNG) |
+| GET | `/api/cv/frame` | Frame anotado com detecções (JPEG) |
+| POST | `/api/cv/start` | Inicia detector CV |
+| POST | `/api/cv/stop` | Para detector CV |
+| POST | `/api/cv/heatmap/reset` | Reseta heatmap acumulado |
 | WS | `/ws` | WebSocket — sync com Portal AYA |
 
 ---
