@@ -11,6 +11,7 @@ const fs = require('fs');
 const { ProjectorManager } = require('./pjlink');
 const { CameraManager } = require('./cameras');
 const { Scheduler } = require('./scheduler');
+const { PortalSync } = require('./portal-sync');
 const network = require('./network');
 const commissioning = require('./commissioning');
 const tv = require('./tv');
@@ -34,10 +35,23 @@ console.log(`\n  ◇ AYA EXPO TOOLS`);
 console.log(`  ${config.exhibition.name} — ${config.exhibition.venue}`);
 console.log(`  ${config.projectors.length} projetores · ${config.cameras.length} câmeras\n`);
 
+// ─── Log (definido cedo — usado por PortalSync e pelas rotas) ──
+const LOG_PATH = path.join(__dirname, '..', 'config', 'log.json');
+
+function readLog() {
+  if (!fs.existsSync(LOG_PATH)) return [];
+  try { return JSON.parse(fs.readFileSync(LOG_PATH, 'utf8')); } catch { return []; }
+}
+
+function writeLog(entries) {
+  fs.writeFileSync(LOG_PATH, JSON.stringify(entries, null, 2));
+}
+
 // ─── Initialize Managers ───────────────────────────────────
 const projectors = new ProjectorManager(config);
 const cameras = new CameraManager(config);
 const scheduler = new Scheduler(projectors, config);
+const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog);
 
 // ─── Express App ───────────────────────────────────────────
 const app = express();
@@ -286,17 +300,6 @@ app.post('/api/config/test/plug/:i', async (req, res) => {
 });
 
 // ─── API: Log ──────────────────────────────────────────────
-const LOG_PATH = path.join(__dirname, '..', 'config', 'log.json');
-
-function readLog() {
-  if (!fs.existsSync(LOG_PATH)) return [];
-  try { return JSON.parse(fs.readFileSync(LOG_PATH, 'utf8')); } catch { return []; }
-}
-
-function writeLog(entries) {
-  fs.writeFileSync(LOG_PATH, JSON.stringify(entries, null, 2));
-}
-
 app.get('/api/log', (req, res) => {
   res.json(readLog());
 });
@@ -506,6 +509,7 @@ server.listen(PORT, HOST, () => {
   projectors.startPolling(config.pjlink?.pollInterval || 30000);
   cameras.startPolling(30000);
   scheduler.start();
+  portalSync.start();
 });
 
 // ─── Graceful shutdown ─────────────────────────────────────
@@ -514,6 +518,7 @@ process.on('SIGINT', () => {
   projectors.stopPolling();
   cameras.stopPolling();
   scheduler.stop();
+  portalSync.stop();
   server.close();
   process.exit(0);
 });
