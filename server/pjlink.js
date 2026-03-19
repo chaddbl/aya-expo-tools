@@ -318,6 +318,23 @@ class ProjectorManager {
     return Promise.allSettled(this.all().map(p => p.powerOff()));
   }
 
+  reload(config) {
+    const wasPolling = !!this.pollTimer;
+    this.stopPolling();
+    this.pjlinkConfig = config.pjlink || {};
+    this.projectors.clear();
+    for (const p of config.projectors || []) {
+      const proj = new Projector({
+        ...p,
+        password: p.password || this.pjlinkConfig.password || '',
+        port: p.port || this.pjlinkConfig.port || PJLINK_PORT,
+      });
+      this.projectors.set(p.id, proj);
+    }
+    if (wasPolling) this.startPolling();
+    console.log(`[PJLink] Reloaded — ${this.projectors.size} projetores`);
+  }
+
   startPolling(interval) {
     const ms = interval || this.pjlinkConfig.pollInterval || 30000;
     this.stopPolling();

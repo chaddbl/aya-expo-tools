@@ -12,6 +12,7 @@
       "mediaServer": "192.168.0.10",
       "router": {
         "model": "",
+        "mac": "3C:6A:D2:5E:0D:50",
         "adminUrl": "http://192.168.0.1",
         "user": "admin",
         "password": ""
@@ -31,19 +32,19 @@
   },
 
   "projectors": [
-    { "id": "proj-1", "name": "Projetor 1", "ip": "192.168.0.101", "model": "NEC PE456USL", "input": "HDMI1" },
-    { "id": "proj-2", "name": "Projetor 2", "ip": "192.168.0.102", "model": "NEC PE456USL", "input": "HDMI1" },
-    { "id": "proj-3", "name": "Projetor 3", "ip": "192.168.0.103", "model": "NEC PE456USL", "input": "HDMI1" },
-    { "id": "proj-4", "name": "Projetor 4", "ip": "192.168.0.104", "model": "NEC PE456USL", "input": "HDMI1" },
-    { "id": "proj-5", "name": "Projetor 5", "ip": "192.168.0.105", "model": "NEC PE456USL", "input": "HDMI1" },
-    { "id": "proj-6", "name": "Projetor 6", "ip": "192.168.0.106", "model": "NEC PE456USL", "input": "HDMI1" }
+    { "id": "proj-1", "name": "Projetor 1", "ip": "192.168.0.101", "mac": "14:50:51:AD:B4:16", "model": "NEC PE456USL", "input": "HDMI1" },
+    { "id": "proj-2", "name": "Projetor 2", "ip": "192.168.0.102", "mac": "14:50:51:AD:8F:2E", "model": "NEC PE456USL", "input": "HDMI1" },
+    { "id": "proj-3", "name": "Projetor 3", "ip": "192.168.0.103", "mac": "14:50:51:AD:6A:58", "model": "NEC PE456USL", "input": "HDMI1" },
+    { "id": "proj-4", "name": "Projetor 4", "ip": "192.168.0.104", "mac": "14:50:51:AD:6A:55", "model": "NEC PE456USL", "input": "HDMI1" },
+    { "id": "proj-5", "name": "Projetor 5", "ip": "192.168.0.105", "mac": "14:50:51:AD:7C:24", "model": "NEC PE456USL", "input": "HDMI1" },
+    { "id": "proj-6", "name": "Projetor 6", "ip": "192.168.0.106", "mac": "8C:52:19:44:9F:B3", "model": "NEC PE456USL", "input": "HDMI1" }
   ],
 
   "cameras": [
-    { "id": "cam-1", "name": "Câmera 1", "ip": "192.168.0.201", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac", "serial": "FJ1M24007238M" },
-    { "id": "cam-2", "name": "Câmera 2", "ip": "192.168.0.202", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" },
-    { "id": "cam-3", "name": "Câmera 3", "ip": "192.168.0.203", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" },
-    { "id": "cam-4", "name": "Câmera 4", "ip": "192.168.0.204", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" }
+    { "id": "cam-1", "name": "Câmera 1", "ip": "192.168.0.107", "mac": "80:85:44:6C:68:C6", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac", "serial": "FJ1M24007238M" },
+    { "id": "cam-2", "name": "Câmera 2", "ip": "192.168.0.108", "mac": "98:2A:0A:82:0A:C5", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" },
+    { "id": "cam-3", "name": "Câmera 3", "ip": "192.168.0.181", "mac": "98:2A:0A:82:0A:8B", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" },
+    { "id": "cam-4", "name": "Câmera 4", "ip": "192.168.0.204", "mac": "", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac", "notes": "Não encontrada no scan 19/03 — offline ou desconectada" }
   ],
 
   "audio": {
@@ -70,22 +71,20 @@
     {
       "id": "tv-1",
       "name": "TV 1",
-      "ip": "192.168.0.50",
-      "mac": "TBD",
+      "ip": "192.168.0.121",
+      "mac": "E0:3E:CB:E2:60:4C",
       "model": "Hisense 55A51HUA",
       "zone": "",
-      "broadcastAddr": "192.168.0.255",
-      "notes": "MAC: verificar no roteador (192.168.0.1) ou nas configurações da TV → Rede → Status"
+      "broadcastAddr": "192.168.0.255"
     },
     {
       "id": "tv-2",
       "name": "TV 2",
-      "ip": "192.168.0.51",
-      "mac": "TBD",
+      "ip": "192.168.0.210",
+      "mac": "E0:3E:CB:E2:61:56",
       "model": "Hisense 55A51HUA",
       "zone": "",
-      "broadcastAddr": "192.168.0.255",
-      "notes": "MAC: verificar no roteador (192.168.0.1) ou nas configurações da TV → Rede → Status"
+      "broadcastAddr": "192.168.0.255"
     }
   ],
 

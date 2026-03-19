@@ -200,6 +200,18 @@ class CameraManager {
     return this.all().map(c => c.getStatus());
   }
 
+  reload(config) {
+    const wasPolling = !!this.pollTimer;
+    this.stopPolling();
+    this.cameras.clear();
+    for (const c of config.cameras || []) {
+      this.cameras.set(c.id, new Camera(c));
+    }
+    if (wasPolling) this.startPolling();
+    else this.checkAll();
+    console.log(`[Cameras] Reloaded — ${this.cameras.size} câmeras`);
+  }
+
   startPolling(interval = 30000) {
     this.stopPolling();
     this.checkAll();

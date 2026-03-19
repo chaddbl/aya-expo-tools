@@ -51,7 +51,27 @@ function writeLog(entries) {
 const projectors = new ProjectorManager(config);
 const cameras = new CameraManager(config);
 const scheduler = new Scheduler(projectors, config);
-const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog);
+const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog, session);
+
+// ─── Session Manager (Ciclo 3 — R4: proteção contra comandos destrutivos remotos) ─
+const session = {
+  active: false,
+  startedAt: null,
+  startedBy: null,
+};
+
+function isRemoteCommand(req) {
+  // Comandos do portal vêm com header X-Remote-Command
+  return req.headers['x-remote-command'] === 'true';
+}
+
+// Rotas que são bloqueadas quando sessão está ativa e comando é remoto
+const DESTRUCTIVE_PATHS = [
+  '/api/projectors/all/off',
+  '/api/projectors/all/on',
+];
+// Padrão regex para rotas individuais de projetores
+const PROJECTOR_CMD_RE = /^\/api\/projectors\/[^/]+\/(on|off)$/;
 
 // ─── Express App ───────────────────────────────────────────
 const app = express();
@@ -59,6 +79,65 @@ const server = http.createServer(app);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'ui')));
+
+// Middleware: bloqueia comandos remotos destrutivos durante sessão ativa
+app.use((req, res, next) => {
+  if (!session.active || !isRemoteCommand(req)) return next();
+  if (req.method !== 'POST') return next();
+
+  const isDestructive = DESTRUCTIVE_PATHS.includes(req.path) || PROJECTOR_CMD_RE.test(req.path);
+  if (isDestructive) {
+    return res.status(423).json({
+      error: 'Sessão ativa — comandos remotos bloqueados',
+      session: { active: true, startedAt: session.startedAt, startedBy: session.startedBy },
+    });
+  }
+  next();
+});
+
+// ─── API: Session (Ciclo 3 — R4) ───────────────────────────
+app.get('/api/session', (req, res) => {
+  res.json(session);
+});
+
+app.post('/api/session/start', (req, res) => {
+  if (session.active) {
+    return res.json({ ok: true, message: 'Sessão já ativa', session });
+  }
+  session.active = true;
+  session.startedAt = new Date().toISOString();
+  session.startedBy = req.body?.by || 'local';
+  broadcast('session', session);
+
+  // Log
+  const entries = readLog();
+  entries.unshift({ message: `🟢 Sessão iniciada por ${session.startedBy}`, type: 'session', timestamp: session.startedAt });
+  if (entries.length > 200) entries.splice(200);
+  writeLog(entries);
+
+  console.log(`  🟢 Sessão ativa — comandos remotos destrutivos bloqueados`);
+  res.json({ ok: true, session });
+});
+
+app.post('/api/session/end', (req, res) => {
+  if (!session.active) {
+    return res.json({ ok: true, message: 'Sessão já inativa', session });
+  }
+  session.active = false;
+  const endedAt = new Date().toISOString();
+  broadcast('session', session);
+
+  // Log
+  const entries = readLog();
+  entries.unshift({ message: `🔴 Sessão encerrada`, type: 'session', timestamp: endedAt });
+  if (entries.length > 200) entries.splice(200);
+  writeLog(entries);
+
+  session.startedAt = null;
+  session.startedBy = null;
+  console.log(`  🔴 Sessão encerrada — comandos remotos liberados`);
+  res.json({ ok: true, session });
+});
 
 // ─── API: Exhibition Info ──────────────────────────────────
 app.get('/api/info', (req, res) => {
@@ -239,8 +318,10 @@ app.put('/api/config', (req, res) => {
     const updated = req.body;
     const cfgPath = path.join(__dirname, '..', 'config', `${configName}.json`);
     fs.writeFileSync(cfgPath, JSON.stringify(updated, null, 2));
-    // Update in-memory config (safe fields only)
+    // Update in-memory config and reload all managers
     Object.assign(config, updated);
+    projectors.reload(config);
+    cameras.reload(config);
     scheduler.updateConfig(config);
     res.json({ ok: true, config: updated });
   } catch(e) {
