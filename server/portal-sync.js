@@ -174,6 +174,7 @@ class PortalSync {
       pushedAt: new Date().toISOString(),
       health,
       projectors: this.projectors.getAllStatus(),
+      cameras: this.cameras.getAllStatus(),
       log: this.readLog().slice(0, 50),
     }
 
