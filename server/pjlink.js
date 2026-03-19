@@ -263,10 +263,11 @@ class Projector {
   getStatus() {
     return {
       id: this.id,
-      name: this.name,
       ip: this.ip,
       model: this.model,
       ...this.state,
+      // Config name wins over PJLink name (which is often empty)
+      name: this.name || this.state.name || this.id,
     };
   }
 }
