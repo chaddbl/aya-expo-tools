@@ -4,6 +4,8 @@
     "venue": "Farol Santander",
     "city": "São Paulo",
     "type": "sala-imersiva",
+    "slug": "beleza-astral",
+    "projetoId": "cml9t9rrc0003peao6wux69rl",
     "network": {
       "subnet": "192.168.0.0/24",
       "gateway": "192.168.0.1",

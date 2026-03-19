@@ -50,6 +50,8 @@ app.use(express.static(path.join(__dirname, '..', 'ui')));
 app.get('/api/info', (req, res) => {
   res.json({
     exhibition: config.exhibition,
+    slug: config.exhibition.slug || null,
+    projetoId: config.exhibition.projetoId || null,
     projectorCount: config.projectors.length,
     cameraCount: config.cameras.length,
     uptime: process.uptime(),
