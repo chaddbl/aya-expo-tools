@@ -144,10 +144,12 @@ app.post('/api/cameras/check', async (req, res) => {
 app.get('/api/cameras/:id/snapshot', async (req, res) => {
   const cam = cameras.get(req.params.id);
   if (!cam) return res.status(404).json({ error: 'Camera not found' });
+  const hd = req.query.hd === '1';
   try {
-    const buffer = await cam.getSnapshot();
+    const buffer = await cam.getSnapshot(hd);
     res.set('Content-Type', 'image/jpeg');
     res.set('Cache-Control', 'no-store');
+    res.set('X-Resolution', hd ? '1080p' : '480p');
     res.send(buffer);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -146,8 +146,13 @@ class Camera {
    * Get JPEG snapshot via HTTP (Intelbras/Dahua compatible)
    * Auto-negotiates Digest or Basic auth — iMD 3C Black uses Digest by default
    */
-  async getSnapshot() {
-    const url = `http://${this.ip}:${this.httpPort}/cgi-bin/snapshot.cgi?channel=${this.channel}`;
+  /**
+   * @param {boolean} hd - false: sub-stream 640×480 (default, low bandwidth)
+   *                        true:  main stream 1080p (subtype=0, ~10× more bandwidth)
+   */
+  async getSnapshot(hd = false) {
+    const subtype = hd ? 0 : 1;
+    const url = `http://${this.ip}:${this.httpPort}/cgi-bin/snapshot.cgi?channel=${this.channel}&subtype=${subtype}`;
     try {
       const { buffer } = await httpGetWithDigest(url, this.user, this.password);
       this.state.online = true;
