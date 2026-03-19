@@ -47,18 +47,18 @@ function writeLog(entries) {
   fs.writeFileSync(LOG_PATH, JSON.stringify(entries, null, 2));
 }
 
-// ─── Initialize Managers ───────────────────────────────────
-const projectors = new ProjectorManager(config);
-const cameras = new CameraManager(config);
-const scheduler = new Scheduler(projectors, config);
-const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog, session);
-
 // ─── Session Manager (Ciclo 3 — R4: proteção contra comandos destrutivos remotos) ─
 const session = {
   active: false,
   startedAt: null,
   startedBy: null,
 };
+
+// ─── Initialize Managers ───────────────────────────────────
+const projectors = new ProjectorManager(config);
+const cameras = new CameraManager(config);
+const scheduler = new Scheduler(projectors, config);
+const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog, session);
 
 function isRemoteCommand(req) {
   // Comandos do portal vêm com header X-Remote-Command
