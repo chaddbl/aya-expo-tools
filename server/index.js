@@ -813,24 +813,42 @@ app.get('/api/cv/status', (req, res) => {
 });
 
 app.get('/api/cv/count', (req, res) => {
-  const detections = cvManager.getDetections();
-  if (!detections) return res.json({ count: null, running: cvManager.getStatus().running });
+  const status = cvManager.getStatus();
   res.json({
-    count: detections.count,
-    camera: detections.camera,
-    fps: detections.fps,
-    timestamp: detections.timestamp,
+    count: status.totalCount,
+    strategy: status.countStrategy,
+    perCamera: Object.fromEntries(
+      Object.entries(status.perCamera || {}).map(([k, v]) => [k, v.count])
+    ),
+    running: status.running,
   });
 });
 
 app.get('/api/cv/detections', (req, res) => {
-  const detections = cvManager.getDetections();
-  if (!detections) return res.status(503).json({ error: 'CV not running or no data yet' });
-  res.json(detections);
+  const status = cvManager.getStatus();
+  if (!status.running) return res.status(503).json({ error: 'CV not running' });
+  res.json(status);
+});
+
+// Per-camera endpoints
+app.get('/api/cv/:camId/detections', (req, res) => {
+  const det = cvManager.getDetections(req.params.camId);
+  if (!det) return res.status(404).json({ error: 'No data for this camera' });
+  res.json(det);
 });
 
 app.get('/api/cv/heatmap', (req, res) => {
-  const buffer = cvManager.getHeatmap();
+  // Default: first camera
+  const camId = req.query.cam || null;
+  const buffer = cvManager.getHeatmap(camId);
+  if (!buffer) return res.status(404).json({ error: 'No heatmap available' });
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'no-store');
+  res.send(buffer);
+});
+
+app.get('/api/cv/:camId/heatmap', (req, res) => {
+  const buffer = cvManager.getHeatmap(req.params.camId);
   if (!buffer) return res.status(404).json({ error: 'No heatmap available' });
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'no-store');
@@ -838,7 +856,16 @@ app.get('/api/cv/heatmap', (req, res) => {
 });
 
 app.get('/api/cv/frame', (req, res) => {
-  const buffer = cvManager.getFrame();
+  const camId = req.query.cam || null;
+  const buffer = cvManager.getFrame(camId);
+  if (!buffer) return res.status(404).json({ error: 'No frame available' });
+  res.set('Content-Type', 'image/jpeg');
+  res.set('Cache-Control', 'no-store');
+  res.send(buffer);
+});
+
+app.get('/api/cv/:camId/frame', (req, res) => {
+  const buffer = cvManager.getFrame(req.params.camId);
   if (!buffer) return res.status(404).json({ error: 'No frame available' });
   res.set('Content-Type', 'image/jpeg');
   res.set('Cache-Control', 'no-store');

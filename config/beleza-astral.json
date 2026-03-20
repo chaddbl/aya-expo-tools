@@ -131,12 +131,13 @@
 
   "cv": {
     "enabled": true,
-    "camera": "cam-1",
+    "cameras": ["cam-1", "cam-2", "cam-3"],
     "gpu": 1,
     "model": "yolov8n",
     "interval": 2,
     "confidence": 0.4,
-    "heatmapDecay": 0.999
+    "heatmapDecay": 0.999,
+    "countStrategy": "max"
   },
 
   "server": {

@@ -1,17 +1,13 @@
 /**
- * AYA Expo Tools — Computer Vision Manager
+ * AYA Expo Tools — Computer Vision Manager (Multi-Camera)
  *
- * Manages the Python CV detector subprocess.
- * Reads detection results from cv/output/ files (file-based IPC).
- * Exposes status, counts, heatmap, and annotated frame via API.
+ * Spawns one Python detector per camera.
+ * Aggregates counts using configurable strategy:
+ *   - "max": total = max count from any single camera (conservative, no over-count)
+ *   - "sum": total = sum of all cameras (use only if cameras have zero overlap)
  *
- * Architecture:
- *   Node.js (expo-tools) ──spawns──> Python (cv/detector.py)
- *     │                                  │
- *     │ reads cv/output/detections.json  │ writes every Ns
- *     │ reads cv/output/heatmap.png      │ writes every 10 frames
- *     │ reads cv/output/frame.jpg        │ writes every frame
- *     │ reads cv/output/status.json      │ writes on state change
+ * Each camera writes to cv/output/<cam-id>/ (detections.json, frame.jpg, heatmap.png)
+ * Legacy single-camera writes to cv/output/ (backward compat)
  */
 
 const { spawn } = require('child_process');
@@ -20,248 +16,289 @@ const fs = require('fs');
 
 const CV_DIR = path.join(__dirname, '..', 'cv');
 const OUTPUT_DIR = path.join(CV_DIR, 'output');
-const DETECTIONS_FILE = path.join(OUTPUT_DIR, 'detections.json');
-const HEATMAP_FILE = path.join(OUTPUT_DIR, 'heatmap.png');
-const FRAME_FILE = path.join(OUTPUT_DIR, 'frame.jpg');
-const STATUS_FILE = path.join(OUTPUT_DIR, 'status.json');
 
 class CVManager {
   constructor(config) {
     this.config = config;
     this.cvConfig = config.cv || {};
+    this.camerasConfig = config.cameras || [];
     this.enabled = !!this.cvConfig.enabled;
-    this.process = null;
-    this._lastDetections = null;
-    this._lastStatus = null;
+    this.processes = new Map();  // camId → { process, pid }
     this._readInterval = null;
+    this._cache = new Map();    // camId → { detections, status }
   }
 
   // ─── Public API ─────────────────────────────────────────────
 
-  /**
-   * Start the CV detector subprocess
-   */
   start() {
     if (!this.enabled) {
       console.log('  👁️ CV: desativado (cv.enabled = false no config)');
       return;
     }
 
-    // Check if Python is available
     const pythonCmd = this._findPython();
     if (!pythonCmd) {
       console.log('  👁️ CV: Python não encontrado — execute install.bat para instalar');
       return;
     }
 
+    // Determine cameras to run CV on
+    const cvCameras = this.cvConfig.cameras || [this.cvConfig.camera || 'cam-1'];
     const configPath = this._getConfigPath();
-    if (!configPath) {
-      console.log('  👁️ CV: config path não encontrado');
-      return;
-    }
 
-    console.log(`  👁️ CV: iniciando detector (GPU ${this.cvConfig.gpu || 1}, câmera ${this.cvConfig.camera || 'cam-1'})`);
+    console.log(`  👁️ CV: iniciando ${cvCameras.length} detector(es) na GPU ${this.cvConfig.gpu || 1}`);
 
     // Ensure output directory exists
     if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
-    // Spawn Python process
+    for (const camId of cvCameras) {
+      this._startDetector(camId, pythonCmd, configPath);
+    }
+
+    this._startReading();
+  }
+
+  _startDetector(camId, pythonCmd, configPath) {
+    // Find camera RTSP from config
+    const cam = this.camerasConfig.find(c => c.id === camId);
+    if (!cam) {
+      console.log(`  👁️ CV: câmera ${camId} não encontrada no config`);
+      return;
+    }
+
+    const rtspUrl = `rtsp://${cam.user || 'admin'}:${cam.password || ''}@${cam.ip}:554/cam/realmonitor?channel=1&subtype=0`;
+
+    // Ensure per-camera output dir
+    const camOutDir = path.join(OUTPUT_DIR, camId);
+    if (!fs.existsSync(camOutDir)) fs.mkdirSync(camOutDir, { recursive: true });
+
     const args = [
       path.join(CV_DIR, 'detector.py'),
-      '--config', configPath,
+      '--camera-id', camId,
+      '--rtsp', rtspUrl,
+      '--gpu', String(this.cvConfig.gpu || 1),
+      '--interval', String(this.cvConfig.interval || 2),
+      '--model', this.cvConfig.model || 'yolov8n',
+      '--confidence', String(this.cvConfig.confidence || 0.4),
+      '--heatmap-decay', String(this.cvConfig.heatmapDecay || 0.999),
     ];
 
-    this.process = spawn(pythonCmd, args, {
+    if (configPath) {
+      args.push('--config', configPath);
+    }
+
+    console.log(`  👁️ CV [${camId}]: starting detector`);
+
+    const proc = spawn(pythonCmd, args, {
       cwd: CV_DIR,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
 
-    this.process.stdout.on('data', (data) => {
+    proc.stdout.on('data', (data) => {
       const lines = data.toString().trim().split('\n');
       for (const line of lines) {
-        if (line.trim()) console.log(`  👁️ ${line.trim()}`);
+        if (line.trim()) console.log(`  👁️ [${camId}] ${line.trim()}`);
       }
     });
 
-    this.process.stderr.on('data', (data) => {
+    proc.stderr.on('data', (data) => {
       const lines = data.toString().trim().split('\n');
       for (const line of lines) {
-        if (line.trim()) console.error(`  👁️ [err] ${line.trim()}`);
+        if (line.trim()) console.error(`  👁️ [${camId}] [err] ${line.trim()}`);
       }
     });
 
-    this.process.on('exit', (code) => {
-      console.log(`  👁️ CV: processo saiu (code ${code})`);
-      this.process = null;
+    proc.on('exit', (code) => {
+      console.log(`  👁️ CV [${camId}]: processo saiu (code ${code})`);
+      this.processes.delete(camId);
 
       // Auto-restart after 10s if still enabled
       if (this.enabled && code !== 0) {
-        console.log('  👁️ CV: reiniciando em 10s...');
+        console.log(`  👁️ CV [${camId}]: reiniciando em 10s...`);
         setTimeout(() => {
-          if (this.enabled) this.start();
+          if (this.enabled && !this.processes.has(camId)) {
+            const py = this._findPython();
+            if (py) this._startDetector(camId, py, configPath);
+          }
         }, 10000);
       }
     });
 
-    // Start reading output files periodically
-    this._startReading();
+    this.processes.set(camId, { process: proc, pid: proc.pid, camId });
   }
 
-  /**
-   * Stop the CV detector
-   */
   stop() {
     this.enabled = false;
     this._stopReading();
 
-    if (this.process) {
-      console.log('  👁️ CV: parando detector...');
-      this.process.kill('SIGTERM');
-      // Force kill after 5s if still alive
-      setTimeout(() => {
-        if (this.process) {
-          this.process.kill('SIGKILL');
-          this.process = null;
-        }
-      }, 5000);
+    for (const [camId, entry] of this.processes) {
+      console.log(`  👁️ CV [${camId}]: parando...`);
+      try { entry.process.kill('SIGTERM'); } catch {}
     }
+
+    // Force kill after 5s
+    setTimeout(() => {
+      for (const [camId, entry] of this.processes) {
+        try { entry.process.kill('SIGKILL'); } catch {}
+      }
+      this.processes.clear();
+    }, 5000);
   }
 
   /**
-   * Reload config (e.g., camera changed)
-   */
-  reload(config) {
-    this.config = config;
-    this.cvConfig = config.cv || {};
-    const wasEnabled = this.enabled;
-    this.enabled = !!this.cvConfig.enabled;
-
-    if (wasEnabled && !this.enabled) {
-      this.stop();
-    } else if (!wasEnabled && this.enabled) {
-      this.start();
-    } else if (this.enabled && this.process) {
-      // Restart with new config
-      this.stop();
-      this.enabled = true;
-      setTimeout(() => this.start(), 2000);
-    }
-  }
-
-  /**
-   * Get current status (for API and push)
+   * Get aggregated status (for API and push)
    */
   getStatus() {
-    const status = this._readStatus();
-    const detections = this._readDetections();
+    const cvCameras = this.cvConfig.cameras || [this.cvConfig.camera || 'cam-1'];
+    const strategy = this.cvConfig.countStrategy || 'max';
+    const perCamera = {};
+    let totalCount = 0;
+    const counts = [];
+
+    for (const camId of cvCameras) {
+      const det = this._readDetections(camId);
+      const status = this._readStatusFile(camId);
+      const count = det?.count ?? 0;
+      counts.push(count);
+
+      perCamera[camId] = {
+        count,
+        fps: det?.fps ?? 0,
+        running: this.processes.has(camId),
+        pid: this.processes.get(camId)?.pid || null,
+        status: status?.status || 'unknown',
+        error: status?.error || null,
+        timestamp: det?.timestamp || null,
+      };
+    }
+
+    // Aggregation strategy
+    if (strategy === 'sum') {
+      totalCount = counts.reduce((a, b) => a + b, 0);
+    } else {
+      // "max" — conservative: total = highest single-camera count
+      totalCount = counts.length > 0 ? Math.max(...counts) : 0;
+    }
 
     return {
       enabled: this.cvConfig.enabled || false,
-      running: !!this.process,
-      pid: this.process?.pid || null,
-      ...status,
-      detections: detections ? {
-        count: detections.count,
-        fps: detections.fps,
-        camera: detections.camera,
-        resolution: detections.resolution,
-        model: detections.model,
-        gpu: detections.gpu,
-        timestamp: detections.timestamp,
-      } : null,
+      running: this.processes.size > 0,
+      cameras: cvCameras.length,
+      countStrategy: strategy,
+      totalCount,
+      perCamera,
+      model: this.cvConfig.model || 'yolov8n',
+      gpu: this.cvConfig.gpu || 1,
     };
   }
 
   /**
-   * Get latest detections (full data including bounding boxes)
+   * Get detections for a specific camera
    */
-  getDetections() {
-    return this._readDetections();
+  getDetections(camId) {
+    return this._readDetections(camId);
   }
 
   /**
-   * Get heatmap image buffer (PNG)
+   * Get heatmap for a specific camera (PNG buffer)
    */
-  getHeatmap() {
-    if (!fs.existsSync(HEATMAP_FILE)) return null;
-    try {
-      return fs.readFileSync(HEATMAP_FILE);
-    } catch { return null; }
+  getHeatmap(camId) {
+    const file = camId
+      ? path.join(OUTPUT_DIR, camId, 'heatmap.png')
+      : path.join(OUTPUT_DIR, 'heatmap.png');
+    if (!fs.existsSync(file)) return null;
+    try { return fs.readFileSync(file); } catch { return null; }
   }
 
   /**
-   * Get annotated frame buffer (JPEG)
+   * Get annotated frame for a specific camera (JPEG buffer)
    */
-  getFrame() {
-    if (!fs.existsSync(FRAME_FILE)) return null;
-    try {
-      return fs.readFileSync(FRAME_FILE);
-    } catch { return null; }
+  getFrame(camId) {
+    const file = camId
+      ? path.join(OUTPUT_DIR, camId, 'frame.jpg')
+      : path.join(OUTPUT_DIR, 'frame.jpg');
+    if (!fs.existsSync(file)) return null;
+    try { return fs.readFileSync(file); } catch { return null; }
   }
 
   /**
-   * Reset accumulated heatmap
+   * Reset heatmap for a specific camera (or all)
    */
-  resetHeatmap() {
-    const rawFile = path.join(OUTPUT_DIR, 'heatmap_raw.npy');
-    try {
-      if (fs.existsSync(rawFile)) fs.unlinkSync(rawFile);
-      if (fs.existsSync(HEATMAP_FILE)) fs.unlinkSync(HEATMAP_FILE);
-      return true;
-    } catch { return false; }
+  resetHeatmap(camId) {
+    const dirs = camId ? [path.join(OUTPUT_DIR, camId)] : this._getCameraDirs();
+    let ok = true;
+    for (const dir of dirs) {
+      try {
+        const raw = path.join(dir, 'heatmap_raw.npy');
+        const png = path.join(dir, 'heatmap.png');
+        if (fs.existsSync(raw)) fs.unlinkSync(raw);
+        if (fs.existsSync(png)) fs.unlinkSync(png);
+      } catch { ok = false; }
+    }
+    return ok;
   }
 
   // ─── Private ────────────────────────────────────────────────
 
+  _readDetections(camId) {
+    const file = camId
+      ? path.join(OUTPUT_DIR, camId, 'detections.json')
+      : path.join(OUTPUT_DIR, 'detections.json');
+    if (!fs.existsSync(file)) return null;
+    try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+  }
+
+  _readStatusFile(camId) {
+    const file = camId
+      ? path.join(OUTPUT_DIR, camId, 'status.json')
+      : path.join(OUTPUT_DIR, 'status.json');
+    if (!fs.existsSync(file)) return null;
+    try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+  }
+
+  _getCameraDirs() {
+    try {
+      return fs.readdirSync(OUTPUT_DIR)
+        .filter(d => d.startsWith('cam-'))
+        .map(d => path.join(OUTPUT_DIR, d));
+    } catch { return []; }
+  }
+
   _findPython() {
-    // Check common locations
     const candidates = [
-      path.join(CV_DIR, 'venv', 'Scripts', 'python.exe'),   // local venv
-      path.join(CV_DIR, 'venv', 'bin', 'python'),            // linux venv
+      path.join(CV_DIR, 'venv', 'Scripts', 'python.exe'),
+      path.join(CV_DIR, 'venv', 'bin', 'python'),
+      'C:\\Users\\AYA\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
       'python',
       'python3',
     ];
-
     for (const cmd of candidates) {
       try {
         const { execSync } = require('child_process');
         execSync(`"${cmd}" --version`, { stdio: 'ignore', timeout: 5000 });
         return cmd;
-      } catch { /* not found */ }
+      } catch {}
     }
     return null;
   }
 
   _getConfigPath() {
-    // Find the config file path from process args or default
     const configArg = process.argv.find(a => a.startsWith('--config='));
     const configName = configArg ? configArg.split('=')[1] : 'beleza-astral';
     const configPath = path.join(__dirname, '..', 'config', `${configName}.json`);
     return fs.existsSync(configPath) ? configPath : null;
   }
 
-  _readDetections() {
-    if (!fs.existsSync(DETECTIONS_FILE)) return null;
-    try {
-      const raw = fs.readFileSync(DETECTIONS_FILE, 'utf8');
-      return JSON.parse(raw);
-    } catch { return this._lastDetections; }
-  }
-
-  _readStatus() {
-    if (!fs.existsSync(STATUS_FILE)) return {};
-    try {
-      const raw = fs.readFileSync(STATUS_FILE, 'utf8');
-      return JSON.parse(raw);
-    } catch { return this._lastStatus || {}; }
-  }
-
   _startReading() {
-    // Read output files every 2s to keep cache fresh
     this._readInterval = setInterval(() => {
-      this._lastDetections = this._readDetections();
-      this._lastStatus = this._readStatus();
+      const cvCameras = this.cvConfig.cameras || [this.cvConfig.camera || 'cam-1'];
+      for (const camId of cvCameras) {
+        this._cache.set(camId, {
+          detections: this._readDetections(camId),
+          status: this._readStatusFile(camId),
+        });
+      }
     }, 2000);
   }
 

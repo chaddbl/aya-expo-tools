@@ -30,14 +30,34 @@ import numpy as np
 
 # ─── Paths ─────────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).parent
-OUTPUT_DIR = SCRIPT_DIR / "output"
-OUTPUT_DIR.mkdir(exist_ok=True)
+BASE_OUTPUT_DIR = SCRIPT_DIR / "output"
+BASE_OUTPUT_DIR.mkdir(exist_ok=True)
 
-DETECTIONS_FILE = OUTPUT_DIR / "detections.json"
-HEATMAP_FILE = OUTPUT_DIR / "heatmap.png"
-HEATMAP_RAW_FILE = OUTPUT_DIR / "heatmap_raw.npy"
-FRAME_FILE = OUTPUT_DIR / "frame.jpg"
-STATUS_FILE = OUTPUT_DIR / "status.json"
+# Camera ID from args will create per-camera subdirectory
+# e.g., cv/output/cam-1/detections.json
+# For backward compat, single-camera writes to cv/output/ directly
+CAMERA_ID = None  # set later from args
+OUTPUT_DIR = BASE_OUTPUT_DIR
+
+DETECTIONS_FILE = None
+HEATMAP_FILE = None
+HEATMAP_RAW_FILE = None
+FRAME_FILE = None
+STATUS_FILE = None
+
+def setup_output_paths(camera_id=None):
+    global CAMERA_ID, OUTPUT_DIR, DETECTIONS_FILE, HEATMAP_FILE, HEATMAP_RAW_FILE, FRAME_FILE, STATUS_FILE
+    CAMERA_ID = camera_id
+    if camera_id:
+        OUTPUT_DIR = BASE_OUTPUT_DIR / camera_id
+    else:
+        OUTPUT_DIR = BASE_OUTPUT_DIR
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    DETECTIONS_FILE = OUTPUT_DIR / "detections.json"
+    HEATMAP_FILE = OUTPUT_DIR / "heatmap.png"
+    HEATMAP_RAW_FILE = OUTPUT_DIR / "heatmap_raw.npy"
+    FRAME_FILE = OUTPUT_DIR / "frame.jpg"
+    STATUS_FILE = OUTPUT_DIR / "status.json"
 
 # ─── Globals ───────────────────────────────────────────────────
 running = True
@@ -142,7 +162,11 @@ def main():
     parser.add_argument("--confidence", type=float, default=0.4, help="Detection confidence threshold")
     parser.add_argument("--heatmap-decay", type=float, default=0.999, help="Heatmap decay per frame")
     parser.add_argument("--heatmap-reset", action="store_true", help="Reset accumulated heatmap")
+    parser.add_argument("--camera-id", help="Camera ID for multi-camera mode (e.g., cam-1)")
     args = parser.parse_args()
+
+    # Setup per-camera output paths
+    setup_output_paths(args.camera_id)
 
     # Load settings from config or CLI
     if args.config:
