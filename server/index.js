@@ -686,6 +686,31 @@ app.get('/api/server/alerts', (req, res) => {
   res.json(serverHealth.getAlerts());
 });
 
+// Log dates available
+app.get('/api/server/logs', (req, res) => {
+  res.json(serverHealth.getLogDates());
+});
+
+// Log for a specific date (with optional time range and downsampling)
+// ?from=09:00&to=20:00&downsample=300 (5min intervals)
+app.get('/api/server/logs/:date', (req, res) => {
+  const { date } = req.params;
+  const { from, to, downsample } = req.query;
+  const entries = serverHealth.readLog(date, {
+    from: from || undefined,
+    to: to || undefined,
+    downsample: downsample ? parseInt(downsample) : undefined,
+  });
+  res.json(entries);
+});
+
+// Daily summary
+app.get('/api/server/summary/:date', (req, res) => {
+  const summary = serverHealth.dailySummary(req.params.date);
+  if (!summary) return res.json({ error: 'No data for this date' });
+  res.json(summary);
+});
+
 // ─── API: Health ───────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
   const inet = await network.checkInternet();

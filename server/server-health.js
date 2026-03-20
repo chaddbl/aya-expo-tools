@@ -3,10 +3,15 @@
  *
  * Coleta métricas do media server: GPU (nvidia-smi), CPU, RAM, disco, processos.
  * Polling a cada 30s. Mantém histórico dos últimos 60 pontos (30min) para tendências.
+ *
+ * Log persistente: JSONL por dia em logs/health/YYYY-MM-DD.jsonl
+ * Cada linha é um snapshot compacto (timestamp, GPUs, CPU, RAM, disco, alertas).
+ * Usado para relatórios e análise forense pós-incidente.
  */
 
 const { execFile } = require('child_process')
 const os = require('os')
+const fs = require('fs')
 const path = require('path')
 
 // ── Config ───────────────────────────────────────────────────
@@ -15,6 +20,7 @@ const POLL_INTERVAL = 30_000       // 30s
 const HISTORY_SIZE = 60            // 30min de histórico a 30s
 const NVIDIA_SMI = 'C:\\Windows\\System32\\nvidia-smi.exe'
 const GPU_QUERY = 'index,name,temperature.gpu,utilization.gpu,memory.used,memory.total,fan.speed,power.draw,power.limit'
+const LOG_DIR = path.join(__dirname, '..', 'logs', 'health')
 
 // Processos críticos a monitorar
 const WATCHED_PROCESSES = ['Arena.exe', 'node.exe', 'chrome.exe', 'rustdesk.exe']
@@ -210,6 +216,61 @@ function checkAlerts(data) {
   return newAlerts
 }
 
+// ── Persistent Log (JSONL) ───────────────────────────────────
+
+let _logStream = null
+let _logDate = null    // 'YYYY-MM-DD' do arquivo aberto
+
+function ensureLogDir() {
+  try { fs.mkdirSync(LOG_DIR, { recursive: true }) } catch { /* já existe */ }
+}
+
+function getLogStream() {
+  const today = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+  if (_logStream && _logDate === today) return _logStream
+
+  // Fecha stream anterior se mudou de dia
+  if (_logStream) {
+    try { _logStream.end() } catch { /* ok */ }
+  }
+
+  ensureLogDir()
+  const filePath = path.join(LOG_DIR, `${today}.jsonl`)
+  _logStream = fs.createWriteStream(filePath, { flags: 'a' })
+  _logDate = today
+  return _logStream
+}
+
+function persistLog(data) {
+  try {
+    // Formato compacto — 1 linha por snapshot, sem processos (muito verboso)
+    const entry = {
+      t: data.timestamp,
+      gpus: (data.gpus || []).map(g => ({
+        i: g.index, temp: g.temp, util: g.utilization,
+        vram: g.memoryUsed, fan: g.fan, pwr: Math.round(g.powerDraw),
+      })),
+      cpu: data.cpu,
+      ram: data.ram?.pct ?? null,
+      ramMB: data.ram?.used ?? null,
+      disk: data.disk?.pct ?? null,
+      diskFreeGB: data.disk?.free ?? null,
+      resolume: data.resolume ? 1 : 0,
+      osUp: data.osUptime,
+    }
+
+    // Adiciona alertas somente se existirem (economiza espaço)
+    if (data.alerts && data.alerts.length > 0) {
+      entry.alerts = data.alerts.map(a => ({ type: a.type, cat: a.category, val: a.value }))
+    }
+
+    const stream = getLogStream()
+    stream.write(JSON.stringify(entry) + '\n')
+  } catch (err) {
+    console.error('[server-health] log write error:', err.message)
+  }
+}
+
 // ── Poll ─────────────────────────────────────────────────────
 
 async function poll() {
@@ -241,6 +302,9 @@ async function poll() {
     data.alerts = newAlerts
 
     _current = data
+
+    // Persistent log — JSONL por dia
+    persistLog(data)
 
     // History — keep last N points
     _history.push({
@@ -288,6 +352,10 @@ module.exports = {
       clearInterval(_pollTimer)
       _pollTimer = null
     }
+    if (_logStream) {
+      try { _logStream.end() } catch { /* ok */ }
+      _logStream = null
+    }
   },
 
   /** Get current snapshot */
@@ -312,4 +380,113 @@ module.exports = {
 
   /** Force a poll now (returns promise) */
   poll,
+
+  /**
+   * List available log dates
+   * @returns {string[]} — ['2026-03-20', '2026-03-19', ...]
+   */
+  getLogDates() {
+    try {
+      return fs.readdirSync(LOG_DIR)
+        .filter(f => f.endsWith('.jsonl'))
+        .map(f => f.replace('.jsonl', ''))
+        .sort()
+        .reverse()
+    } catch {
+      return []
+    }
+  },
+
+  /**
+   * Read log for a specific date
+   * @param {string} date — 'YYYY-MM-DD'
+   * @param {object} [opts] — { from?: string (HH:MM), to?: string (HH:MM), downsample?: number (seconds) }
+   * @returns {object[]} — array of log entries
+   */
+  readLog(date, opts = {}) {
+    const filePath = path.join(LOG_DIR, `${date}.jsonl`)
+    if (!fs.existsSync(filePath)) return []
+
+    try {
+      const lines = fs.readFileSync(filePath, 'utf8').trim().split('\n')
+      let entries = lines.map(l => { try { return JSON.parse(l) } catch { return null } }).filter(Boolean)
+
+      // Time filter
+      if (opts.from) {
+        const fromTime = `${date}T${opts.from}:00`
+        entries = entries.filter(e => e.t >= fromTime)
+      }
+      if (opts.to) {
+        const toTime = `${date}T${opts.to}:59`
+        entries = entries.filter(e => e.t <= toTime)
+      }
+
+      // Downsample — keep 1 entry per N seconds (for large datasets)
+      if (opts.downsample && opts.downsample > 30) {
+        const interval = opts.downsample * 1000
+        const sampled = []
+        let lastTime = 0
+        for (const e of entries) {
+          const t = new Date(e.t).getTime()
+          if (t - lastTime >= interval) {
+            sampled.push(e)
+            lastTime = t
+          }
+        }
+        entries = sampled
+      }
+
+      return entries
+    } catch {
+      return []
+    }
+  },
+
+  /**
+   * Generate daily summary from log
+   * @param {string} date — 'YYYY-MM-DD'
+   * @returns {object} — { date, samples, gpu0: {min,max,avg,peak}, cpu: {min,max,avg}, ram: {min,max,avg}, alerts: [...] }
+   */
+  dailySummary(date) {
+    const entries = this.readLog(date)
+    if (entries.length === 0) return null
+
+    const gpu0Temps = entries.map(e => e.gpus?.[0]?.temp).filter(t => t != null)
+    const gpu1Temps = entries.map(e => e.gpus?.[1]?.temp).filter(t => t != null)
+    const cpus = entries.map(e => e.cpu).filter(c => c != null)
+    const rams = entries.map(e => e.ram).filter(r => r != null)
+
+    const stats = (arr) => {
+      if (arr.length === 0) return null
+      const sorted = [...arr].sort((a, b) => a - b)
+      return {
+        min: sorted[0],
+        max: sorted[sorted.length - 1],
+        avg: Math.round(arr.reduce((a, b) => a + b, 0) / arr.length),
+        p95: sorted[Math.floor(arr.length * 0.95)],
+      }
+    }
+
+    // Collect all alerts from the day
+    const allAlerts = entries.filter(e => e.alerts && e.alerts.length > 0)
+
+    return {
+      date,
+      samples: entries.length,
+      duration: entries.length > 1
+        ? Math.round((new Date(entries[entries.length - 1].t) - new Date(entries[0].t)) / 1000 / 60) + ' min'
+        : '0 min',
+      firstSample: entries[0].t,
+      lastSample: entries[entries.length - 1].t,
+      gpu0: stats(gpu0Temps),
+      gpu1: stats(gpu1Temps),
+      cpu: stats(cpus),
+      ram: stats(rams),
+      alertCount: allAlerts.length,
+      alertSamples: allAlerts.slice(0, 10).map(e => ({ t: e.t, alerts: e.alerts })),
+    }
+  },
+
+  /** Path to log directory (for external access) */
+  LOG_DIR,
 }
