@@ -18,6 +18,7 @@ const http = require('http')
 const fs = require('fs')
 const path = require('path')
 const network = require('./network')
+const tv = require('./tv')
 
 // Carrega .env local (se existir) sem dependência de dotenv
 // Formato suportado: KEY=VALUE por linha, # para comentários
@@ -145,6 +146,33 @@ class PortalSync {
 
   // ─── Payload ──────────────────────────────────────────────
 
+  async _getTvStatus() {
+    const tvs = this.config.tvs || []
+    if (tvs.length === 0) return []
+
+    const results = await Promise.allSettled(tvs.map(async t => {
+      try {
+        const status = await tv.getStatus(t)
+        return {
+          id: t.id, name: t.name, model: t.model,
+          videoUrl: t.videoUrl, videoTitle: t.videoTitle,
+          online: status.online || false,
+          isStandBy: status.isStandBy ?? null,
+          volume: status.volume || null,
+          application: status.application || null,
+        }
+      } catch {
+        return {
+          id: t.id, name: t.name, model: t.model,
+          videoUrl: t.videoUrl, videoTitle: t.videoTitle,
+          online: false, volume: null, application: null,
+        }
+      }
+    }))
+
+    return results.map(r => r.status === 'fulfilled' ? r.value : r.reason)
+  }
+
   async _buildPayload() {
     const slug = this.config.exhibition.slug
 
@@ -178,7 +206,7 @@ class PortalSync {
       health,
       projectors: this.projectors.getAllStatus(),
       cameras: this.cameras.getAllStatus(),
-      tvs: (this.config.tvs || []).map(t => ({ id: t.id, name: t.name, model: t.model, videoUrl: t.videoUrl, videoTitle: t.videoTitle })),
+      tvs: await this._getTvStatus(),
       log: this.readLog().slice(0, 50),
       session: this.session ? { active: this.session.active, startedAt: this.session.startedAt, startedBy: this.session.startedBy } : null,
       cv: this.cvManager ? this.cvManager.getStatus() : null,
