@@ -16,6 +16,7 @@ const { CVManager } = require('./cv');
 const network = require('./network');
 const commissioning = require('./commissioning');
 const tv = require('./tv');
+const serverHealth = require('./server-health');
 
 // ─── Load Config ───────────────────────────────────────────
 const configArg = process.argv.find(a => a.startsWith('--config='));
@@ -60,7 +61,7 @@ const projectors = new ProjectorManager(config);
 const cameras = new CameraManager(config);
 const scheduler = new Scheduler(projectors, config);
 const cvManager = new CVManager(config);
-const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog, session, cvManager);
+const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog, session, cvManager, serverHealth);
 
 function isRemoteCommand(req) {
   // Comandos do portal vêm com header X-Remote-Command
@@ -668,10 +669,28 @@ app.post('/api/cv/heatmap/reset', (req, res) => {
   res.json({ ok, message: ok ? 'Heatmap reset' : 'Failed to reset' });
 });
 
+// ─── API: Server Health (GPU, CPU, RAM, disco) ────────────
+app.get('/api/server/health', (req, res) => {
+  const current = serverHealth.getCurrent();
+  if (!current) {
+    return res.json({ status: 'initializing', message: 'First poll not yet complete' });
+  }
+  res.json(current);
+});
+
+app.get('/api/server/history', (req, res) => {
+  res.json(serverHealth.getHistory());
+});
+
+app.get('/api/server/alerts', (req, res) => {
+  res.json(serverHealth.getAlerts());
+});
+
 // ─── API: Health ───────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
   const inet = await network.checkInternet();
   const cvStatus = cvManager.getStatus();
+  const sh = serverHealth.getCurrent();
   res.json({
     status: 'ok',
     exhibition: config.exhibition.name,
@@ -682,6 +701,15 @@ app.get('/api/health', async (req, res) => {
     internet: inet.online,
     schedule: scheduler.enabled,
     cv: { enabled: cvStatus.enabled, running: cvStatus.running, count: cvStatus.detections?.count ?? null },
+    server: sh ? {
+      gpus: sh.gpus,
+      cpu: sh.cpu,
+      ram: sh.ram,
+      disk: sh.disk,
+      resolume: sh.resolume,
+      osUptime: sh.osUptime,
+      alerts: sh.alerts || [],
+    } : null,
     timestamp: new Date().toISOString(),
   });
 });
@@ -729,6 +757,7 @@ server.listen(PORT, HOST, () => {
   scheduler.start();
   portalSync.start();
   cvManager.start();
+  serverHealth.start();
 });
 
 // ─── Uncaught errors — log but don't crash ─────────────────
@@ -748,6 +777,7 @@ process.on('SIGINT', () => {
   scheduler.stop();
   portalSync.stop();
   cvManager.stop();
+  serverHealth.stop();
   server.close();
   process.exit(0);
 });

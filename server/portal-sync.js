@@ -48,7 +48,7 @@ class PortalSync {
    * @param {function} readLog  — retorna array de log entries
    * @param {object} [session]  — referência ao objeto de sessão ativa (Ciclo 3)
    */
-  constructor(config, projectors, cameras, scheduler, readLog, session, cvManager) {
+  constructor(config, projectors, cameras, scheduler, readLog, session, cvManager, serverHealth) {
     this.config = config
     this.projectors = projectors
     this.cameras = cameras
@@ -56,6 +56,7 @@ class PortalSync {
     this.readLog = readLog
     this.session = session || null
     this.cvManager = cvManager || null
+    this.serverHealth = serverHealth || null
 
     // Configuração do portal sync (config/[expo].json → portalSync)
     const ps = config.portalSync || {}
@@ -210,6 +211,7 @@ class PortalSync {
       log: this.readLog().slice(0, 50),
       session: this.session ? { active: this.session.active, startedAt: this.session.startedAt, startedBy: this.session.startedBy } : null,
       cv: this.cvManager ? this.cvManager.getStatus() : null,
+      server: this.serverHealth ? this.serverHealth.getCurrent() : null,
     }
 
     // Snapshot de 1 câmera por push (rodízio)
