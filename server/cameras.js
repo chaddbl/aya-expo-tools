@@ -108,7 +108,10 @@ class Camera {
    * RTSP URL for this camera
    */
   getRtspUrl(substream = false) {
-    const auth = this.password ? `${this.user}:${this.password}@` : `${this.user}@`;
+    // URL-encode user/password — senhas com caracteres especiais (#, !, @, etc.) quebram a URL sem encoding
+    const user = encodeURIComponent(this.user || 'admin');
+    const pass = this.password ? encodeURIComponent(this.password) : '';
+    const auth = pass ? `${user}:${pass}@` : `${user}@`;
     const subtype = substream ? 1 : 0;
     return `rtsp://${auth}${this.ip}:${this.rtspPort}/cam/realmonitor?channel=${this.channel}&subtype=${subtype}`;
   }
