@@ -73,7 +73,9 @@ class CVManager {
       return;
     }
 
-    const rtspUrl = `rtsp://${cam.user || 'admin'}:${cam.password || ''}@${cam.ip}:554/cam/realmonitor?channel=1&subtype=0`;
+    const camUser = encodeURIComponent(cam.user || 'admin');
+    const camPass = cam.password ? encodeURIComponent(cam.password) : '';
+    const rtspUrl = `rtsp://${camUser}:${camPass}@${cam.ip}:554/cam/realmonitor?channel=1&subtype=0`;
 
     // Ensure per-camera output dir
     const camOutDir = path.join(OUTPUT_DIR, camId);
@@ -141,7 +143,7 @@ class CVManager {
     const camId = counterCfg.camera || 'cam-2';
     const cam = this.camerasConfig.find(c => c.id === camId);
     const rtspUrl = cam
-      ? `rtsp://${cam.user || 'admin'}:${cam.password || ''}@${cam.ip}:554/cam/realmonitor?channel=1&subtype=0`
+      ? `rtsp://${encodeURIComponent(cam.user || 'admin')}:${encodeURIComponent(cam.password || '')}@${cam.ip}:554/cam/realmonitor?channel=1&subtype=0`
       : null;
 
     const args = [
