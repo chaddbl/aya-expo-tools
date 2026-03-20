@@ -238,22 +238,29 @@ async function castStop(tv) {
 
   return withCastClient(ip, 10000, (client) => {
     return new Promise((resolve, reject) => {
-      try {
-        client.getStatus((err, status) => {
-          if (err) return reject(err);
-          if (!status || !status.applications || status.applications.length === 0) {
-            return resolve({ stopped: true, message: 'Nothing was playing' });
-          }
-          // Stop the first running application
-          const app = status.applications[0];
-          try {
-            client.stop(app, (err) => {
-              if (err) return reject(err);
-              resolve({ stopped: true, appId: app.appId, displayName: app.displayName });
-            });
-          } catch (e) { reject(e); }
+      // Launch the default receiver, then close/stop it
+      client.launch(DefaultMediaReceiver, (err, player) => {
+        if (err) {
+          // If can't launch, try to get status and see if anything is running
+          client.getStatus((err2, status) => {
+            if (err2) return reject(err2);
+            if (!status?.applications?.length) {
+              return resolve({ stopped: true, message: 'Nothing was playing' });
+            }
+            // Use receiver session to stop
+            const appId = status.applications[0].appId;
+            client.receiver.send({ type: 'STOP', requestId: 1 });
+            setTimeout(() => resolve({ stopped: true, appId }), 500);
+          });
+          return;
+        }
+        // Player obtained — stop it
+        player.stop(() => {
+          // Also close the receiver session
+          try { player.close(); } catch { /* ignore */ }
+          resolve({ stopped: true });
         });
-      } catch (e) { reject(e); }
+      });
     });
   });
 }
