@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Servidor — AYA Expo Tools</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    /* ── Charts ─────────────────────────────────── */
+    .chart-container { position: relative; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+    .chart-container canvas { width: 100%; height: 140px; }
+    .chart-label { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .chart-label .value { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
+
+    /* ── Timelapse ──────────────────────────────── */
+    .timelapse-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    @media (max-width: 768px) { .timelapse-grid { grid-template-columns: 1fr; } }
+    .timelapse-frame { position: relative; background: #111; border-radius: 6px; overflow: hidden; aspect-ratio: 4/3; }
+    .timelapse-frame img { width: 100%; height: 100%; object-fit: cover; }
+    .timelapse-frame .cam-label { position: absolute; top: 6px; left: 8px; font-size: 10px; background: rgba(0,0,0,0.7); color: #fff; padding: 2px 6px; border-radius: 3px; }
+
+    /* ── Scrubber ───────────────────────────────── */
+    .scrubber { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+    .scrubber input[type=range] { width: 100%; accent-color: var(--accent); }
+    .scrubber-info { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .scrubber-time { font-family: 'JetBrains Mono', monospace; font-size: 16px; color: var(--text-primary); }
+    .scrubber-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .scrubber-controls button { background: var(--bg-hover); border: 1px solid var(--border); color: var(--text-primary); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .scrubber-controls button:hover { background: var(--border); }
+    .scrubber-controls button.active { background: var(--accent); color: #000; }
+
+    /* ── Date picker ───────────────────────────── */
+    .date-picker { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .date-picker select { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); padding: 6px 10px; border-radius: 4px; font-size: 13px; }
+
+    /* ── Summary ────────────────────────────────── */
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-bottom: 24px; }
+    .summary-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+    .summary-card .label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .summary-card .value { font-family: 'JetBrains Mono', monospace; font-size: 18px; margin-top: 4px; }
+    .summary-card .detail { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Alerts ─────────────────────────────────── */
+    .alert-item { padding: 6px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 4px; }
+    .alert-item.warning { background: rgba(234,179,8,0.1); color: #eab308; }
+    .alert-item.critical { background: rgba(239,68,68,0.1); color: #ef4444; }
+
+    .temp-green { color: #22c55e; }
+    .temp-orange { color: #f97316; }
+    .temp-yellow { color: #eab308; }
+    .temp-red { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <img src="logo-aya-branco.png" alt="AYA" class="header-logo">
+      <div>
+        <div class="header-title">Servidor</div>
+        <div class="header-subtitle" id="hostname">—</div>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="/">Dashboard</a>
+      <a href="/config.html">Config</a>
+      <a href="/server.html" class="active">Servidor</a>
+    </nav>
+  </header>
+
+  <main class="main-content" style="max-width: 1100px; margin: 0 auto; padding: 20px;">
+
+    <!-- Date picker -->
+    <div class="date-picker">
+      <label style="font-size:13px;color:var(--text-muted);">Data:</label>
+      <select id="datePicker"></select>
+      <span id="sampleCount" style="font-size:12px;color:var(--text-muted);"></span>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+      <div class="chart-container">
+        <div class="chart-label">
+          <span>🌡️ GPU 0 Temperatura</span>
+          <span class="value" id="gpu0TempNow">—</span>
+        </div>
+        <canvas id="chartGpu0Temp" height="140"></canvas>
+      </div>
+      <div class="chart-container">
+        <div class="chart-label">
+          <span>🌡️ GPU 1 Temperatura</span>
+          <span class="value" id="gpu1TempNow">—</span>
+        </div>
+        <canvas id="chartGpu1Temp" height="140"></canvas>
+      </div>
+      <div class="chart-container">
+        <div class="chart-label">
+          <span>⚡ CPU</span>
+          <span class="value" id="cpuNow">—</span>
+        </div>
+        <canvas id="chartCpu" height="140"></canvas>
+      </div>
+      <div class="chart-container">
+        <div class="chart-label">
+          <span>💾 RAM</span>
+          <span class="value" id="ramNow">—</span>
+        </div>
+        <canvas id="chartRam" height="140"></canvas>
+      </div>
+    </div>
+
+    <!-- Timelapse section -->
+    <h2 style="font-size:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">
+      📸 Timelapse — Câmeras
+    </h2>
+
+    <!-- Scrubber -->
+    <div class="scrubber">
+      <div class="scrubber-controls">
+        <span class="scrubber-time" id="scrubberTime">00:00:00</span>
+        <button id="btnPlay" title="Play">▶</button>
+        <button id="btnPause" title="Pause">⏸</button>
+        <span style="font-size:11px;color:var(--text-muted);" id="scrubberFrameInfo">—</span>
+      </div>
+      <input type="range" id="scrubber" min="0" max="100" value="0">
+      <div class="scrubber-info">
+        <span id="scrubberStart">—</span>
+        <span id="scrubberEnd">—</span>
+      </div>
+    </div>
+
+    <!-- Camera frames -->
+    <div class="timelapse-grid" id="timelapseGrid"></div>
+
+    <!-- Alerts -->
+    <h2 style="font-size:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin:24px 0 12px;">
+      🔔 Alertas do dia
+    </h2>
+    <div id="alertsList" style="margin-bottom:24px;"></div>
+
+  </main>
+
+  <script>
+    // ── State ──────────────────────────────────────
+    let logData = []
+    let frames = {}        // { 'cam-1': [{time, file}, ...], ... }
+    let cameras = []
+    let currentDate = ''
+    let playTimer = null
+    let currentFrameIdx = 0
+
+    const $ = id => document.getElementById(id)
+
+    // ── Init ───────────────────────────────────────
+    async function init() {
+      // Load current status
+      try {
+        const health = await fetch('/api/server/health').then(r => r.json())
+        $('hostname').textContent = (health.hostname || '—') + ' · ' + (health.platform || '')
+      } catch {}
+
+      // Load available dates
+      const dates = await fetch('/api/server/logs').then(r => r.json())
+      const picker = $('datePicker')
+      dates.forEach(d => {
+        const opt = document.createElement('option')
+        opt.value = d
+        opt.textContent = d
+        picker.appendChild(opt)
+      })
+
+      if (dates.length > 0) {
+        picker.value = dates[0]
+        await loadDate(dates[0])
+      }
+
+      picker.addEventListener('change', () => loadDate(picker.value))
+
+      // Scrubber
+      $('scrubber').addEventListener('input', onScrub)
+      $('btnPlay').addEventListener('click', startPlay)
+      $('btnPause').addEventListener('click', stopPlay)
+
+      // Auto-refresh current data every 30s
+      setInterval(refreshLive, 30000)
+    }
+
+    // ── Load date data ─────────────────────────────
+    async function loadDate(date) {
+      currentDate = date
+      stopPlay()
+
+      // Load log data (downsample to 1min for chart)
+      logData = await fetch(`/api/server/logs/${date}?downsample=60`).then(r => r.json())
+      $('sampleCount').textContent = `${logData.length} amostras`
+
+      // Load summary
+      const summary = await fetch(`/api/server/summary/${date}`).then(r => r.json())
+      renderSummary(summary)
+
+      // Render charts
+      renderCharts()
+
+      // Load timelapse cameras
+      cameras = await fetch(`/api/timelapse/${date}/cameras`).then(r => r.json())
+      frames = {}
+      for (const cam of cameras) {
+        frames[cam] = await fetch(`/api/timelapse/${date}/${cam}/frames`).then(r => r.json())
+      }
+
+      // Setup scrubber
+      setupScrubber()
+      renderTimelapseGrid()
+
+      // Load alerts
+      renderAlerts()
+    }
+
+    // ── Summary ────────────────────────────────────
+    function renderSummary(s) {
+      if (!s || s.error) {
+        $('summaryGrid').innerHTML = '<div style="color:var(--text-muted);font-size:13px;">Sem dados para esta data</div>'
+        return
+      }
+
+      const tempClass = (t) => t >= 84 ? 'temp-red' : t >= 75 ? 'temp-yellow' : t >= 60 ? 'temp-orange' : 'temp-green'
+
+      $('summaryGrid').innerHTML = `
+        ${s.gpu0 ? `<div class="summary-card">
+          <div class="label">GPU 0 Temp</div>
+          <div class="value ${tempClass(s.gpu0.max)}">${s.gpu0.max}°C</div>
+          <div class="detail">min ${s.gpu0.min}° · avg ${s.gpu0.avg}° · p95 ${s.gpu0.p95}°</div>
+        </div>` : ''}
+        ${s.gpu1 ? `<div class="summary-card">
+          <div class="label">GPU 1 Temp</div>
+          <div class="value ${tempClass(s.gpu1.max)}">${s.gpu1.max}°C</div>
+          <div class="detail">min ${s.gpu1.min}° · avg ${s.gpu1.avg}° · p95 ${s.gpu1.p95}°</div>
+        </div>` : ''}
+        ${s.cpu ? `<div class="summary-card">
+          <div class="label">CPU</div>
+          <div class="value">${s.cpu.max}%</div>
+          <div class="detail">min ${s.cpu.min}% · avg ${s.cpu.avg}% · p95 ${s.cpu.p95}%</div>
+        </div>` : ''}
+        ${s.ram ? `<div class="summary-card">
+          <div class="label">RAM</div>
+          <div class="value">${s.ram.max}%</div>
+          <div class="detail">min ${s.ram.min}% · avg ${s.ram.avg}% · p95 ${s.ram.p95}%</div>
+        </div>` : ''}
+        <div class="summary-card">
+          <div class="label">Duração</div>
+          <div class="value">${s.duration || '—'}</div>
+          <div class="detail">${s.samples} amostras</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Alertas</div>
+          <div class="value" style="color:${s.alertCount > 0 ? '#eab308' : '#22c55e'}">${s.alertCount}</div>
+          <div class="detail">${s.alertCount > 0 ? 'ver abaixo' : 'nenhum'}</div>
+        </div>
+      `
+    }
+
+    // ── Charts (Canvas) ────────────────────────────
+    function drawChart(canvasId, data, opts = {}) {
+      const canvas = $(canvasId)
+      const ctx = canvas.getContext('2d')
+      const dpr = window.devicePixelRatio || 1
+
+      canvas.width = canvas.offsetWidth * dpr
+      canvas.height = 140 * dpr
+      ctx.scale(dpr, dpr)
+
+      const w = canvas.offsetWidth
+      const h = 140
+      const pad = { top: 10, bottom: 20, left: 0, right: 0 }
+      const plotW = w - pad.left - pad.right
+      const plotH = h - pad.top - pad.bottom
+
+      ctx.clearRect(0, 0, w, h)
+
+      if (data.length === 0) return
+
+      const min = opts.min ?? Math.min(...data.map(d => d.v))
+      const max = opts.max ?? Math.max(...data.map(d => d.v))
+      const range = max - min || 1
+
+      // Threshold line
+      if (opts.threshold) {
+        const ty = pad.top + plotH - ((opts.threshold - min) / range) * plotH
+        ctx.strokeStyle = 'rgba(234,179,8,0.3)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([4, 4])
+        ctx.beginPath()
+        ctx.moveTo(pad.left, ty)
+        ctx.lineTo(w - pad.right, ty)
+        ctx.stroke()
+        ctx.setLineDash([])
+
+        ctx.fillStyle = 'rgba(234,179,8,0.5)'
+        ctx.font = '10px monospace'
+        ctx.fillText(`${opts.threshold}${opts.unit || ''}`, w - pad.right - 30, ty - 3)
+      }
+
+      // Line
+      ctx.strokeStyle = opts.color || '#22c55e'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      data.forEach((d, i) => {
+        const x = pad.left + (i / (data.length - 1)) * plotW
+        const y = pad.top + plotH - ((d.v - min) / range) * plotH
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      })
+      ctx.stroke()
+
+      // Fill
+      ctx.globalAlpha = 0.08
+      ctx.fillStyle = opts.color || '#22c55e'
+      ctx.lineTo(pad.left + plotW, pad.top + plotH)
+      ctx.lineTo(pad.left, pad.top + plotH)
+      ctx.closePath()
+      ctx.fill()
+      ctx.globalAlpha = 1
+
+      // Time labels
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'
+      ctx.font = '10px monospace'
+      const step = Math.max(1, Math.floor(data.length / 6))
+      for (let i = 0; i < data.length; i += step) {
+        const x = pad.left + (i / (data.length - 1)) * plotW
+        const t = data[i].t
+        ctx.fillText(t.slice(11, 16), x, h - 4)
+      }
+
+      // Scrubber line (if active)
+      if (opts.scrubIdx != null && opts.scrubIdx < data.length) {
+        const x = pad.left + (opts.scrubIdx / (data.length - 1)) * plotW
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(x, pad.top)
+        ctx.lineTo(x, pad.top + plotH)
+        ctx.stroke()
+      }
+    }
+
+    function renderCharts(scrubIdx) {
+      const gpu0 = logData.map(e => ({ t: e.t, v: e.gpus?.[0]?.temp ?? 0 }))
+      const gpu1 = logData.map(e => ({ t: e.t, v: e.gpus?.[1]?.temp ?? 0 }))
+      const cpu = logData.map(e => ({ t: e.t, v: e.cpu ?? 0 }))
+      const ram = logData.map(e => ({ t: e.t, v: e.ram ?? 0 }))
+
+      drawChart('chartGpu0Temp', gpu0, { min: 20, max: 95, threshold: 75, color: '#f97316', unit: '°C', scrubIdx })
+      drawChart('chartGpu1Temp', gpu1, { min: 20, max: 95, threshold: 75, color: '#3b82f6', unit: '°C', scrubIdx })
+      drawChart('chartCpu', cpu, { min: 0, max: 100, threshold: 90, color: '#22c55e', unit: '%', scrubIdx })
+      drawChart('chartRam', ram, { min: 0, max: 100, threshold: 90, color: '#a855f7', unit: '%', scrubIdx })
+
+      // Update current values
+      const last = logData[scrubIdx ?? logData.length - 1]
+      if (last) {
+        const tc = t => t >= 84 ? 'temp-red' : t >= 75 ? 'temp-yellow' : t >= 60 ? 'temp-orange' : 'temp-green'
+        $('gpu0TempNow').innerHTML = last.gpus?.[0] ? `<span class="${tc(last.gpus[0].temp)}">${last.gpus[0].temp}°C</span>` : '—'
+        $('gpu1TempNow').innerHTML = last.gpus?.[1] ? `<span class="${tc(last.gpus[1].temp)}">${last.gpus[1].temp}°C</span>` : '—'
+        $('cpuNow').textContent = `${last.cpu ?? '—'}%`
+        $('ramNow').textContent = `${last.ram ?? '—'}%`
+      }
+    }
+
+    // ── Timelapse ──────────────────────────────────
+    function renderTimelapseGrid() {
+      const grid = $('timelapseGrid')
+      grid.innerHTML = ''
+      const allCams = cameras.length > 0 ? cameras : ['cam-1', 'cam-2', 'cam-3', 'cam-4']
+      allCams.forEach(cam => {
+        const div = document.createElement('div')
+        div.className = 'timelapse-frame'
+        div.id = `frame-${cam}`
+        div.innerHTML = `
+          <img id="img-${cam}" src="" alt="${cam}" style="display:none;">
+          <div class="cam-label">${cam}</div>
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:12px;" id="placeholder-${cam}">sem frames</div>
+        `
+        grid.appendChild(div)
+      })
+    }
+
+    function setupScrubber() {
+      // Find the camera with most frames to use as timeline reference
+      let maxFrames = 0
+      let refCam = cameras[0] || 'cam-1'
+      for (const cam of cameras) {
+        if (frames[cam] && frames[cam].length > maxFrames) {
+          maxFrames = frames[cam].length
+          refCam = cam
+        }
+      }
+
+      const scrubber = $('scrubber')
+      scrubber.max = Math.max(0, maxFrames - 1)
+      scrubber.value = 0
+      currentFrameIdx = 0
+
+      if (maxFrames > 0) {
+        const first = frames[refCam][0]
+        const last = frames[refCam][maxFrames - 1]
+        $('scrubberStart').textContent = first.time
+        $('scrubberEnd').textContent = last.time
+        $('scrubberFrameInfo').textContent = `${maxFrames} frames`
+        loadFrameAt(0)
+      } else {
+        $('scrubberStart').textContent = '—'
+        $('scrubberEnd').textContent = '—'
+        $('scrubberTime').textContent = '—'
+        $('scrubberFrameInfo').textContent = 'sem frames'
+      }
+    }
+
+    function loadFrameAt(idx) {
+      currentFrameIdx = idx
+      // Get time from reference camera
+      let refTime = null
+      for (const cam of cameras) {
+        if (frames[cam] && frames[cam][idx]) {
+          refTime = frames[cam][idx].time
+          break
+        }
+      }
+      if (!refTime && cameras.length > 0) {
+        // Try closest available
+        for (const cam of cameras) {
+          if (frames[cam] && frames[cam].length > 0) {
+            const clamped = Math.min(idx, frames[cam].length - 1)
+            refTime = frames[cam][clamped].time
+            break
+          }
+        }
+      }
+
+      $('scrubberTime').textContent = refTime || '—'
+
+      // Load frame for each camera
+      for (const cam of cameras) {
+        const camFrames = frames[cam] || []
+        // Find closest frame to this index
+        const frameIdx = Math.min(idx, camFrames.length - 1)
+        if (frameIdx >= 0 && camFrames[frameIdx]) {
+          const f = camFrames[frameIdx]
+          const img = $(`img-${cam}`)
+          const ph = $(`placeholder-${cam}`)
+          if (img) {
+            img.src = `/api/timelapse/${currentDate}/${cam}/${f.file}`
+            img.style.display = 'block'
+          }
+          if (ph) ph.style.display = 'none'
+        }
+      }
+
+      // Sync chart scrubber line — find closest log entry
+      if (refTime && logData.length > 0) {
+        const targetT = refTime.replace(/:/g, '')
+        let closestIdx = 0
+        let minDiff = Infinity
+        logData.forEach((e, i) => {
+          const logT = e.t.slice(11, 19).replace(/:/g, '')
+          const diff = Math.abs(parseInt(logT) - parseInt(targetT))
+          if (diff < minDiff) { minDiff = diff; closestIdx = i }
+        })
+        renderCharts(closestIdx)
+      }
+    }
+
+    function onScrub(e) {
+      stopPlay()
+      loadFrameAt(parseInt(e.target.value))
+    }
+
+    function startPlay() {
+      stopPlay()
+      $('btnPlay').classList.add('active')
+      playTimer = setInterval(() => {
+        const scrubber = $('scrubber')
+        const next = currentFrameIdx + 1
+        if (next > parseInt(scrubber.max)) {
+          stopPlay()
+          return
+        }
+        scrubber.value = next
+        loadFrameAt(next)
+      }, 200)  // 5 fps playback
+    }
+
+    function stopPlay() {
+      if (playTimer) { clearInterval(playTimer); playTimer = null }
+      $('btnPlay').classList.remove('active')
+    }
+
+    // ── Alerts ─────────────────────────────────────
+    function renderAlerts() {
+      // Scan log data for entries with alerts
+      const alertEntries = logData.filter(e => e.alerts && e.alerts.length > 0)
+      const list = $('alertsList')
+      if (alertEntries.length === 0) {
+        list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;">✓ Nenhum alerta neste dia</div>'
+        return
+      }
+
+      list.innerHTML = alertEntries.slice(0, 20).map(e => {
+        const time = e.t.slice(11, 19)
+        return e.alerts.map(a =>
+          `<div class="alert-item ${a.type}">${a.type === 'critical' ? '🔴' : '⚠️'} ${time} — ${a.cat}: ${a.val}</div>`
+        ).join('')
+      }).join('')
+    }
+
+    // ── Live refresh ───────────────────────────────
+    async function refreshLive() {
+      // Only refresh if viewing today
+      const today = new Date().toISOString().slice(0, 10)
+      if (currentDate !== today) return
+
+      try {
+        const newData = await fetch(`/api/server/logs/${today}?downsample=60`).then(r => r.json())
+        if (newData.length > logData.length) {
+          logData = newData
+          renderCharts()
+        }
+      } catch {}
+    }
+
+    // ── Boot ───────────────────────────────────────
+    init()
+  </script>
+</body>
+</html>

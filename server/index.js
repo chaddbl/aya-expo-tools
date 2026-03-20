@@ -17,6 +17,7 @@ const network = require('./network');
 const commissioning = require('./commissioning');
 const tv = require('./tv');
 const serverHealth = require('./server-health');
+const { TimelapseCapture } = require('./timelapse');
 
 // ─── Load Config ───────────────────────────────────────────
 const configArg = process.argv.find(a => a.startsWith('--config='));
@@ -61,6 +62,7 @@ const projectors = new ProjectorManager(config);
 const cameras = new CameraManager(config);
 const scheduler = new Scheduler(projectors, config);
 const cvManager = new CVManager(config);
+const timelapse = new TimelapseCapture(cameras, { interval: 60_000 });
 const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog, session, cvManager, serverHealth);
 
 function isRemoteCommand(req) {
@@ -711,6 +713,44 @@ app.get('/api/server/summary/:date', (req, res) => {
   res.json(summary);
 });
 
+// ─── API: Timelapse ────────────────────────────────────────
+app.get('/api/timelapse/stats', (req, res) => {
+  res.json({ ...timelapse.getStats(), storage: timelapse.getStorageStats() });
+});
+
+app.get('/api/timelapse/dates', (req, res) => {
+  res.json(timelapse.getDates());
+});
+
+app.get('/api/timelapse/:date/cameras', (req, res) => {
+  res.json(timelapse.getCameras(req.params.date));
+});
+
+// List frames for a camera on a date (returns timestamps, not images)
+app.get('/api/timelapse/:date/:camId/frames', (req, res) => {
+  const frames = timelapse.getFrames(req.params.date, req.params.camId);
+  res.json(frames.map(f => ({ time: f.time, file: f.file })));
+});
+
+// Get frame image
+app.get('/api/timelapse/:date/:camId/:filename', (req, res) => {
+  const buffer = timelapse.getFrame(req.params.date, req.params.camId, req.params.filename);
+  if (!buffer) return res.status(404).send('Frame not found');
+  res.set('Content-Type', 'image/jpeg');
+  res.set('Cache-Control', 'public, max-age=86400'); // immutable frames
+  res.send(buffer);
+});
+
+// Get frame closest to a time (for syncing with health log)
+app.get('/api/timelapse/:date/:camId/at/:time', (req, res) => {
+  const frame = timelapse.getFrameAt(req.params.date, req.params.camId, req.params.time);
+  if (!frame) return res.status(404).send('No frame found');
+  const buffer = fs.readFileSync(frame.path);
+  res.set('Content-Type', 'image/jpeg');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.send(buffer);
+});
+
 // ─── API: Health ───────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
   const inet = await network.checkInternet();
@@ -783,6 +823,7 @@ server.listen(PORT, HOST, () => {
   portalSync.start();
   cvManager.start();
   serverHealth.start();
+  timelapse.start();
 });
 
 // ─── Uncaught errors — log but don't crash ─────────────────
@@ -803,6 +844,7 @@ process.on('SIGINT', () => {
   portalSync.stop();
   cvManager.stop();
   serverHealth.stop();
+  timelapse.stop();
   server.close();
   process.exit(0);
 });
