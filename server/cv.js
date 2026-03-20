@@ -192,6 +192,13 @@ class CVManager {
     this.counterProcess = { process: proc, pid: proc.pid };
   }
 
+  reload(config) {
+    this.config = config;
+    this.cvConfig = config.cv || {};
+    this.camerasConfig = config.cameras || [];
+    // Note: does not restart processes — call stop() then start() to apply changes
+  }
+
   stop() {
     this.enabled = false;
     this._stopReading();

@@ -904,6 +904,35 @@ app.post('/api/cv/heatmap/reset', (req, res) => {
   res.json({ ok, message: ok ? 'Heatmap reset' : 'Failed to reset' });
 });
 
+// Counter daily history — list saved daily files
+app.get('/api/cv/counter/history', (req, res) => {
+  const counterDir = path.join(__dirname, '..', 'cv', 'output', 'counter');
+  try {
+    const files = fs.readdirSync(counterDir)
+      .filter(f => f.startsWith('daily-') && f.endsWith('.json'))
+      .map(f => {
+        const date = f.replace('daily-', '').replace('.json', '');
+        const data = JSON.parse(fs.readFileSync(path.join(counterDir, f), 'utf8'));
+        return { date, entries: data.entries, exits: data.exits, dwellTime: data.dwellTime };
+      })
+      .sort((a, b) => b.date.localeCompare(a.date));
+    res.json(files);
+  } catch {
+    res.json([]);
+  }
+});
+
+// Counter daily data for a specific date
+app.get('/api/cv/counter/history/:date', (req, res) => {
+  const file = path.join(__dirname, '..', 'cv', 'output', 'counter', `daily-${req.params.date}.json`);
+  if (!fs.existsSync(file)) return res.status(404).json({ error: 'No data for this date' });
+  try {
+    res.json(JSON.parse(fs.readFileSync(file, 'utf8')));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── API: Server Health (GPU, CPU, RAM, disco) ────────────
 app.get('/api/server/health', (req, res) => {
   const current = serverHealth.getCurrent();

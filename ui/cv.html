@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visão Computacional — AYA Expo Tools</title>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    /* ── CV-specific styles ─────────────────────── */
+
+    /* Status banner */
+    .cv-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      margin-bottom: 20px;
+    }
+    .cv-status-left { display: flex; align-items: center; gap: 12px; }
+    .cv-status-label { font-size: 12px; color: var(--text-dim); }
+    .cv-status-value { font-size: 13px; font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+    .cv-status-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .cv-status-chip {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+    }
+    .cv-status-chip .dot {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      margin-right: 5px; vertical-align: middle;
+    }
+    .cv-status-chip .dot.on { background: var(--green); }
+    .cv-status-chip .dot.off { background: var(--red); }
+
+    /* Counter hero */
+    .counter-hero {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 768px) { .counter-hero { grid-template-columns: repeat(2, 1fr); } }
+
+    .counter-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+    }
+    .counter-card .label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-dim); margin-bottom: 6px;
+    }
+    .counter-card .big {
+      font-size: 32px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1.1;
+    }
+    .counter-card .detail {
+      font-size: 11px; color: var(--text-dim); margin-top: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .counter-card.accent { border-color: rgba(34,197,94,0.3); }
+    .counter-card.accent .big { color: var(--green); }
+
+    /* Hourly chart */
+    .hourly-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .hourly-chart {
+      display: flex; align-items: flex-end;
+      gap: 3px; height: 100px;
+      padding: 0 4px;
+    }
+    .hourly-bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .hourly-bar {
+      width: 100%; min-width: 12px;
+      border-radius: 2px 2px 0 0;
+      transition: height 0.3s;
+    }
+    .hourly-bar.entries { background: var(--green); }
+    .hourly-bar.exits { background: var(--blue); }
+    .hourly-label {
+      font-size: 9px; color: var(--text-dimmer);
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 4px;
+    }
+    .hourly-legend {
+      display: flex; gap: 16px; margin-bottom: 12px;
+      font-size: 11px; color: var(--text-dim);
+    }
+    .hourly-legend span::before {
+      content: ''; display: inline-block;
+      width: 8px; height: 8px; border-radius: 2px;
+      margin-right: 5px; vertical-align: middle;
+    }
+    .hourly-legend .leg-entries::before { background: var(--green); }
+    .hourly-legend .leg-exits::before { background: var(--blue); }
+
+    /* Camera grid — heatmaps + frames */
+    .cam-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 900px) { .cam-grid { grid-template-columns: 1fr; } }
+
+    .cam-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .cam-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cam-card-title { font-size: 12px; font-weight: 500; }
+    .cam-card-meta {
+      font-size: 11px; color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .cam-card-body { position: relative; }
+
+    .cam-tabs {
+      display: flex; border-bottom: 1px solid var(--border);
+    }
+    .cam-tab {
+      flex: 1; text-align: center; padding: 7px 0;
+      font-size: 11px; color: var(--text-dim);
+      cursor: pointer; border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .cam-tab:hover { color: var(--text); }
+    .cam-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+    .cam-view {
+      position: relative;
+      background: #0a0a0a;
+      aspect-ratio: 16/9;
+      overflow: hidden;
+    }
+    .cam-view img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .cam-view .no-data {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-dimmer); font-size: 12px;
+    }
+    .cam-view .people-count {
+      position: absolute; top: 8px; right: 10px;
+      background: rgba(0,0,0,0.75);
+      padding: 3px 10px; border-radius: 3px;
+      font-size: 13px; font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--green);
+    }
+
+    .cam-card-footer {
+      padding: 8px 14px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--text-dimmer);
+    }
+
+    /* Counter frame (special — wider) */
+    .counter-frame-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .counter-frame-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .counter-frame-view {
+      position: relative;
+      background: #0a0a0a;
+      max-height: 400px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .counter-frame-view img {
+      width: 100%; height: auto; max-height: 400px;
+      object-fit: contain;
+    }
+
+    /* Line editor */
+    .line-editor {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .line-editor-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 8px; align-items: end; }
+    @media (max-width: 600px) { .line-editor-grid { grid-template-columns: 1fr 1fr; } }
+    .line-editor-grid label { font-size: 11px; color: var(--text-dim); display: block; margin-bottom: 3px; }
+    .line-editor-grid input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border-light);
+      color: var(--text); padding: 6px 8px; border-radius: var(--radius);
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    }
+
+    /* Dwell time card */
+    .dwell-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .dwell-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px; text-align: center;
+    }
+    .dwell-card .label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+    .dwell-card .value { font-size: 18px; font-weight: 600; font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+    .dwell-card .value.cyan { color: var(--cyan); }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="sub-header">
+    <div class="sub-header-left">
+      <img src="logo-aya-branco.png" alt="AYA" class="sub-header-logo">
+      <div class="sub-header-sep"></div>
+      <a href="/" class="sub-header-back">← Dashboard</a>
+      <div class="sub-header-sep"></div>
+      <span class="sub-header-title">Visão Computacional</span>
+    </div>
+    <div class="sub-header-right">
+      <span class="sub-header-expo" id="expoName">—</span>
+      <div class="status-dot" id="cvDot"></div>
+    </div>
+  </div>
+
+  <main class="main" style="max-width: 1200px;">
+
+    <!-- CV Status Bar -->
+    <div class="cv-status-bar">
+      <div class="cv-status-left">
+        <div>
+          <div class="cv-status-label">Status</div>
+          <div class="cv-status-value" id="cvStatusText">—</div>
+        </div>
+        <div>
+          <div class="cv-status-label">Modelo</div>
+          <div class="cv-status-value" id="cvModel">—</div>
+        </div>
+        <div>
+          <div class="cv-status-label">GPU</div>
+          <div class="cv-status-value" id="cvGpu">—</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-on btn-sm" id="btnCvStart" onclick="cvStart()">▶ Iniciar</button>
+        <button class="btn btn-off btn-sm" id="btnCvStop" onclick="cvStop()">⏹ Parar</button>
+        <button class="btn btn-sm" onclick="cvResetHeatmap()">🔄 Reset Heatmap</button>
+      </div>
+    </div>
+
+    <!-- Process chips -->
+    <div class="cv-status-chips" id="processChips" style="margin-bottom:20px;"></div>
+
+    <!-- ═══════ COUNTER SECTION ═══════ -->
+    <div class="section" id="counterSection">
+      <div class="section-header">
+        <span class="section-title">👥 Contador de Visitantes</span>
+        <span style="font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;" id="counterDate">—</span>
+      </div>
+
+      <!-- Hero numbers -->
+      <div class="counter-hero">
+        <div class="counter-card accent">
+          <div class="label">Ocupação Atual</div>
+          <div class="big" id="cOccupancy">—</div>
+          <div class="detail">pessoas na expo</div>
+        </div>
+        <div class="counter-card">
+          <div class="label">Entradas</div>
+          <div class="big" id="cEntries">—</div>
+          <div class="detail" id="cEntriesDetail">hoje</div>
+        </div>
+        <div class="counter-card">
+          <div class="label">Saídas</div>
+          <div class="big" id="cExits">—</div>
+          <div class="detail">hoje</div>
+        </div>
+        <div class="counter-card">
+          <div class="label">Permanência Média</div>
+          <div class="big" id="cDwell">—</div>
+          <div class="detail" id="cDwellDetail">—</div>
+        </div>
+      </div>
+
+      <!-- Dwell time breakdown -->
+      <div class="section-header" style="margin-top:0;">
+        <span class="section-title" style="font-size:10px;">⏱ Tempo de Permanência</span>
+      </div>
+      <div class="dwell-grid" id="dwellGrid">
+        <div class="dwell-card"><div class="label">Mínimo</div><div class="value" id="dwMin">—</div></div>
+        <div class="dwell-card"><div class="label">Mediana</div><div class="value cyan" id="dwMedian">—</div></div>
+        <div class="dwell-card"><div class="label">Média</div><div class="value cyan" id="dwAvg">—</div></div>
+        <div class="dwell-card"><div class="label">P90</div><div class="value" id="dwP90">—</div></div>
+        <div class="dwell-card"><div class="label">Máximo</div><div class="value" id="dwMax">—</div></div>
+        <div class="dwell-card"><div class="label">Amostras</div><div class="value" id="dwSamples">—</div></div>
+      </div>
+
+      <!-- Hourly chart -->
+      <div class="hourly-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span class="section-title" style="font-size:10px;border:none;padding:0;margin:0;">📊 Fluxo por Hora</span>
+          <div class="hourly-legend">
+            <span class="leg-entries">Entradas</span>
+            <span class="leg-exits">Saídas</span>
+          </div>
+        </div>
+        <div class="hourly-chart" id="hourlyChart"></div>
+      </div>
+
+      <!-- Counter annotated frame -->
+      <div class="counter-frame-section">
+        <div class="counter-frame-header">
+          <span style="font-size:12px;font-weight:500;">📹 Frame Anotado — Linha de Contagem</span>
+          <span style="font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;" id="counterCam">—</span>
+        </div>
+        <div class="counter-frame-view">
+          <img id="counterFrameImg" src="" alt="Counter frame" style="display:none;">
+          <div class="no-data" id="counterFramePlaceholder">Aguardando frame do counter...</div>
+        </div>
+      </div>
+
+      <!-- Line editor -->
+      <div class="line-editor">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-size:12px;font-weight:500;">✏️ Linha Virtual de Contagem</span>
+          <span style="font-size:11px;color:var(--text-dim);">Ajuste as coordenadas e reinicie o counter</span>
+        </div>
+        <div class="line-editor-grid">
+          <div><label>X1</label><input type="text" id="lineX1" value="500"></div>
+          <div><label>Y1</label><input type="text" id="lineY1" value="480"></div>
+          <div><label>X2</label><input type="text" id="lineX2" value="1400"></div>
+          <div><label>Y2</label><input type="text" id="lineY2" value="480"></div>
+          <button class="btn btn-sm" onclick="saveLine()">💾 Salvar</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-dimmer);margin-top:8px;">
+          Coordenadas em pixels do frame original. Acima da linha = fora da expo. Abaixo = dentro.
+          Ajuste observando o frame anotado acima.
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ CAMERAS SECTION ═══════ -->
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">🎯 Detecção por Câmera</span>
+        <span style="font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;" id="totalCount">—</span>
+      </div>
+
+      <div class="cam-grid" id="camGrid"></div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-left">
+      <span>AYA Expo Tools · Visão Computacional</span>
+    </div>
+    <div class="footer-right">
+      <svg viewBox="0 0 44 44" class="pi-mark" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="22,2 42,22 22,42 2,22" fill="none" stroke="#555" stroke-width="2.5"/>
+        <circle cx="22" cy="22" r="4.5" fill="#555"/>
+      </svg>
+      <span>Pi · Claude Code</span>
+    </div>
+  </footer>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toasts"></div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let cvCameras = [];
+    let counterEnabled = false;
+    let refreshTimer = null;
+
+    // ── Init ───────────────────────────────────────
+    async function init() {
+      // Load expo info
+      try {
+        const info = await api('/api/info');
+        $('expoName').textContent = info.exhibition?.name || '—';
+      } catch {}
+
+      // Load config for line editor defaults
+      try {
+        const cfg = await api('/api/config');
+        const lineStr = cfg.cv?.counter?.line || '500,480,1400,480';
+        const parts = lineStr.split(',');
+        $('lineX1').value = parts[0] || '500';
+        $('lineY1').value = parts[1] || '480';
+        $('lineX2').value = parts[2] || '1400';
+        $('lineY2').value = parts[3] || '480';
+        $('counterCam').textContent = cfg.cv?.counter?.camera || 'cam-2';
+        counterEnabled = !!cfg.cv?.counter?.enabled;
+      } catch {}
+
+      // Initial data load
+      await refresh();
+
+      // Auto-refresh every 2s
+      refreshTimer = setInterval(refresh, 2000);
+    }
+
+    // ── API helper ─────────────────────────────────
+    async function api(url, opts) {
+      const res = await fetch(url, opts);
+      return res.json();
+    }
+
+    // ── Refresh all CV data ────────────────────────
+    async function refresh() {
+      try {
+        const [status, counter] = await Promise.all([
+          api('/api/cv/status'),
+          counterEnabled ? api('/api/cv/counter') : Promise.resolve(null),
+        ]);
+
+        renderStatus(status);
+        renderCameras(status);
+        if (counter && !counter.error) renderCounter(counter);
+        else if (!counterEnabled) $('counterSection').style.display = 'none';
+
+        // Refresh images (cache bust)
+        refreshImages(status);
+
+      } catch (err) {
+        $('cvStatusText').textContent = 'Erro de conexão';
+        $('cvDot').className = 'status-dot offline';
+      }
+    }
+
+    // ── Render status bar ──────────────────────────
+    function renderStatus(s) {
+      $('cvStatusText').textContent = s.running ? 'Ativo' : (s.enabled ? 'Parado' : 'Desativado');
+      $('cvDot').className = s.running ? 'status-dot' : 'status-dot offline';
+      $('cvModel').textContent = s.model || '—';
+      $('cvGpu').textContent = `GPU ${s.gpu}`;
+
+      $('btnCvStart').disabled = s.running;
+      $('btnCvStop').disabled = !s.running;
+
+      // Total count
+      $('totalCount').textContent = `${s.totalCount} pessoa${s.totalCount !== 1 ? 's' : ''} (${s.countStrategy})`;
+
+      // Process chips
+      const chips = [];
+      const cams = Object.keys(s.perCamera || {});
+      cvCameras = cams;
+
+      for (const camId of cams) {
+        const c = s.perCamera[camId];
+        const on = c.running;
+        chips.push(`<div class="cv-status-chip"><span class="dot ${on ? 'on' : 'off'}"></span>${camId} · ${c.count} · ${c.fps.toFixed(1)} fps</div>`);
+      }
+
+      if (s.counter?.running) {
+        chips.push(`<div class="cv-status-chip"><span class="dot on"></span>counter · PID ${s.counter.pid || '?'}</div>`);
+      } else if (counterEnabled) {
+        chips.push(`<div class="cv-status-chip"><span class="dot off"></span>counter · parado</div>`);
+      }
+
+      $('processChips').innerHTML = chips.join('');
+    }
+
+    // ── Render counter ─────────────────────────────
+    function renderCounter(c) {
+      $('counterSection').style.display = '';
+      $('cOccupancy').textContent = c.occupancy ?? '—';
+      $('cEntries').textContent = c.entries ?? '—';
+      $('cExits').textContent = c.exits ?? '—';
+      $('counterDate').textContent = c.date || new Date().toISOString().slice(0, 10);
+
+      // Dwell
+      const dw = c.dwellTime;
+      if (dw) {
+        $('cDwell').textContent = dw.avgFormatted || '—';
+        $('cDwellDetail').textContent = `mediana ${dw.medianFormatted || '—'} · ${dw.samples} amostras`;
+        $('dwMin').textContent = formatDuration(dw.minSeconds);
+        $('dwMedian').textContent = formatDuration(dw.medianSeconds);
+        $('dwAvg').textContent = formatDuration(dw.avgSeconds);
+        $('dwP90').textContent = dw.p90Seconds != null ? formatDuration(dw.p90Seconds) : '—';
+        $('dwMax').textContent = formatDuration(dw.maxSeconds);
+        $('dwSamples').textContent = dw.samples;
+      } else {
+        $('cDwell').textContent = '—';
+        $('cDwellDetail').textContent = 'aguardando dados';
+        ['dwMin', 'dwMedian', 'dwAvg', 'dwP90', 'dwMax', 'dwSamples'].forEach(id => $(id).textContent = '—');
+      }
+
+      // Hourly chart
+      renderHourly(c.hourly || {});
+
+      // Counter frame
+      const img = $('counterFrameImg');
+      const ph = $('counterFramePlaceholder');
+      img.src = `/api/cv/counter/frame?t=${Date.now()}`;
+      img.onload = () => { img.style.display = 'block'; ph.style.display = 'none'; };
+      img.onerror = () => { img.style.display = 'none'; ph.style.display = 'flex'; };
+    }
+
+    // ── Hourly bar chart ───────────────────────────
+    function renderHourly(hourly) {
+      const chart = $('hourlyChart');
+      // Show hours 06-23
+      const hours = [];
+      for (let h = 6; h <= 23; h++) {
+        const key = String(h).padStart(2, '0');
+        hours.push({ hour: key, entries: hourly[key]?.entries || 0, exits: hourly[key]?.exits || 0 });
+      }
+
+      const maxVal = Math.max(1, ...hours.map(h => Math.max(h.entries, h.exits)));
+
+      chart.innerHTML = hours.map(h => {
+        const eH = Math.max(1, (h.entries / maxVal) * 80);
+        const xH = Math.max(1, (h.exits / maxVal) * 80);
+        return `
+          <div class="hourly-bar-group">
+            <div style="display:flex;gap:1px;align-items:flex-end;height:80px;">
+              <div class="hourly-bar entries" style="height:${eH}px;" title="${h.entries} entradas"></div>
+              <div class="hourly-bar exits" style="height:${xH}px;" title="${h.exits} saídas"></div>
+            </div>
+            <div class="hourly-label">${h.hour}h</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ── Render camera cards ────────────────────────
+    function renderCameras(status) {
+      const grid = $('camGrid');
+      const cams = Object.keys(status.perCamera || {});
+
+      // Only rebuild DOM if camera count changed
+      if (grid.dataset.cams !== cams.join(',')) {
+        grid.dataset.cams = cams.join(',');
+        grid.innerHTML = cams.map(camId => {
+          const c = status.perCamera[camId];
+          return `
+            <div class="cam-card" id="card-${camId}">
+              <div class="cam-card-header">
+                <span class="cam-card-title">${camId}</span>
+                <span class="cam-card-meta" id="meta-${camId}">${c.count} pessoas · ${c.fps.toFixed(1)} fps</span>
+              </div>
+              <div class="cam-tabs">
+                <div class="cam-tab active" data-cam="${camId}" data-view="frame" onclick="switchTab(this)">Frame</div>
+                <div class="cam-tab" data-cam="${camId}" data-view="heatmap" onclick="switchTab(this)">Heatmap</div>
+                <div class="cam-tab" data-cam="${camId}" data-view="stream" onclick="switchTab(this)">Stream</div>
+              </div>
+              <div class="cam-view" id="view-${camId}">
+                <img id="img-${camId}" src="" alt="${camId}" style="display:none;">
+                <div class="no-data" id="ph-${camId}">Aguardando dados...</div>
+                <div class="people-count" id="count-${camId}">${c.count}</div>
+              </div>
+              <div class="cam-card-footer">
+                <span id="ts-${camId}">${c.timestamp ? new Date(c.timestamp).toLocaleTimeString('pt-BR') : '—'}</span>
+                <span id="status-${camId}">${c.status || 'unknown'}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Set initial view to frame
+        cams.forEach(camId => {
+          activeViews[camId] = 'frame';
+        });
+      } else {
+        // Just update data
+        cams.forEach(camId => {
+          const c = status.perCamera[camId];
+          const meta = $(`meta-${camId}`);
+          const count = $(`count-${camId}`);
+          const ts = $(`ts-${camId}`);
+          const st = $(`status-${camId}`);
+          if (meta) meta.textContent = `${c.count} pessoas · ${c.fps.toFixed(1)} fps`;
+          if (count) count.textContent = c.count;
+          if (ts) ts.textContent = c.timestamp ? new Date(c.timestamp).toLocaleTimeString('pt-BR') : '—';
+          if (st) st.textContent = c.status || 'unknown';
+        });
+      }
+    }
+
+    // ── Tab switching ──────────────────────────────
+    const activeViews = {};  // camId -> 'frame' | 'heatmap' | 'stream'
+    let streamAborts = {};   // camId -> AbortController for MJPEG
+
+    function switchTab(el) {
+      const camId = el.dataset.cam;
+      const view = el.dataset.view;
+
+      // Update tab UI
+      el.parentElement.querySelectorAll('.cam-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+
+      // Stop any existing stream
+      if (streamAborts[camId]) {
+        streamAborts[camId].abort();
+        delete streamAborts[camId];
+      }
+
+      activeViews[camId] = view;
+
+      const img = $(`img-${camId}`);
+      const ph = $(`ph-${camId}`);
+
+      if (view === 'stream') {
+        // MJPEG stream
+        img.src = `/api/cameras/${camId}/stream`;
+        img.style.display = 'block';
+        ph.style.display = 'none';
+      } else {
+        // Will be updated on next refresh cycle
+        updateCamImage(camId, view);
+      }
+    }
+
+    function updateCamImage(camId, view) {
+      const img = $(`img-${camId}`);
+      const ph = $(`ph-${camId}`);
+      if (!img) return;
+
+      const url = view === 'heatmap'
+        ? `/api/cv/${camId}/heatmap?t=${Date.now()}`
+        : `/api/cv/${camId}/frame?t=${Date.now()}`;
+
+      const testImg = new Image();
+      testImg.onload = () => {
+        img.src = url;
+        img.style.display = 'block';
+        if (ph) ph.style.display = 'none';
+      };
+      testImg.onerror = () => {
+        img.style.display = 'none';
+        if (ph) { ph.style.display = 'flex'; ph.textContent = view === 'heatmap' ? 'Sem heatmap' : 'Sem frame'; }
+      };
+      testImg.src = url;
+    }
+
+    // ── Refresh images ─────────────────────────────
+    function refreshImages(status) {
+      const cams = Object.keys(status.perCamera || {});
+      for (const camId of cams) {
+        const view = activeViews[camId] || 'frame';
+        if (view !== 'stream') {
+          updateCamImage(camId, view);
+        }
+      }
+    }
+
+    // ── Controls ───────────────────────────────────
+    async function cvStart() {
+      try {
+        await api('/api/cv/start', { method: 'POST' });
+        toast('CV iniciando...', 'success');
+      } catch { toast('Erro ao iniciar CV', 'error'); }
+    }
+
+    async function cvStop() {
+      try {
+        await api('/api/cv/stop', { method: 'POST' });
+        toast('CV parando...', 'success');
+      } catch { toast('Erro ao parar CV', 'error'); }
+    }
+
+    async function cvResetHeatmap() {
+      try {
+        await api('/api/cv/heatmap/reset', { method: 'POST' });
+        toast('Heatmap resetado', 'success');
+      } catch { toast('Erro ao resetar heatmap', 'error'); }
+    }
+
+    async function saveLine() {
+      const line = `${$('lineX1').value},${$('lineY1').value},${$('lineX2').value},${$('lineY2').value}`;
+      try {
+        const cfg = await api('/api/config');
+        if (!cfg.cv) cfg.cv = {};
+        if (!cfg.cv.counter) cfg.cv.counter = {};
+        cfg.cv.counter.line = line;
+        await api('/api/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cfg),
+        });
+        toast(`Linha salva: ${line}. Reinicie o CV para aplicar.`, 'success');
+      } catch {
+        toast('Erro ao salvar linha', 'error');
+      }
+    }
+
+    // ── Helpers ─────────────────────────────────────
+    function formatDuration(seconds) {
+      if (seconds == null) return '—';
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }
+
+    function toast(msg, type = '') {
+      const div = document.createElement('div');
+      div.className = `toast ${type}`;
+      div.textContent = msg;
+      $('toasts').appendChild(div);
+      setTimeout(() => div.remove(), 4000);
+    }
+
+    // ── Boot ───────────────────────────────────────
+    init();
+  </script>
+</body>
+</html>
