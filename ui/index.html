@@ -202,6 +202,60 @@
     .scan-dropdown td   { padding: 4px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
     .scan-dropdown td:first-child { color: var(--cyan); }
 
+    /* ─── Health Semaphore ─── */
+    .semaphore {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.3s;
+    }
+    .semaphore.green  { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); color: var(--green); }
+    .semaphore.yellow { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: var(--amber); }
+    .semaphore.red    { background: rgba(239,68,68,0.08);  border: 1px solid rgba(239,68,68,0.2);  color: var(--red); }
+    .semaphore-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .semaphore.green  .semaphore-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .semaphore.yellow .semaphore-dot { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+    .semaphore.red    .semaphore-dot { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+
+    /* ─── TV Grid ─── */
+    .tv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .tv-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 14px 16px; transition: all 0.2s;
+    }
+    .tv-card:hover { border-color: var(--border-light); }
+    .tv-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .tv-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+    .tv-actions { display: flex; gap: 6px; align-items: center; }
+    .tv-volume-badge { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dimmer); }
+
+    /* ─── Timeline ─── */
+    .timeline-list { font-size: 12px; }
+    .timeline-item { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+    .timeline-time { font-family: 'JetBrains Mono', monospace; color: var(--text-dimmer); white-space: nowrap; flex-shrink: 0; }
+    .timeline-msg { color: var(--text-dim); }
+    .timeline-remote { color: var(--blue); }
+
+    /* ─── WS Disconnect Banner ─── */
+    .ws-banner {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: var(--red);
+    }
+    .ws-banner.show { display: flex; }
+
     /* ─── Responsive ─── */
     @media (max-width: 768px) {
       .camera-grid    { grid-template-columns: repeat(2, 1fr); }
@@ -235,12 +289,24 @@
 
     <div class="header-right">
       <a href="/verificacao.html" class="nav-btn">✓ Verificação</a>
+      <a href="/server.html"      class="nav-btn">📊 Servidor</a>
       <a href="/config.html"      class="nav-btn">⚙ Configurações</a>
       <div class="status-dot" id="ws-status"></div>
     </div>
   </header>
 
   <main class="main">
+
+    <!-- WS Disconnect Banner -->
+    <div class="ws-banner" id="ws-banner">
+      ⚠ Conexão perdida com o servidor. Reconectando...
+    </div>
+
+    <!-- Health Semaphore -->
+    <div class="semaphore green" id="semaphore">
+      <div class="semaphore-dot"></div>
+      <span id="semaphore-text">Tudo operacional</span>
+    </div>
 
     <!-- Network bar (com scan integrado) -->
     <section class="section" style="margin-bottom:20px;">
@@ -260,6 +326,10 @@
         <div class="net-chip">
           <span class="label">Uptime</span>
           <span class="value" id="net-uptime">—</span>
+        </div>
+        <div class="net-chip" id="net-gpu-chip" style="display:none;">
+          <span class="label">GPU</span>
+          <span class="value" id="net-gpu-temp">—</span>
         </div>
         <!-- Scan integrado -->
         <div class="net-chip scan-chip-wrap" style="cursor:pointer;" onclick="toggleScan()">
@@ -314,6 +384,28 @@
       </div>
     </section>
 
+    <!-- ② bis: TVs -->
+    <section class="section" id="tv-section" style="display:none;">
+      <div class="section-header">
+        <span class="section-title">TVs</span>
+        <div class="section-actions">
+          <button class="btn btn-on btn-sm" onclick="tvAction('all','cast')">▶ Play Todas</button>
+          <button class="btn btn-off btn-sm" onclick="tvAction('all','stop')">⏹ Stop Todas</button>
+        </div>
+      </div>
+      <div class="tv-grid" id="tv-grid"></div>
+    </section>
+
+    <!-- ② ter: Timeline -->
+    <section class="section">
+      <div class="section-header">
+        <span class="section-title">Eventos Recentes</span>
+      </div>
+      <div class="timeline-list" id="timeline-list">
+        <div style="color:var(--text-dimmer);font-size:12px;">Carregando...</div>
+      </div>
+    </section>
+
     <!-- ③ SCHEDULE -->
     <section class="section">
       <div class="section-header">
@@ -365,9 +457,13 @@
     function connectWS() {
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       ws = new WebSocket(`${proto}//${location.host}`);
-      ws.onopen  = () => document.getElementById('ws-status').classList.remove('offline');
+      ws.onopen  = () => {
+        document.getElementById('ws-status').classList.remove('offline');
+        document.getElementById('ws-banner').classList.remove('show');
+      };
       ws.onclose = () => {
         document.getElementById('ws-status').classList.add('offline');
+        document.getElementById('ws-banner').classList.add('show');
         setTimeout(connectWS, 3000);
       };
       ws.onmessage = (event) => {
@@ -701,11 +797,160 @@
       setTimeout(() => el.remove(), 4000);
     }
 
+    // ─── Server Health (GPU in network bar) ────────────────
+    let serverData = null;
+
+    async function pollServerHealth() {
+      try {
+        serverData = await api('GET', '/server/health');
+        const chip = document.getElementById('net-gpu-chip');
+        const temp = document.getElementById('net-gpu-temp');
+        if (serverData && serverData.gpus && serverData.gpus.length > 0) {
+          const gpu0 = serverData.gpus[0];
+          chip.style.display = '';
+          const t = gpu0.temp;
+          const color = t >= 84 ? 'var(--red)' : t >= 75 ? 'var(--amber)' : t >= 60 ? '#f97316' : 'var(--green)';
+          temp.textContent = `${t}°C`;
+          temp.style.color = color;
+        }
+        updateSemaphore();
+      } catch (_) {}
+    }
+
+    // ─── Semaphore ───────────────────────────────────────────
+    function updateSemaphore() {
+      const el = document.getElementById('semaphore');
+      const text = document.getElementById('semaphore-text');
+      const issues = [];
+
+      // Check projectors
+      const projOn = state.projectors.filter(p => p.power === 'on').length;
+      const projTotal = state.projectors.length;
+      const projUnreachable = state.projectors.filter(p => !p.online).length;
+      if (projUnreachable > 0) issues.push(`${projUnreachable} projetor(es) inalcançável(is)`);
+
+      // Check cameras
+      const camOff = state.cameras.filter(c => !c.online).length;
+      if (camOff > 0) issues.push(`${camOff} câmera(s) offline`);
+
+      // Check GPU
+      if (serverData && serverData.gpus) {
+        for (const gpu of serverData.gpus) {
+          if (gpu.temp >= 84) issues.push(`GPU ${gpu.index} a ${gpu.temp}°C — CRÍTICO`);
+          else if (gpu.temp >= 75) issues.push(`GPU ${gpu.index} a ${gpu.temp}°C`);
+        }
+      }
+
+      // Check Resolume
+      if (serverData && !serverData.resolume) issues.push('Resolume não está rodando');
+
+      // Determine level
+      let level = 'green';
+      let msg = 'Tudo operacional';
+      const hasCritical = issues.some(i => i.includes('CRÍTICO') || i.includes('Resolume'));
+
+      if (hasCritical || projUnreachable >= 2) {
+        level = 'red';
+        msg = issues.join(' · ');
+      } else if (issues.length > 0) {
+        level = 'yellow';
+        msg = issues.join(' · ');
+      }
+
+      el.className = `semaphore ${level}`;
+      text.textContent = msg;
+    }
+
+    // ─── TVs ─────────────────────────────────────────────────
+    let tvState = [];
+
+    async function pollTvs() {
+      try {
+        // /api/tv returns config; poll each for live status
+        const tvConfig = await api('GET', '/tv');
+        if (!Array.isArray(tvConfig) || !tvConfig.length) return;
+        const statuses = await Promise.allSettled(
+          tvConfig.map(t => api('GET', `/tv/${t.id}/status`))
+        );
+        tvState = tvConfig.map((t, i) => {
+          const s = statuses[i].status === 'fulfilled' ? statuses[i].value : {};
+          return { ...t, ...s };
+        });
+        renderTvs();
+      } catch (_) {}
+    }
+
+    function renderTvs() {
+      const section = document.getElementById('tv-section');
+      const grid = document.getElementById('tv-grid');
+      if (!tvState.length) { section.style.display = 'none'; return; }
+      section.style.display = '';
+
+      grid.innerHTML = tvState.map(t => `
+        <div class="tv-card">
+          <div class="tv-name">${t.name || t.id}</div>
+          <div class="tv-status">
+            <div class="status-dot ${t.online ? '' : 'offline'}" style="width:6px;height:6px;"></div>
+            <span>${t.online ? (t.application ? '▶ Tocando' : 'Online') : 'Offline'}</span>
+            ${t.volume ? `<span class="tv-volume-badge">🔊 ${t.volume.level}%</span>` : ''}
+          </div>
+          <div class="tv-actions">
+            ${t.application
+              ? `<button class="btn btn-off btn-sm" onclick="tvAction('${t.id}','stop')">⏹ Stop</button>`
+              : `<button class="btn btn-on btn-sm" onclick="tvAction('${t.id}','cast')">▶ Play</button>`
+            }
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function tvAction(id, action) {
+      if (id === 'all') {
+        toast(`${action === 'cast' ? '▶ Playing' : '⏹ Stopping'} todas as TVs...`);
+        await api('POST', `/tv/all/${action}`);
+      } else {
+        toast(`${action === 'cast' ? '▶ Playing' : '⏹ Stopping'} ${id}...`);
+        await api('POST', `/tv/${id}/${action}`);
+      }
+      setTimeout(pollTvs, 3000);
+    }
+
+    // ─── Timeline ────────────────────────────────────────────
+    async function pollTimeline() {
+      try {
+        const data = await api('GET', '/log');
+        if (!Array.isArray(data)) return;
+        const list = document.getElementById('timeline-list');
+        const today = new Date().toISOString().slice(0, 10);
+        const todayItems = data.filter(e => e.timestamp && e.timestamp.startsWith(today)).slice(0, 8);
+
+        if (!todayItems.length) {
+          list.innerHTML = '<div style="color:var(--text-dimmer);font-size:12px;">Nenhum evento hoje</div>';
+          return;
+        }
+
+        list.innerHTML = todayItems.map(e => {
+          const time = e.timestamp ? e.timestamp.slice(11, 16) : '—';
+          const isRemote = e.type === 'remote-command';
+          return `<div class="timeline-item">
+            <span class="timeline-time">${time}</span>
+            <span class="${isRemote ? 'timeline-remote' : 'timeline-msg'}">${isRemote ? '🌐 ' : ''}${e.message}</span>
+          </div>`;
+        }).join('');
+      } catch (_) {}
+    }
+
     // ─── Init ────────────────────────────────────────────────
     connectWS();
     setInterval(pollHealth, 30000);
+    setInterval(pollServerHealth, 30000);
+    setInterval(pollTvs, 30000);
+    setInterval(pollTimeline, 30000);
     setInterval(updateStateBadge, 60000);
     pollHealth();
+    pollServerHealth();
+    pollTvs();
+    pollTimeline();
   </script>
 </body>
 </html>
