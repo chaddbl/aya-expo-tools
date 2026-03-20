@@ -25,6 +25,13 @@ const LOG_DIR = path.join(__dirname, '..', 'logs', 'health')
 // Processos críticos a monitorar
 const WATCHED_PROCESSES = ['Arena.exe', 'node.exe', 'chrome.exe', 'rustdesk.exe']
 
+// Pastas a medir tamanho
+const TRACKED_FOLDERS = {
+  media: path.join(__dirname, '..', 'media'),
+  timelapse: path.join(__dirname, '..', 'logs', 'timelapse'),
+  healthLogs: path.join(__dirname, '..', 'logs', 'health'),
+}
+
 // ── State ────────────────────────────────────────────────────
 
 let _current = null
@@ -33,6 +40,9 @@ let _pollTimer = null
 let _prevCpuIdle = 0
 let _prevCpuTotal = 0
 let _alerts = []     // { type, message, timestamp, value, threshold }
+let _storage = null  // folder sizes, refreshed every 5min
+let _storageLastPoll = 0
+const STORAGE_POLL_INTERVAL = 300_000  // 5min
 
 // Alert thresholds
 const THRESHOLDS = {
@@ -145,6 +155,44 @@ function getDisk() {
   })
 }
 
+// ── Folder Sizes ─────────────────────────────────────────────
+
+function getFolderSizes() {
+  const result = {}
+  for (const [name, dirPath] of Object.entries(TRACKED_FOLDERS)) {
+    try {
+      result[name] = getDirSize(dirPath)
+    } catch {
+      result[name] = { bytes: 0, mb: 0, files: 0 }
+    }
+  }
+  return result
+}
+
+function getDirSize(dirPath) {
+  let totalBytes = 0
+  let totalFiles = 0
+
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name)
+      if (entry.isDirectory()) {
+        const sub = getDirSize(fullPath)
+        totalBytes += sub.bytes
+        totalFiles += sub.files
+      } else if (entry.isFile()) {
+        try {
+          totalBytes += fs.statSync(fullPath).size
+          totalFiles++
+        } catch { /* skip */ }
+      }
+    }
+  } catch { /* dir doesn't exist */ }
+
+  return { bytes: totalBytes, mb: Math.round(totalBytes / 1024 / 1024), files: totalFiles }
+}
+
 // ── Processos ────────────────────────────────────────────────
 
 function getProcesses() {
@@ -207,7 +255,10 @@ function checkAlerts(data) {
   }
 
   if (data.disk && data.disk.pct >= THRESHOLDS.diskPct) {
-    newAlerts.push({ type: 'warning', category: 'disk', message: `Disco a ${data.disk.pct}%`, value: data.disk.pct, threshold: THRESHOLDS.diskPct, timestamp: now })
+    newAlerts.push({ type: 'warning', category: 'disk', message: `Disco a ${data.disk.pct}% (${data.disk.free}GB livres)`, value: data.disk.pct, threshold: THRESHOLDS.diskPct, timestamp: now })
+  }
+  if (data.disk && data.disk.free <= 20) {
+    newAlerts.push({ type: 'critical', category: 'disk-low', message: `Disco com apenas ${data.disk.free}GB livres — CRÍTICO`, value: data.disk.free, threshold: 20, timestamp: now })
   }
 
   // Keep last 20 alerts
@@ -255,6 +306,11 @@ function persistLog(data) {
       ramMB: data.ram?.used ?? null,
       disk: data.disk?.pct ?? null,
       diskFreeGB: data.disk?.free ?? null,
+      storageMB: data.storage ? {
+        media: data.storage.media?.mb ?? 0,
+        timelapse: data.storage.timelapse?.mb ?? 0,
+        logs: data.storage.healthLogs?.mb ?? 0,
+      } : null,
       resolume: data.resolume ? 1 : 0,
       osUp: data.osUptime,
     }
@@ -284,11 +340,19 @@ async function poll() {
     const cpu = getCpuUsage()
     const ram = getRam()
 
+    // Storage: refresh every 5min (expensive I/O)
+    const now = Date.now()
+    if (!_storage || now - _storageLastPoll >= STORAGE_POLL_INTERVAL) {
+      _storage = getFolderSizes()
+      _storageLastPoll = now
+    }
+
     const data = {
       gpus,
       cpu,
       ram,
       disk,
+      storage: _storage,
       processes,
       resolume: processes.some(p => p.name === 'Arena.exe'),
       osUptime: Math.floor(os.uptime()),

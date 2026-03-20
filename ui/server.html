@@ -83,6 +83,9 @@
     <!-- Summary cards -->
     <div class="summary-grid" id="summaryGrid"></div>
 
+    <!-- Storage -->
+    <div id="storageInfo" style="margin-bottom:16px;"></div>
+
     <!-- Charts -->
     <div class="charts-grid">
       <div class="chart-container">
@@ -179,6 +182,8 @@
         picker.value = dates[0]
         await loadDate(dates[0])
       }
+
+      loadStorage()
 
       picker.addEventListener('change', () => loadDate(picker.value))
 
@@ -517,7 +522,46 @@
       }).join('')
     }
 
-    // ── Live refresh ───────────────────────────────
+    // ── Storage info ─────────────────────────────────
+    async function loadStorage() {
+      try {
+        const health = await fetch('/api/server/health').then(r => r.json())
+        const el = $('storageInfo')
+        if (!health.storage || !health.disk) { el.innerHTML = ''; return }
+
+        const d = health.disk
+        const s = health.storage
+        const total = (s.media?.mb || 0) + (s.timelapse?.mb || 0) + (s.healthLogs?.mb || 0)
+        const diskColor = d.free <= 20 ? 'temp-red' : d.pct >= 80 ? 'temp-yellow' : 'temp-green'
+
+        el.innerHTML = `
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <div class="summary-card" style="flex:1;min-width:140px;">
+              <div class="label">Disco C:</div>
+              <div class="value ${diskColor}">${d.free} GB livres</div>
+              <div class="detail">${d.used}/${d.total} GB usado (${d.pct}%)</div>
+            </div>
+            <div class="summary-card" style="flex:1;min-width:140px;">
+              <div class="label">📁 Media</div>
+              <div class="value">${s.media?.mb >= 1024 ? (s.media.mb/1024).toFixed(1)+' GB' : s.media?.mb+' MB'}</div>
+              <div class="detail">${s.media?.files || 0} arquivos</div>
+            </div>
+            <div class="summary-card" style="flex:1;min-width:140px;">
+              <div class="label">📸 Timelapse</div>
+              <div class="value">${s.timelapse?.mb >= 1024 ? (s.timelapse.mb/1024).toFixed(1)+' GB' : s.timelapse?.mb+' MB'}</div>
+              <div class="detail">${s.timelapse?.files || 0} frames</div>
+            </div>
+            <div class="summary-card" style="flex:1;min-width:140px;">
+              <div class="label">📊 Health Logs</div>
+              <div class="value">${s.healthLogs?.mb || 0} MB</div>
+              <div class="detail">${s.healthLogs?.files || 0} arquivos</div>
+            </div>
+          </div>
+        `
+      } catch {}
+    }
+
+    // ── Live refresh ─────────────────────────────────
     async function refreshLive() {
       // Only refresh if viewing today
       const today = new Date().toISOString().slice(0, 10)
