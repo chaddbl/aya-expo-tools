@@ -18,6 +18,7 @@ const commissioning = require('./commissioning');
 const tv = require('./tv');
 const serverHealth = require('./server-health');
 const { TimelapseCapture } = require('./timelapse');
+const loopGen = require('./loop-generator');
 
 // ─── Load Config ───────────────────────────────────────────
 const configArg = process.argv.find(a => a.startsWith('--config='));
@@ -418,45 +419,82 @@ app.delete('/api/media/:filename', (req, res) => {
   }
 });
 
-// Assign video to a TV (updates config + optional re-cast)
+// Assign video to a TV (generates loop + updates config + auto-cast when ready)
 app.post('/api/media/assign', async (req, res) => {
   const { tvId, videoUrl, videoTitle, recast } = req.body;
   if (!tvId || !videoUrl) return res.status(400).json({ error: 'tvId and videoUrl required' });
 
-  // Update config in memory
   const tvConf = (config.tvs || []).find(t => t.id === tvId);
   if (!tvConf) return res.status(404).json({ error: `TV ${tvId} not found` });
 
-  tvConf.videoUrl = videoUrl;
+  // Resolve source file path
+  const sourceFile = videoUrl.startsWith('/media/')
+    ? path.join(MEDIA_DIR, videoUrl.replace('/media/', ''))
+    : path.join(MEDIA_DIR, path.basename(videoUrl));
+
+  if (!fs.existsSync(sourceFile)) {
+    return res.status(404).json({ error: `Arquivo não encontrado: ${sourceFile}` });
+  }
+
+  // Update config — store original URL and loop URL
+  tvConf.videoUrlOriginal = videoUrl;
   if (videoTitle) tvConf.videoTitle = videoTitle;
 
-  // Persist to config file
+  addLogEntry(`📺 Vídeo atribuído: ${tvId} → ${videoUrl} (gerando loop 12h...)`);
+
+  // Generate loop in background
+  const mediaServer = config.exhibition?.network?.mediaServer || 'localhost';
+  const port = config.server?.port || 3000;
+  const baseUrl = `http://${mediaServer}:${port}`;
+
+  // Check if loop already exists
+  if (loopGen.hasLoop(videoUrl)) {
+    const loopUrl = loopGen.getLoopUrl(videoUrl);
+    tvConf.videoUrl = loopUrl;
+    persistTvConfig(tvId, tvConf);
+    addLogEntry(`✅ Loop já existe: ${tvId} → ${loopUrl}`);
+
+    if (recast) {
+      tv.startLoop(tvConf, loopUrl, { title: videoTitle || tvConf.name, baseUrl });
+    }
+    return res.json({ ok: true, loop: true, loopUrl, message: `Loop existente atribuído a ${tvConf.name}` });
+  }
+
+  // Generate loop async — respond immediately, cast when ready
+  res.json({ ok: true, loop: false, generating: true, message: `Gerando loop 12h para ${tvConf.name}... Cast automático quando pronto.` });
+
+  loopGen.generate(sourceFile, (loopUrl) => {
+    tvConf.videoUrl = loopUrl;
+    persistTvConfig(tvId, tvConf);
+    addLogEntry(`✅ Loop gerado: ${tvId} → ${loopUrl}`);
+
+    if (recast) {
+      tv.startLoop(tvConf, loopUrl, { title: videoTitle || tvConf.name, baseUrl });
+      addLogEntry(`▶ Cast iniciado: ${tvId} → ${loopUrl}`);
+    }
+  }).catch(err => {
+    addLogEntry(`❌ Erro ao gerar loop: ${tvId} — ${err.message}`);
+    // Fallback: use original video
+    tvConf.videoUrl = videoUrl;
+    persistTvConfig(tvId, tvConf);
+  });
+});
+
+// Helper: persist TV config to file
+function persistTvConfig(tvId, tvConf) {
   try {
     const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     const savedTv = (saved.tvs || []).find(t => t.id === tvId);
     if (savedTv) {
-      savedTv.videoUrl = videoUrl;
-      if (videoTitle) savedTv.videoTitle = videoTitle;
+      Object.assign(savedTv, { videoUrl: tvConf.videoUrl, videoUrlOriginal: tvConf.videoUrlOriginal, videoTitle: tvConf.videoTitle });
       fs.writeFileSync(configPath, JSON.stringify(saved, null, 2));
     }
   } catch {}
+}
 
-  addLogEntry(`📺 Vídeo atribuído: ${tvId} → ${videoUrl}`);
-
-  // Optional: re-cast immediately
-  if (recast && tv) {
-    try {
-      const mediaServer = config.exhibition?.network?.mediaServer || 'localhost';
-      const port = config.server?.port || 3000;
-      const fullUrl = `http://${mediaServer}:${port}${videoUrl}`;
-      await tv.castVideo(tvConf, fullUrl, { title: videoTitle || tvConf.name });
-      return res.json({ ok: true, recast: true, message: `Vídeo atribuído e cast iniciado em ${tvConf.name}` });
-    } catch (err) {
-      return res.json({ ok: true, recast: false, message: `Vídeo atribuído, mas cast falhou: ${err.message}` });
-    }
-  }
-
-  res.json({ ok: true, recast: false, message: `Vídeo atribuído a ${tvConf.name}` });
+// Loop generation status
+app.get('/api/media/loops', (req, res) => {
+  res.json(loopGen.getStatus());
 });
 
 // ─── API: Config editor ────────────────────────────────────
