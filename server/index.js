@@ -872,6 +872,21 @@ app.get('/api/cv/:camId/frame', (req, res) => {
   res.send(buffer);
 });
 
+// Visitor counter
+app.get('/api/cv/counter', (req, res) => {
+  const data = cvManager.getCounterData();
+  if (!data) return res.json({ error: 'Counter not running or no data yet' });
+  res.json(data);
+});
+
+app.get('/api/cv/counter/frame', (req, res) => {
+  const buffer = cvManager.getCounterFrame();
+  if (!buffer) return res.status(404).json({ error: 'No counter frame' });
+  res.set('Content-Type', 'image/jpeg');
+  res.set('Cache-Control', 'no-store');
+  res.send(buffer);
+});
+
 app.post('/api/cv/start', (req, res) => {
   if (cvManager.getStatus().running) return res.json({ ok: true, message: 'Already running' });
   cvManager.enabled = true;

@@ -137,7 +137,14 @@
     "interval": 2,
     "confidence": 0.4,
     "heatmapDecay": 0.999,
-    "countStrategy": "max"
+    "countStrategy": "max",
+    "counter": {
+      "enabled": true,
+      "camera": "cam-2",
+      "line": "500,480,1400,480",
+      "confidence": 0.45,
+      "interval": 0.5
+    }
   },
 
   "server": {

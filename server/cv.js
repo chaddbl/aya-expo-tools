@@ -24,6 +24,7 @@ class CVManager {
     this.camerasConfig = config.cameras || [];
     this.enabled = !!this.cvConfig.enabled;
     this.processes = new Map();  // camId → { process, pid }
+    this.counterProcess = null;  // visitor counter process
     this._readInterval = null;
     this._cache = new Map();    // camId → { detections, status }
   }
@@ -53,6 +54,12 @@ class CVManager {
 
     for (const camId of cvCameras) {
       this._startDetector(camId, pythonCmd, configPath);
+    }
+
+    // Start visitor counter if configured
+    const counterCfg = this.cvConfig.counter;
+    if (counterCfg && counterCfg.enabled) {
+      this._startCounter(pythonCmd, configPath, counterCfg);
     }
 
     this._startReading();
@@ -128,6 +135,55 @@ class CVManager {
     this.processes.set(camId, { process: proc, pid: proc.pid, camId });
   }
 
+  _startCounter(pythonCmd, configPath, counterCfg) {
+    const args = [
+      path.join(CV_DIR, 'counter.py'),
+      '--gpu', String(this.cvConfig.gpu || 1),
+      '--line', counterCfg.line || '500,480,1400,480',
+      '--confidence', String(counterCfg.confidence || 0.45),
+      '--interval', String(counterCfg.interval || 0.5),
+      '--model', this.cvConfig.model || 'yolov8n',
+    ];
+
+    if (configPath) args.push('--config', configPath);
+
+    console.log(`  👁️ CV [counter]: starting visitor counter on ${counterCfg.camera || 'cam-2'}`);
+
+    const proc = spawn(pythonCmd, args, {
+      cwd: CV_DIR,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+
+    proc.stdout.on('data', (data) => {
+      data.toString().trim().split('\n').forEach(line => {
+        if (line.trim()) console.log(`  👁️ [counter] ${line.trim()}`);
+      });
+    });
+
+    proc.stderr.on('data', (data) => {
+      data.toString().trim().split('\n').forEach(line => {
+        if (line.trim()) console.error(`  👁️ [counter] [err] ${line.trim()}`);
+      });
+    });
+
+    proc.on('exit', (code) => {
+      console.log(`  👁️ CV [counter]: process exited (code ${code})`);
+      this.counterProcess = null;
+      if (this.enabled && code !== 0) {
+        console.log('  👁️ CV [counter]: restarting in 10s...');
+        setTimeout(() => {
+          if (this.enabled) {
+            const py = this._findPython();
+            if (py) this._startCounter(py, configPath, counterCfg);
+          }
+        }, 10000);
+      }
+    });
+
+    this.counterProcess = { process: proc, pid: proc.pid };
+  }
+
   stop() {
     this.enabled = false;
     this._stopReading();
@@ -137,12 +193,21 @@ class CVManager {
       try { entry.process.kill('SIGTERM'); } catch {}
     }
 
+    // Stop counter
+    if (this.counterProcess) {
+      try { this.counterProcess.process.kill('SIGTERM'); } catch {}
+    }
+
     // Force kill after 5s
     setTimeout(() => {
       for (const [camId, entry] of this.processes) {
         try { entry.process.kill('SIGKILL'); } catch {}
       }
       this.processes.clear();
+      if (this.counterProcess) {
+        try { this.counterProcess.process.kill('SIGKILL'); } catch {}
+        this.counterProcess = null;
+      }
     }, 5000);
   }
 
@@ -181,6 +246,9 @@ class CVManager {
       totalCount = counts.length > 0 ? Math.max(...counts) : 0;
     }
 
+    // Visitor counter data
+    const counterData = this._readCounterData();
+
     return {
       enabled: this.cvConfig.enabled || false,
       running: this.processes.size > 0,
@@ -188,6 +256,14 @@ class CVManager {
       countStrategy: strategy,
       totalCount,
       perCamera,
+      counter: counterData ? {
+        running: !!this.counterProcess,
+        pid: this.counterProcess?.pid || null,
+        ...counterData,
+      } : {
+        running: !!this.counterProcess,
+        enabled: !!(this.cvConfig.counter?.enabled),
+      },
       model: this.cvConfig.model || 'yolov8n',
       gpu: this.cvConfig.gpu || 1,
     };
@@ -255,6 +331,22 @@ class CVManager {
       : path.join(OUTPUT_DIR, 'status.json');
     if (!fs.existsSync(file)) return null;
     try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+  }
+
+  _readCounterData() {
+    const file = path.join(OUTPUT_DIR, 'counter', 'count.json');
+    if (!fs.existsSync(file)) return null;
+    try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+  }
+
+  getCounterData() {
+    return this._readCounterData();
+  }
+
+  getCounterFrame() {
+    const file = path.join(OUTPUT_DIR, 'counter', 'frame.jpg');
+    if (!fs.existsSync(file)) return null;
+    try { return fs.readFileSync(file); } catch { return null; }
   }
 
   _getCameraDirs() {
