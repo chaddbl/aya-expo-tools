@@ -267,7 +267,7 @@ async function setVolume(tv, level) {
   if (!ip) throw new Error('IP não configurado');
   if (!CastClient) throw new Error('castv2-client não instalado');
 
-  const normalized = Math.max(0, Math.min(1, level / 100));
+  const normalized = Math.max(0.01, Math.min(1, level / 100)); // mínimo 1% — evita overlay de mudo na Hisense
 
   return withCastClient(ip, 8000, (client) => {
     return new Promise((resolve, reject) => {
