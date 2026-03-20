@@ -79,24 +79,34 @@ function withCastClient(ip, timeoutMs, callback) {
     return Promise.reject(new Error('castv2-client não instalado — execute npm install'));
   }
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (fn, val) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { client.close(); } catch { /* ignore */ }
+      fn(val);
+    };
+
     const client = new CastClient();
-    const timeout = setTimeout(() => {
-      client.close();
-      reject(new Error('Cast timeout'));
+
+    const timer = setTimeout(() => {
+      done(reject, new Error('Cast timeout'));
     }, timeoutMs);
 
     client.on('error', (err) => {
-      clearTimeout(timeout);
-      client.close();
-      reject(err);
+      done(reject, err);
     });
 
-    client.connect(ip, () => {
-      clearTimeout(timeout);
-      callback(client)
-        .then(result => { client.close(); resolve(result); })
-        .catch(err => { client.close(); reject(err); });
-    });
+    try {
+      client.connect(ip, () => {
+        callback(client)
+          .then(result => done(resolve, result))
+          .catch(err => done(reject, err));
+      });
+    } catch (err) {
+      done(reject, err);
+    }
   });
 }
 
@@ -226,20 +236,24 @@ async function castStop(tv) {
   if (!ip) throw new Error('IP não configurado');
   if (!CastClient) throw new Error('castv2-client não instalado');
 
-  return withCastClient(ip, 8000, (client) => {
+  return withCastClient(ip, 10000, (client) => {
     return new Promise((resolve, reject) => {
-      client.getStatus((err, status) => {
-        if (err) return reject(err);
-        if (!status.applications || status.applications.length === 0) {
-          return resolve({ stopped: true, message: 'Nothing was playing' });
-        }
-        // Stop the first running application
-        const app = status.applications[0];
-        client.stop(app, (err) => {
+      try {
+        client.getStatus((err, status) => {
           if (err) return reject(err);
-          resolve({ stopped: true, appId: app.appId, displayName: app.displayName });
+          if (!status || !status.applications || status.applications.length === 0) {
+            return resolve({ stopped: true, message: 'Nothing was playing' });
+          }
+          // Stop the first running application
+          const app = status.applications[0];
+          try {
+            client.stop(app, (err) => {
+              if (err) return reject(err);
+              resolve({ stopped: true, appId: app.appId, displayName: app.displayName });
+            });
+          } catch (e) { reject(e); }
         });
-      });
+      } catch (e) { reject(e); }
     });
   });
 }

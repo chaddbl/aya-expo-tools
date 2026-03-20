@@ -310,6 +310,12 @@ app.post('/api/schedule', (req, res) => {
 // ─── Static: config files (plants, pixelmaps) ─────────────
 app.use('/files', express.static(path.join(__dirname, '..', 'config')));
 
+// ─── Static: media files (videos for TV cast) ─────────────
+app.use('/media', express.static(path.join(__dirname, '..', 'media'), {
+  maxAge: '1h',  // cache no browser do Cast receiver
+  acceptRanges: true,  // necessário para seek em vídeo
+}));
+
 // ─── API: Config editor ────────────────────────────────────
 app.get('/api/config', (req, res) => {
   res.json(config);
@@ -722,6 +728,15 @@ server.listen(PORT, HOST, () => {
   scheduler.start();
   portalSync.start();
   cvManager.start();
+});
+
+// ─── Uncaught errors — log but don't crash ─────────────────
+process.on('uncaughtException', (err) => {
+  console.error(`  ❌ Uncaught exception: ${err.message}`);
+  console.error(err.stack);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error(`  ❌ Unhandled rejection: ${reason}`);
 });
 
 // ─── Graceful shutdown ─────────────────────────────────────

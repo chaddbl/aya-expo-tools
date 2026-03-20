@@ -6,3 +6,7 @@ cv/output/
 cv/venv/
 cv/*.pt
 cv/*.onnx
+media/*.mp4
+media/*.mov
+media/*.avi
+media/*.mkv
