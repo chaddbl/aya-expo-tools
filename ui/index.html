@@ -410,22 +410,29 @@
     <section class="section">
       <div class="section-header">
         <span class="section-title">Agenda</span>
+        <div class="section-actions">
+          <button class="btn btn-on btn-sm" onclick="triggerOpen()">▶ Abrir Agora</button>
+          <button class="btn btn-off btn-sm" onclick="triggerClose()">⏹ Fechar Agora</button>
+        </div>
       </div>
       <div class="schedule-bar">
         <div class="schedule-times">
           <div>
-            <div class="schedule-label">Liga</div>
+            <div class="schedule-label">Abre</div>
             <div class="schedule-time" id="sched-on">—</div>
           </div>
           <span class="schedule-arrow">→</span>
           <div>
-            <div class="schedule-label">Desliga</div>
+            <div class="schedule-label">Fecha</div>
             <div class="schedule-time" id="sched-off">—</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span class="schedule-label" id="sched-label">Desativado</span>
-          <div class="toggle" id="sched-toggle" onclick="toggleSchedule()"></div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="font-size:11px;color:var(--text-dimmer);" id="sched-info"></div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="schedule-label" id="sched-label">Desativado</span>
+            <div class="toggle" id="sched-toggle" onclick="toggleSchedule()"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -671,8 +678,14 @@
       document.getElementById('sched-off').textContent = s.powerOff || '—';
       const toggle = document.getElementById('sched-toggle');
       const label  = document.getElementById('sched-label');
+      const info   = document.getElementById('sched-info');
       if (s.enabled) { toggle.classList.add('active');    label.textContent = 'Ativo'; }
       else           { toggle.classList.remove('active'); label.textContent = 'Desativado'; }
+      if (s.includeTvs) {
+        info.textContent = `${s.tvCount} TVs (WOL → ${s.tvWarmupDelay || 30}s → Cast) + projetores`;
+      } else {
+        info.textContent = 'Apenas projetores';
+      }
       updateStateBadge();
     }
 
@@ -770,6 +783,16 @@
       state.schedule = result;
       renderSchedule();
       toast(result.enabled ? 'Agenda ativada' : 'Agenda desativada');
+    }
+
+    async function triggerOpen() {
+      toast('▶ Iniciando sequência de abertura (TVs + projetores)...');
+      await api('POST', '/schedule/open');
+    }
+
+    async function triggerClose() {
+      toast('⏹ Iniciando sequência de fechamento...');
+      await api('POST', '/schedule/close');
     }
 
     // ─── Health ──────────────────────────────────────────────

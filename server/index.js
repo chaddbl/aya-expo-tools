@@ -50,6 +50,13 @@ function writeLog(entries) {
   fs.writeFileSync(LOG_PATH, JSON.stringify(entries, null, 2));
 }
 
+function addLogEntry(message, type = 'system') {
+  const entries = readLog();
+  entries.unshift({ message, type, timestamp: new Date().toISOString() });
+  if (entries.length > 200) entries.splice(200);
+  writeLog(entries);
+}
+
 // ─── Session Manager (Ciclo 3 — R4: proteção contra comandos destrutivos remotos) ─
 const session = {
   active: false,
@@ -60,7 +67,7 @@ const session = {
 // ─── Initialize Managers ───────────────────────────────────
 const projectors = new ProjectorManager(config);
 const cameras = new CameraManager(config);
-const scheduler = new Scheduler(projectors, config);
+const scheduler = new Scheduler(projectors, config, tv);
 const cvManager = new CVManager(config);
 const timelapse = new TimelapseCapture(cameras, { interval: 60_000 });
 const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog, session, cvManager, serverHealth);
@@ -308,6 +315,19 @@ app.get('/api/schedule', (req, res) => {
 app.post('/api/schedule', (req, res) => {
   scheduler.updateConfig(req.body);
   res.json(scheduler.getStatus());
+});
+
+// Manual trigger: run open/close sequence now
+app.post('/api/schedule/open', async (req, res) => {
+  addLogEntry('Sequência de abertura disparada manualmente' + (isRemoteCommand(req) ? ' (remoto)' : ''));
+  scheduler.runOpen();
+  res.json({ ok: true, message: 'Open sequence started' });
+});
+
+app.post('/api/schedule/close', async (req, res) => {
+  addLogEntry('Sequência de fechamento disparada manualmente' + (isRemoteCommand(req) ? ' (remoto)' : ''));
+  scheduler.runClose();
+  res.json({ ok: true, message: 'Close sequence started' });
 });
 
 // ─── Static: config files (plants, pixelmaps) ─────────────
