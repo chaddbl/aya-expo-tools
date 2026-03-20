@@ -1,28 +1,43 @@
 /**
  * AYA Expo Tools — Scheduler
  *
- * Cron-based automation for the full expo operating cycle:
- *   Abertura: tv-on-all → (30s) → tv-cast-all → power-on-all
- *   Fechamento: power-off-all → tv-stop-all
+ * Cron-based automation for the full expo operating cycle.
  *
- * Supports:
- * - Projectors (PJLink)
- * - TVs (Google Cast: WOL → Cast video)
- * - Configurable delays between steps
- * - Log of all scheduled actions
+ * Supports two config formats:
+ *
+ * 1) Simple (same time every day):
+ *    { "enabled": true, "powerOn": "09:00", "powerOff": "20:00" }
+ *
+ * 2) Per-day (different times per weekday):
+ *    { "enabled": true, "days": {
+ *        "mon": { "open": "10:00", "close": "20:00" },
+ *        "tue": { "open": "10:00", "close": "20:00" },
+ *        "wed": { "open": "10:00", "close": "20:00" },
+ *        "thu": { "open": "10:00", "close": "20:00" },
+ *        "fri": { "open": "10:00", "close": "20:00" },
+ *        "sat": { "open": "10:00", "close": "18:00" },
+ *        "sun": null  // closed
+ *    }}
+ *
+ * Sequences:
+ *   Open:  tv-on-all → (warmup delay) → tv-cast-all → projectors-on
+ *   Close: projectors-off → tv-stop-all
  */
 
 const cron = require('node-cron');
 
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const DAY_LABELS = {
+  sun: 'Domingo', mon: 'Segunda', tue: 'Terça', wed: 'Quarta',
+  thu: 'Quinta', fri: 'Sexta', sat: 'Sábado',
+};
+const DAY_CRON = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+
 class Scheduler {
-  /**
-   * @param {object} projectorManager — ProjectorManager instance
-   * @param {object} config — full expo config
-   * @param {object} [tvModule] — tv.js module (powerOn, powerOff, castVideo, castStop)
-   */
   constructor(projectorManager, config, tvModule) {
     this.pm = projectorManager;
     this.tvModule = tvModule || null;
+    this.fullConfig = config;
     this.config = config.schedule || {};
     this.tvConfig = config.tvs || [];
     this.serverConfig = config.server || {};
@@ -40,33 +55,94 @@ class Scheduler {
     }
 
     const tz = this.config.timezone || 'America/Sao_Paulo';
+    const days = this._normalizeDays();
 
-    // ── Abertura: tv-on → (delay) → tv-cast → projectors-on ──
-    if (this.config.powerOn) {
-      const [h, m] = this.config.powerOn.split(':');
-      const cronExpr = `${m} ${h} * * *`;
-      const job = cron.schedule(cronExpr, () => this._runOpenSequence(), { timezone: tz });
-      this.jobs.push(job);
+    if (!days || Object.keys(days).length === 0) {
+      console.log('[Scheduler] No schedule days configured');
+      return;
     }
 
-    // ── Fechamento: projectors-off → tv-stop ──
-    if (this.config.powerOff) {
-      const [h, m] = this.config.powerOff.split(':');
-      const cronExpr = `${m} ${h} * * *`;
-      const job = cron.schedule(cronExpr, () => this._runCloseSequence(), { timezone: tz });
-      this.jobs.push(job);
+    let openCount = 0;
+
+    for (const [dayKey, times] of Object.entries(days)) {
+      if (!times || !times.open || !times.close) continue; // day off
+
+      const cronDay = DAY_CRON[dayKey];
+
+      // Open job
+      const [oh, om] = times.open.split(':');
+      const openExpr = `${parseInt(om)} ${parseInt(oh)} * * ${cronDay}`;
+      const openJob = cron.schedule(openExpr, () => {
+        console.log(`[Scheduler] ▶ OPEN (${DAY_LABELS[dayKey]}) at ${times.open}`);
+        this._runOpenSequence();
+      }, { timezone: tz });
+      this.jobs.push(openJob);
+
+      // Close job
+      const [ch, cm] = times.close.split(':');
+      const closeExpr = `${parseInt(cm)} ${parseInt(ch)} * * ${cronDay}`;
+      const closeJob = cron.schedule(closeExpr, () => {
+        console.log(`[Scheduler] ⏹ CLOSE (${DAY_LABELS[dayKey]}) at ${times.close}`);
+        this._runCloseSequence();
+      }, { timezone: tz });
+      this.jobs.push(closeJob);
+
+      openCount++;
     }
 
     this.enabled = true;
-    console.log(`[Scheduler] Started — ON: ${this.config.powerOn}, OFF: ${this.config.powerOff} (${tz})`);
+    const todayTimes = this.getToday();
+    const todayStr = todayTimes
+      ? `hoje: ${todayTimes.open}–${todayTimes.close}`
+      : 'hoje: FECHADO';
+    console.log(`[Scheduler] Started — ${openCount} dia(s) configurado(s), ${todayStr} (${tz})`);
     if (this.tvConfig.length > 0 && this.tvModule) {
-      console.log(`[Scheduler] TVs included: ${this.tvConfig.length} TVs (WOL → Cast → Stop)`);
+      console.log(`[Scheduler] TVs included: ${this.tvConfig.length} TVs`);
     }
+  }
+
+  /**
+   * Normalize config to per-day format.
+   * Simple format (powerOn/powerOff) → all 7 days same time.
+   */
+  _normalizeDays() {
+    if (this.config.days) {
+      return this.config.days;
+    }
+
+    // Legacy simple format → convert to per-day (every day)
+    if (this.config.powerOn && this.config.powerOff) {
+      const days = {};
+      for (const d of DAY_KEYS) {
+        days[d] = { open: this.config.powerOn, close: this.config.powerOff };
+      }
+      return days;
+    }
+
+    return null;
+  }
+
+  /**
+   * Get today's schedule (or null if closed today).
+   */
+  getToday() {
+    const days = this._normalizeDays();
+    if (!days) return null;
+    const now = new Date();
+    // Use timezone-aware day
+    const dayIdx = new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      timeZone: this.config.timezone || 'America/Sao_Paulo',
+    }).format(now).toLowerCase();
+    const dayKey = DAY_KEYS.find(d => dayIdx.startsWith(d)) || DAY_KEYS[now.getDay()];
+    const times = days[dayKey];
+    if (!times || !times.open || !times.close) return null;
+    return { day: dayKey, label: DAY_LABELS[dayKey], ...times };
   }
 
   // ── Open Sequence ──────────────────────────────────────────
   async _runOpenSequence() {
-    const delay = this.config.tvWarmupDelay || 30000; // ms between TV wake and cast
+    const delay = this.config.tvWarmupDelay || 30000;
     console.log(`[Scheduler] ▶ OPEN sequence started at ${new Date().toISOString()}`);
     this.addLog('open-sequence', 'started');
 
@@ -81,13 +157,14 @@ class Scheduler {
         this.addLog('tv-on-all', 'error', err.message);
       }
 
-      // Wait for TVs to boot
       await this._sleep(delay);
 
-      // Step 2: Cast video to each TV with loop monitoring
+      // Step 2: Cast video to each TV
       try {
         this.addLog('tv-cast-all', 'started');
-        const baseUrl = `http://${this.serverConfig.host === '0.0.0.0' ? '192.168.0.10' : this.serverConfig.host}:${this.serverConfig.port || 3000}`;
+        const mediaServer = this.fullConfig.exhibition?.network?.mediaServer || 'localhost';
+        const port = this.serverConfig.port || 3000;
+        const baseUrl = `http://${mediaServer}:${port}`;
         for (const t of this.tvConfig) {
           if (!t.videoUrl) continue;
           this.tvModule.startLoop(t, t.videoUrl, {
@@ -119,7 +196,6 @@ class Scheduler {
     console.log(`[Scheduler] ⏹ CLOSE sequence started at ${new Date().toISOString()}`);
     this.addLog('close-sequence', 'started');
 
-    // Step 1: Power off projectors
     try {
       this.addLog('power-off-all', 'started');
       await this.pm.powerOffAll();
@@ -128,15 +204,10 @@ class Scheduler {
       this.addLog('power-off-all', 'error', err.message);
     }
 
-    // Step 2: Stop TV loops + casting
     if (this.tvModule && this.tvConfig.length > 0) {
       try {
         this.addLog('tv-stop-all', 'started');
-        // Stop loop monitors first
-        for (const t of this.tvConfig) {
-          this.tvModule.stopLoop(t);
-        }
-        // Then stop cast
+        for (const t of this.tvConfig) { this.tvModule.stopLoop(t); }
         await Promise.allSettled(this.tvConfig.map(t => this.tvModule.castStop(t)));
         this.addLog('tv-stop-all', 'completed');
       } catch (err) {
@@ -148,18 +219,9 @@ class Scheduler {
     console.log(`[Scheduler] ⏹ CLOSE sequence completed`);
   }
 
-  // ── Manual trigger (from Portal or local) ──────────────────
-  async runOpen() {
-    return this._runOpenSequence();
-  }
-
-  async runClose() {
-    return this._runCloseSequence();
-  }
-
-  _sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
+  async runOpen() { return this._runOpenSequence(); }
+  async runClose() { return this._runCloseSequence(); }
+  _sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
   stop() {
     this.jobs.forEach(j => j.stop());
@@ -168,37 +230,41 @@ class Scheduler {
   }
 
   addLog(action, status, detail = '') {
-    this.log.unshift({
-      time: new Date().toISOString(),
-      action,
-      status,
-      detail,
-    });
+    this.log.unshift({ time: new Date().toISOString(), action, status, detail });
     if (this.log.length > 100) this.log.length = 100;
   }
 
   getStatus() {
+    const days = this._normalizeDays() || {};
+    const today = this.getToday();
     return {
       enabled: this.enabled,
-      powerOn: this.config.powerOn || null,
-      powerOff: this.config.powerOff || null,
       timezone: this.config.timezone || 'America/Sao_Paulo',
       tvWarmupDelay: (this.config.tvWarmupDelay || 30000) / 1000,
       includeTvs: !!(this.tvModule && this.tvConfig.length > 0),
       tvCount: this.tvConfig.length,
+      // Per-day schedule
+      days,
+      // Today's schedule (convenience)
+      today: today ? { day: today.day, label: today.label, open: today.open, close: today.close } : null,
+      // Legacy fields (backward compat)
+      powerOn: today?.open || this.config.powerOn || null,
+      powerOff: today?.close || this.config.powerOff || null,
       recentLogs: this.log.slice(0, 20),
     };
   }
 
   updateConfig(newConfig) {
-    Object.assign(this.config, newConfig);
-    // Update parent config reference too
-    if (newConfig.enabled !== undefined || newConfig.powerOn || newConfig.powerOff) {
-      if (this.config.enabled) {
-        this.start();
-      } else {
-        this.stop();
-      }
+    if (newConfig.schedule) {
+      this.config = newConfig.schedule;
+    } else {
+      Object.assign(this.config, newConfig);
+    }
+    this.tvConfig = newConfig.tvs || this.fullConfig.tvs || [];
+    if (this.config.enabled) {
+      this.start();
+    } else {
+      this.stop();
     }
   }
 }

@@ -743,15 +743,25 @@
     // ─── Schedule ────────────────────────────────────────────
     function renderSchedule() {
       const s = state.schedule || {};
-      document.getElementById('sched-on').textContent  = s.powerOn  || '—';
-      document.getElementById('sched-off').textContent = s.powerOff || '—';
+      const today = s.today;
+      document.getElementById('sched-on').textContent  = today?.open || s.powerOn || '—';
+      document.getElementById('sched-off').textContent = today?.close || s.powerOff || '—';
       const toggle = document.getElementById('sched-toggle');
       const label  = document.getElementById('sched-label');
       const info   = document.getElementById('sched-info');
-      if (s.enabled) { toggle.classList.add('active');    label.textContent = 'Ativo'; }
-      else           { toggle.classList.remove('active'); label.textContent = 'Desativado'; }
+      if (s.enabled) {
+        toggle.classList.add('active');
+        if (today) {
+          label.textContent = `Ativo — ${today.label}`;
+        } else {
+          label.textContent = 'Ativo — FECHADO hoje';
+        }
+      } else {
+        toggle.classList.remove('active');
+        label.textContent = 'Desativado';
+      }
       if (s.includeTvs) {
-        info.textContent = `${s.tvCount} TVs (WOL → ${s.tvWarmupDelay || 30}s → Cast) + projetores`;
+        info.textContent = `${s.tvCount} TVs + projetores`;
       } else {
         info.textContent = 'Apenas projetores';
       }

@@ -389,24 +389,26 @@
       <details class="help-block" style="border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;">
         <summary>Como funciona o agendamento</summary>
         <div class="help-content">
-          <p>O agendamento liga e desliga <strong>projetores e TVs</strong> automaticamente nos horários configurados, todos os dias.</p>
+          <p>O agendamento liga e desliga <strong>projetores e TVs</strong> automaticamente nos horários configurados.</p>
           <ol>
-            <li><strong>Ligar às</strong> — horário em que os projetores ligam e os vídeos das TVs começam a rodar</li>
-            <li><strong>Desligar às</strong> — horário em que tudo desliga no final do expediente</li>
+            <li><strong>Configure os horários</strong> — preencha abertura e fechamento para cada dia da semana</li>
+            <li><strong>Dias fechados</strong> — desmarque o checkbox do dia para deixá-lo sem operação (ex: segunda = folga)</li>
+            <li><strong>Copiar horários</strong> — use "Aplicar a todos" para copiar o horário de um dia para todos os outros</li>
           </ol>
           <div class="help-note">
             <strong>⚠️ Se o Chataigne estiver controlando os projetores</strong>, deixe o agendamento <strong>desativado</strong>
-            para evitar conflito (os dois tentariam ligar/desligar ao mesmo tempo).
-            <br><br>
-            O agendamento usa o fuso horário configurado. Confira se está correto para a cidade da expo.
+            para evitar conflito.<br><br>
+            Na abertura: TVs ligam via WOL → aguarda boot → inicia vídeos → liga projetores.<br>
+            No fechamento: desliga projetores → para vídeos das TVs.
           </div>
         </div>
       </details>
+
       <div class="section">
         <div class="toggle-row">
           <div class="toggle-info">
             <div class="toggle-label">Agendamento automático</div>
-            <div class="toggle-desc">Liga e desliga os projetores nos horários abaixo, todos os dias</div>
+            <div class="toggle-desc">Liga e desliga equipamentos nos horários abaixo</div>
           </div>
           <label class="sw">
             <input type="checkbox" id="cfg-sched-on" onchange="toggleScheduleFields()">
@@ -414,26 +416,25 @@
           </label>
         </div>
       </div>
+
       <div class="section" id="sched-fields" style="display:none;">
-        <div class="section-label">Horários</div>
-        <div class="row2">
-          <div class="field">
-            <label class="field-label">Ligar às</label>
-            <input type="time" id="cfg-sched-poweron" value="09:00">
-          </div>
-          <div class="field">
-            <label class="field-label">Desligar às</label>
-            <input type="time" id="cfg-sched-poweroff" value="20:00">
-          </div>
-        </div>
-        <div class="field">
-          <label class="field-label">Fuso horário</label>
+        <div class="section-label">Fuso horário</div>
+        <div class="field" style="margin-bottom:16px;">
           <select id="cfg-sched-tz">
             <option value="America/Sao_Paulo">São Paulo (BRT)</option>
             <option value="America/Manaus">Manaus (AMT)</option>
             <option value="America/Recife">Recife (BRT)</option>
+            <option value="America/Porto_Alegre">Porto Alegre (BRT)</option>
+            <option value="America/Bahia">Bahia (BRT)</option>
           </select>
         </div>
+
+        <div class="section-label">Horários por dia da semana</div>
+        <div id="sched-days-table" style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;"></div>
+
+        <button class="btn btn-ghost btn-sm" onclick="schedApplyToAll()" style="margin-top:4px;">
+          📋 Aplicar horário de segunda a todos
+        </button>
       </div>
     </div>
 
@@ -592,10 +593,9 @@ function populateForm() {
   setValue('cfg-router-pass', net.router?.password);
   setValue('cfg-rustdesk', config.remoteAccess?.rustdesk?.id);
   setValue('cfg-sched-on', config.schedule?.enabled, true);
-  setValue('cfg-sched-poweron', config.schedule?.powerOn || '09:00');
-  setValue('cfg-sched-poweroff', config.schedule?.powerOff || '20:00');
   setValue('cfg-sched-tz', config.schedule?.timezone || 'America/Sao_Paulo');
   if (config.schedule?.enabled) document.getElementById('sched-fields').style.display = 'block';
+  renderScheduleDays();
 
   // Planta
   if (config.space?.planta) loadPlantaIntoCanvas(config.space.planta, config.space.plantaVersao, config.space.plantaPdf);
@@ -1048,6 +1048,91 @@ function toggleScheduleFields() {
   document.getElementById('sched-fields').style.display = on ? 'block' : 'none';
 }
 
+// ── Schedule days table ──────────────────────────────────
+const SCHED_DAYS = [
+  { key: 'mon', label: 'Segunda' },
+  { key: 'tue', label: 'Terça' },
+  { key: 'wed', label: 'Quarta' },
+  { key: 'thu', label: 'Quinta' },
+  { key: 'fri', label: 'Sexta' },
+  { key: 'sat', label: 'Sábado' },
+  { key: 'sun', label: 'Domingo' },
+];
+
+function renderScheduleDays() {
+  const sched = config.schedule || {};
+  const days = sched.days || {};
+  // If legacy format, convert
+  const defaultOpen = sched.powerOn || '09:00';
+  const defaultClose = sched.powerOff || '20:00';
+
+  const el = document.getElementById('sched-days-table');
+  el.innerHTML = SCHED_DAYS.map(d => {
+    const dayData = days[d.key];
+    const isOpen = dayData !== null && dayData !== undefined;
+    const openTime = isOpen ? (dayData.open || defaultOpen) : defaultOpen;
+    const closeTime = isOpen ? (dayData.close || defaultClose) : defaultClose;
+    const hasExplicitDays = !!sched.days;
+    const checked = hasExplicitDays ? isOpen : true;
+
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:${checked ? 'var(--bg-card)' : 'var(--bg)'};">
+        <label style="display:flex;align-items:center;gap:6px;min-width:90px;cursor:pointer;">
+          <input type="checkbox" id="sched-${d.key}-on" ${checked ? 'checked' : ''}
+                 onchange="schedDayToggle('${d.key}', this.checked)"
+                 style="accent-color:var(--green);">
+          <span style="font-size:12px;font-weight:500;${checked ? '' : 'color:var(--text-dimmer);text-decoration:line-through;'}">${d.label}</span>
+        </label>
+        <input type="time" id="sched-${d.key}-open" value="${openTime}"
+               style="width:80px;" ${checked ? '' : 'disabled'}>
+        <span style="color:var(--text-dimmer);font-size:11px;">→</span>
+        <input type="time" id="sched-${d.key}-close" value="${closeTime}"
+               style="width:80px;" ${checked ? '' : 'disabled'}>
+      </div>`;
+  }).join('');
+}
+
+function schedDayToggle(key, checked) {
+  const openEl = document.getElementById(`sched-${key}-open`);
+  const closeEl = document.getElementById(`sched-${key}-close`);
+  openEl.disabled = !checked;
+  closeEl.disabled = !checked;
+  // Visual feedback
+  const row = openEl.closest('div');
+  row.style.background = checked ? 'var(--bg-card)' : 'var(--bg)';
+  const label = row.querySelector('span');
+  label.style.color = checked ? '' : 'var(--text-dimmer)';
+  label.style.textDecoration = checked ? '' : 'line-through';
+}
+
+function schedApplyToAll() {
+  const monOpen = document.getElementById('sched-mon-open').value;
+  const monClose = document.getElementById('sched-mon-close').value;
+  const monChecked = document.getElementById('sched-mon-on').checked;
+  for (const d of SCHED_DAYS) {
+    document.getElementById(`sched-${d.key}-open`).value = monOpen;
+    document.getElementById(`sched-${d.key}-close`).value = monClose;
+    document.getElementById(`sched-${d.key}-on`).checked = monChecked;
+    schedDayToggle(d.key, monChecked);
+  }
+}
+
+function getScheduleDays() {
+  const days = {};
+  for (const d of SCHED_DAYS) {
+    const on = document.getElementById(`sched-${d.key}-on`).checked;
+    if (on) {
+      days[d.key] = {
+        open: document.getElementById(`sched-${d.key}-open`).value,
+        close: document.getElementById(`sched-${d.key}-close`).value,
+      };
+    } else {
+      days[d.key] = null;
+    }
+  }
+  return days;
+}
+
 // ── Log ──────────────────────────────────────────────────
 async function loadLog() {
   try {
@@ -1098,9 +1183,11 @@ async function saveConfig() {
     },
     schedule: {
       enabled: getValue('cfg-sched-on', true),
-      powerOn: getValue('cfg-sched-poweron'),
-      powerOff: getValue('cfg-sched-poweroff'),
       timezone: getValue('cfg-sched-tz'),
+      days: getScheduleDays(),
+      // Legacy compat — first open day's times
+      powerOn: (() => { const d = getScheduleDays(); const first = Object.values(d).find(v => v); return first?.open || '09:00'; })(),
+      powerOff: (() => { const d = getScheduleDays(); const first = Object.values(d).find(v => v); return first?.close || '20:00'; })(),
     },
     remoteAccess: { ...config.remoteAccess, rustdesk: { enabled: true, id: getValue('cfg-rustdesk') } },
     space: {
