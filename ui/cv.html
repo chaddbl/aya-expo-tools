@@ -204,21 +204,67 @@
       object-fit: contain;
     }
 
-    /* Line editor */
+    /* Line editor — visual */
     .line-editor {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      padding: 16px;
+      overflow: hidden;
       margin-bottom: 24px;
     }
-    .line-editor-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 8px; align-items: end; }
-    @media (max-width: 600px) { .line-editor-grid { grid-template-columns: 1fr 1fr; } }
-    .line-editor-grid label { font-size: 11px; color: var(--text-dim); display: block; margin-bottom: 3px; }
-    .line-editor-grid input {
-      width: 100%; background: var(--bg); border: 1px solid var(--border-light);
-      color: var(--text); padding: 6px 8px; border-radius: var(--radius);
-      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    .line-editor-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .line-editor-canvas-wrap {
+      position: relative;
+      background: #0a0a0a;
+      cursor: crosshair;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .line-editor-canvas-wrap img {
+      display: block; width: 100%; height: auto;
+    }
+    .line-editor-canvas-wrap canvas {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    .line-editor-canvas-wrap .le-handle {
+      position: absolute; width: 18px; height: 18px;
+      border: 2px solid #00ffff; background: rgba(0,255,255,0.25);
+      border-radius: 50%; cursor: grab;
+      transform: translate(-50%, -50%);
+      z-index: 10; pointer-events: all;
+      transition: background 0.1s;
+    }
+    .line-editor-canvas-wrap .le-handle:hover,
+    .line-editor-canvas-wrap .le-handle.dragging {
+      background: rgba(0,255,255,0.5); cursor: grabbing;
+    }
+    .line-editor-canvas-wrap .le-label {
+      position: absolute; font-size: 10px; font-weight: 600;
+      color: #00ffff; font-family: 'JetBrains Mono', monospace;
+      pointer-events: none; z-index: 11;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    }
+    .line-editor-canvas-wrap .le-zone-label {
+      position: absolute; font-size: 11px; font-weight: 500;
+      color: rgba(255,255,255,0.5); font-family: 'JetBrains Mono', monospace;
+      pointer-events: none; z-index: 5;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      letter-spacing: 1px; text-transform: uppercase;
+    }
+    .line-editor-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; border-top: 1px solid var(--border);
+      flex-wrap: wrap; gap: 8px;
+    }
+    .line-editor-coords {
+      font-size: 11px; color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
     }
 
     /* Dwell time card */
@@ -340,34 +386,34 @@
         <div class="hourly-chart" id="hourlyChart"></div>
       </div>
 
-      <!-- Counter annotated frame -->
-      <div class="counter-frame-section">
-        <div class="counter-frame-header">
-          <span style="font-size:12px;font-weight:500;">📹 Frame Anotado — Linha de Contagem</span>
-          <span style="font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;" id="counterCam">—</span>
-        </div>
-        <div class="counter-frame-view">
-          <img id="counterFrameImg" src="" alt="Counter frame" style="display:none;">
-          <div class="no-data" id="counterFramePlaceholder">Aguardando frame do counter...</div>
-        </div>
-      </div>
-
-      <!-- Line editor -->
-      <div class="line-editor">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <!-- Line editor — visual + counter frame -->
+      <div class="line-editor" id="lineEditorSection">
+        <div class="line-editor-header">
           <span style="font-size:12px;font-weight:500;">✏️ Linha Virtual de Contagem</span>
-          <span style="font-size:11px;color:var(--text-dim);">Ajuste as coordenadas e reinicie o counter</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;color:var(--text-dim);" id="counterCam">—</span>
+            <button class="btn btn-sm" onclick="leRefreshFrame()">🔄 Atualizar frame</button>
+          </div>
         </div>
-        <div class="line-editor-grid">
-          <div><label>X1</label><input type="text" id="lineX1" value="500"></div>
-          <div><label>Y1</label><input type="text" id="lineY1" value="480"></div>
-          <div><label>X2</label><input type="text" id="lineX2" value="1400"></div>
-          <div><label>Y2</label><input type="text" id="lineY2" value="480"></div>
-          <button class="btn btn-sm" onclick="saveLine()">💾 Salvar</button>
+        <div class="line-editor-canvas-wrap" id="leWrap">
+          <img id="leImg" src="" alt="Counter camera" style="display:none;">
+          <canvas id="leCanvas"></canvas>
+          <div class="le-handle" id="leHandle1" data-point="1"></div>
+          <div class="le-handle" id="leHandle2" data-point="2"></div>
+          <div class="le-label" id="leLabel1">P1</div>
+          <div class="le-label" id="leLabel2">P2</div>
+          <div class="le-zone-label" id="leZoneAbove">↑ FORA</div>
+          <div class="le-zone-label" id="leZoneBelow">↓ DENTRO</div>
+          <div class="no-data" id="lePlaceholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;min-height:200px;">
+            Carregando frame da câmera...
+          </div>
         </div>
-        <div style="font-size:11px;color:var(--text-dimmer);margin-top:8px;">
-          Coordenadas em pixels do frame original. Acima da linha = fora da expo. Abaixo = dentro.
-          Ajuste observando o frame anotado acima.
+        <div class="line-editor-footer">
+          <div class="line-editor-coords" id="leCoords">—</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:10px;color:var(--text-dimmer);">Arraste os pontos para posicionar a linha</span>
+            <button class="btn btn-sm btn-on" onclick="saveLine()">💾 Salvar &amp; Aplicar</button>
+          </div>
         </div>
       </div>
     </div>
@@ -415,17 +461,16 @@
         $('expoName').textContent = info.exhibition?.name || '—';
       } catch {}
 
-      // Load config for line editor defaults
+      // Load config for line editor
       try {
         const cfg = await api('/api/config');
         const lineStr = cfg.cv?.counter?.line || '500,480,1400,480';
-        const parts = lineStr.split(',');
-        $('lineX1').value = parts[0] || '500';
-        $('lineY1').value = parts[1] || '480';
-        $('lineX2').value = parts[2] || '1400';
-        $('lineY2').value = parts[3] || '480';
-        $('counterCam').textContent = cfg.cv?.counter?.camera || 'cam-2';
+        const parts = lineStr.split(',').map(Number);
+        leLineReal = { x1: parts[0], y1: parts[1], x2: parts[2], y2: parts[3] };
+        leCounterCam = cfg.cv?.counter?.camera || 'cam-2';
+        $('counterCam').textContent = leCounterCam;
         counterEnabled = !!cfg.cv?.counter?.enabled;
+        leInit();
       } catch {}
 
       // Initial data load
@@ -524,12 +569,6 @@
       // Hourly chart
       renderHourly(c.hourly || {});
 
-      // Counter frame
-      const img = $('counterFrameImg');
-      const ph = $('counterFramePlaceholder');
-      img.src = `/api/cv/counter/frame?t=${Date.now()}`;
-      img.onload = () => { img.style.display = 'block'; ph.style.display = 'none'; };
-      img.onerror = () => { img.style.display = 'none'; ph.style.display = 'flex'; };
     }
 
     // ── Hourly bar chart ───────────────────────────
@@ -702,8 +741,226 @@
       } catch { toast('Erro ao resetar heatmap', 'error'); }
     }
 
+    // ══════════════════════════════════════════════
+    // ── Line Editor — Visual drag on camera frame ─
+    // ══════════════════════════════════════════════
+
+    let leLineReal = { x1: 500, y1: 480, x2: 1400, y2: 480 }; // coords in real frame pixels
+    let leCounterCam = 'cam-2';
+    let leImgNatW = 1920, leImgNatH = 1080; // natural resolution of frame
+    let leReady = false;
+    let leDragging = null; // 1 or 2
+
+    function leInit() {
+      const wrap = $('leWrap');
+      const img = $('leImg');
+      const h1 = $('leHandle1');
+      const h2 = $('leHandle2');
+
+      // Load snapshot from counter camera
+      leRefreshFrame();
+
+      // Drag handlers — pointer events on handles
+      h1.addEventListener('pointerdown', e => leStartDrag(e, 1));
+      h2.addEventListener('pointerdown', e => leStartDrag(e, 2));
+      document.addEventListener('pointermove', leOnDrag);
+      document.addEventListener('pointerup', leEndDrag);
+
+      // Also allow clicking on the image to place points
+      wrap.addEventListener('click', leOnClick);
+    }
+
+    function leRefreshFrame() {
+      const img = $('leImg');
+      const ph = $('lePlaceholder');
+      // Use camera snapshot (clean, not YOLO-annotated)
+      const src = `/api/cameras/${leCounterCam}/snapshot?t=${Date.now()}`;
+      const testImg = new Image();
+      testImg.onload = () => {
+        leImgNatW = testImg.naturalWidth;
+        leImgNatH = testImg.naturalHeight;
+        img.src = src;
+        img.style.display = 'block';
+        ph.style.display = 'none';
+        leReady = true;
+        // Wait for layout then position handles
+        requestAnimationFrame(() => { requestAnimationFrame(leRedraw); });
+      };
+      testImg.onerror = () => {
+        // Fallback: try counter frame (YOLO-annotated)
+        const fallback = `/api/cv/counter/frame?t=${Date.now()}`;
+        const fb = new Image();
+        fb.onload = () => {
+          leImgNatW = fb.naturalWidth;
+          leImgNatH = fb.naturalHeight;
+          img.src = fallback;
+          img.style.display = 'block';
+          ph.style.display = 'none';
+          leReady = true;
+          requestAnimationFrame(() => { requestAnimationFrame(leRedraw); });
+        };
+        fb.onerror = () => { ph.textContent = 'Câmera indisponível'; };
+        fb.src = fallback;
+      };
+      testImg.src = src;
+    }
+
+    /** Convert real frame coords → CSS % position in the displayed image */
+    function leRealToPercent(rx, ry) {
+      return { x: (rx / leImgNatW) * 100, y: (ry / leImgNatH) * 100 };
+    }
+
+    /** Convert CSS pixel offset within wrap → real frame coords */
+    function leClientToReal(clientX, clientY) {
+      const img = $('leImg');
+      const rect = img.getBoundingClientRect();
+      const px = (clientX - rect.left) / rect.width;
+      const py = (clientY - rect.top) / rect.height;
+      return {
+        x: Math.round(Math.max(0, Math.min(1, px)) * leImgNatW),
+        y: Math.round(Math.max(0, Math.min(1, py)) * leImgNatH),
+      };
+    }
+
+    function leRedraw() {
+      if (!leReady) return;
+      const img = $('leImg');
+      const canvas = $('leCanvas');
+      const h1 = $('leHandle1');
+      const h2 = $('leHandle2');
+      const lb1 = $('leLabel1');
+      const lb2 = $('leLabel2');
+      const zAbove = $('leZoneAbove');
+      const zBelow = $('leZoneBelow');
+
+      // Size canvas to match displayed image
+      const rect = img.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      // Convert line to display coords
+      const p1 = leRealToPercent(leLineReal.x1, leLineReal.y1);
+      const p2 = leRealToPercent(leLineReal.x2, leLineReal.y2);
+      const dx1 = (p1.x / 100) * rect.width;
+      const dy1 = (p1.y / 100) * rect.height;
+      const dx2 = (p2.x / 100) * rect.width;
+      const dy2 = (p2.y / 100) * rect.height;
+
+      // Draw semi-transparent zones
+      const midY = (dy1 + dy2) / 2;
+      ctx.fillStyle = 'rgba(239,68,68,0.06)'; // above = outside = red tint
+      ctx.fillRect(0, 0, rect.width, midY);
+      ctx.fillStyle = 'rgba(34,197,94,0.06)'; // below = inside = green tint
+      ctx.fillRect(0, midY, rect.width, rect.height - midY);
+
+      // Draw line
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([8, 4]);
+      ctx.beginPath();
+      ctx.moveTo(dx1, dy1);
+      ctx.lineTo(dx2, dy2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Extended line edges (faint)
+      ctx.strokeStyle = 'rgba(0,255,255,0.2)';
+      ctx.lineWidth = 1;
+      const angle = Math.atan2(dy2 - dy1, dx2 - dx1);
+      const ext = 2000;
+      ctx.beginPath();
+      ctx.moveTo(dx1 - Math.cos(angle) * ext, dy1 - Math.sin(angle) * ext);
+      ctx.lineTo(dx1, dy1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(dx2, dy2);
+      ctx.lineTo(dx2 + Math.cos(angle) * ext, dy2 + Math.sin(angle) * ext);
+      ctx.stroke();
+
+      // Position handles (CSS %)
+      h1.style.left = p1.x + '%';
+      h1.style.top = p1.y + '%';
+      h2.style.left = p2.x + '%';
+      h2.style.top = p2.y + '%';
+
+      // Labels
+      lb1.style.left = p1.x + '%';
+      lb1.style.top = `calc(${p1.y}% - 16px)`;
+      lb1.textContent = `P1 (${leLineReal.x1}, ${leLineReal.y1})`;
+      lb2.style.left = p2.x + '%';
+      lb2.style.top = `calc(${p2.y}% - 16px)`;
+      lb2.textContent = `P2 (${leLineReal.x2}, ${leLineReal.y2})`;
+
+      // Zone labels
+      zAbove.style.left = '50%';
+      zAbove.style.top = Math.max(10, midY / 2 - 8) + 'px';
+      zAbove.style.transform = 'translateX(-50%)';
+      zBelow.style.left = '50%';
+      zBelow.style.top = Math.min(rect.height - 20, midY + (rect.height - midY) / 2 - 8) + 'px';
+      zBelow.style.transform = 'translateX(-50%)';
+
+      // Coords display
+      $('leCoords').textContent = `Linha: (${leLineReal.x1}, ${leLineReal.y1}) → (${leLineReal.x2}, ${leLineReal.y2})  |  Frame: ${leImgNatW}×${leImgNatH}`;
+    }
+
+    function leStartDrag(e, point) {
+      e.preventDefault();
+      e.stopPropagation();
+      leDragging = point;
+      const h = $(`leHandle${point}`);
+      h.classList.add('dragging');
+      h.setPointerCapture(e.pointerId);
+    }
+
+    function leOnDrag(e) {
+      if (!leDragging) return;
+      const real = leClientToReal(e.clientX, e.clientY);
+      if (leDragging === 1) {
+        leLineReal.x1 = real.x;
+        leLineReal.y1 = real.y;
+      } else {
+        leLineReal.x2 = real.x;
+        leLineReal.y2 = real.y;
+      }
+      leRedraw();
+    }
+
+    function leEndDrag(e) {
+      if (!leDragging) return;
+      $(`leHandle${leDragging}`).classList.remove('dragging');
+      leDragging = null;
+    }
+
+    // Click on image: alternate setting P1 and P2
+    let leNextClick = 1;
+    function leOnClick(e) {
+      // Don't handle if clicking on a handle
+      if (e.target.classList.contains('le-handle')) return;
+      const real = leClientToReal(e.clientX, e.clientY);
+      if (leNextClick === 1) {
+        leLineReal.x1 = real.x;
+        leLineReal.y1 = real.y;
+        leNextClick = 2;
+      } else {
+        leLineReal.x2 = real.x;
+        leLineReal.y2 = real.y;
+        leNextClick = 1;
+      }
+      leRedraw();
+    }
+
+    // Redraw on resize
+    window.addEventListener('resize', () => { if (leReady) leRedraw(); });
+
     async function saveLine() {
-      const line = `${$('lineX1').value},${$('lineY1').value},${$('lineX2').value},${$('lineY2').value}`;
+      const line = `${leLineReal.x1},${leLineReal.y1},${leLineReal.x2},${leLineReal.y2}`;
       try {
         const cfg = await api('/api/config');
         if (!cfg.cv) cfg.cv = {};
@@ -714,7 +971,12 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(cfg),
         });
-        toast(`Linha salva: ${line}. Reinicie o CV para aplicar.`, 'success');
+        // Restart CV to apply new line
+        await api('/api/cv/stop', { method: 'POST' });
+        setTimeout(async () => {
+          await api('/api/cv/start', { method: 'POST' });
+          toast(`Linha salva e CV reiniciado: ${line}`, 'success');
+        }, 2000);
       } catch {
         toast('Erro ao salvar linha', 'error');
       }
