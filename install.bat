@@ -29,7 +29,7 @@ set RUSTDESK_URL=https://github.com/rustdesk/rustdesk/releases/download/1.3.8/ru
 set TEMP_DIR=%TEMP%\aya-expo-install
 
 :: ─── Step 1: Node.js ─────────────────────────────────────────
-echo   [1/5] Verificando Node.js...
+echo   [1/8] Verificando Node.js...
 where node >nul 2>&1
 if %errorLevel% equ 0 (
   for /f "tokens=*" %%v in ('node --version') do echo         Node.js %%v ja instalado. OK.
@@ -66,7 +66,7 @@ if %errorLevel% equ 0 (
 
 :: ─── Step 2: Instalar/atualizar aya-expo-tools ────────────────
 echo.
-echo   [2/5] Instalando AYA Expo Tools...
+echo   [2/8] Instalando AYA Expo Tools...
 
 if exist "%INSTALL_DIR%\.git" (
   echo         Atualizando instalacao existente...
@@ -104,9 +104,43 @@ if %errorLevel% neq 0 (
 )
 echo         Dependencias instaladas. OK.
 
-:: ─── Step 3: Python + Computer Vision ────────────────────────
+:: ─── Step 3: FFmpeg (video loop generation) ──────────────────
 echo.
-echo   [3/7] Verificando Python para Computer Vision...
+echo   [3/7] Verificando FFmpeg para loop de video...
+
+set FFMPEG_DIR=C:\ffmpeg
+set FFMPEG_ZIP_URL=https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+
+if exist "%FFMPEG_DIR%\ffmpeg.exe" (
+  echo         FFmpeg ja instalado. OK.
+) else (
+  echo         FFmpeg nao encontrado. Baixando...
+  mkdir "%FFMPEG_DIR%" >nul 2>&1
+  mkdir "%TEMP_DIR%" >nul 2>&1
+  curl -L -o "%TEMP_DIR%\ffmpeg.zip" "%FFMPEG_ZIP_URL%" --progress-bar
+  echo         Extraindo...
+  powershell -Command "Expand-Archive -Path '%TEMP_DIR%\ffmpeg.zip' -DestinationPath '%TEMP_DIR%\ffmpeg-extract' -Force"
+  :: Find and copy binaries (nested folder with version in name)
+  for /d %%i in ("%TEMP_DIR%\ffmpeg-extract\ffmpeg-*") do (
+    copy "%%i\bin\ffmpeg.exe" "%FFMPEG_DIR%\ffmpeg.exe" >nul
+    copy "%%i\bin\ffprobe.exe" "%FFMPEG_DIR%\ffprobe.exe" >nul
+  )
+  :: Cleanup
+  rmdir /s /q "%TEMP_DIR%\ffmpeg-extract" 2>nul
+  del "%TEMP_DIR%\ffmpeg.zip" 2>nul
+
+  if exist "%FFMPEG_DIR%\ffmpeg.exe" (
+    echo         FFmpeg instalado em %FFMPEG_DIR%. OK.
+  ) else (
+    echo   [!] Falha ao instalar FFmpeg.
+    echo       Baixe manualmente: https://www.gyan.dev/ffmpeg/builds/
+    echo       Extraia ffmpeg.exe e ffprobe.exe em C:\ffmpeg\
+  )
+)
+
+:: ─── Step 4: Python + Computer Vision ────────────────────────
+echo.
+echo   [4/8] Verificando Python para Computer Vision...
 
 set PYTHON_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe
 set CV_DIR=%INSTALL_DIR%\cv
@@ -144,7 +178,7 @@ echo         Python instalado com sucesso.
 :python_ok
 :: Verifica se tem GPU NVIDIA (para CUDA)
 echo.
-echo   [3b/7] Configurando ambiente CV...
+echo   [4b/8] Configurando ambiente CV...
 where nvidia-smi >nul 2>&1
 if %errorLevel% equ 0 (
   echo         GPU NVIDIA detectada. Instalando PyTorch com CUDA...
@@ -181,7 +215,7 @@ echo         Computer Vision configurado. OK.
 
 :: ─── Step 4: RustDesk ────────────────────────────────────────
 echo.
-echo   [4/7] Verificando RustDesk...
+echo   [5/8] Verificando RustDesk...
 tasklist /FI "IMAGENAME eq rustdesk.exe" 2>nul | find /I "rustdesk.exe" >nul
 if %errorLevel% equ 0 (
   echo         RustDesk ja esta rodando. OK.
@@ -203,7 +237,7 @@ if %errorLevel% equ 0 (
 
 :: ─── Step 5: Auto-start ──────────────────────────────────────
 echo.
-echo   [5/7] Configurando inicializacao automatica...
+echo   [6/8] Configurando inicializacao automatica...
 
 set START_SCRIPT=%INSTALL_DIR%\start.bat
 echo @echo off > "%START_SCRIPT%"
@@ -223,7 +257,7 @@ if %errorLevel% neq 0 (
 
 :: ─── Step 6: Atalho na area de trabalho ──────────────────────
 echo.
-echo   [6/7] Criando atalho na area de trabalho...
+echo   [7/8] Criando atalho na area de trabalho...
 
 set SHORTCUT=%PUBLIC%\Desktop\AYA Expo Tools.lnk
 powershell -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%SHORTCUT%'); $s.TargetPath='%START_SCRIPT%'; $s.WorkingDirectory='%INSTALL_DIR%'; $s.Description='AYA Expo Tools'; $s.Save()"
