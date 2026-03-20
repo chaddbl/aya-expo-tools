@@ -89,7 +89,7 @@ const PROJECTOR_CMD_RE = /^\/api\/projectors\/[^/]+\/(on|off)$/;
 const app = express();
 const server = http.createServer(app);
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '..', 'ui')));
 
 // Middleware: bloqueia comandos remotos destrutivos durante sessão ativa
@@ -334,10 +334,120 @@ app.post('/api/schedule/close', async (req, res) => {
 app.use('/files', express.static(path.join(__dirname, '..', 'config')));
 
 // ─── Static: media files (videos for TV cast) ─────────────
-app.use('/media', express.static(path.join(__dirname, '..', 'media'), {
+const MEDIA_DIR = path.join(__dirname, '..', 'media');
+app.use('/media', express.static(MEDIA_DIR, {
   maxAge: '1h',  // cache no browser do Cast receiver
   acceptRanges: true,  // necessário para seek em vídeo
 }));
+
+// ─── API: Media management (upload, list, assign to TV) ────
+
+// List media files
+app.get('/api/media', (req, res) => {
+  try {
+    const files = fs.readdirSync(MEDIA_DIR)
+      .filter(f => /\.(mp4|webm|mov|mkv|wav|mp3)$/i.test(f))
+      .map(f => {
+        const stat = fs.statSync(path.join(MEDIA_DIR, f));
+        return {
+          name: f,
+          url: `/media/${f}`,
+          size: stat.size,
+          sizeMB: Math.round(stat.size / 1024 / 1024),
+          modified: stat.mtime.toISOString(),
+        };
+      })
+      .sort((a, b) => b.modified.localeCompare(a.modified));
+    res.json(files);
+  } catch {
+    res.json([]);
+  }
+});
+
+// Upload media file (multipart or raw body)
+app.post('/api/media/upload', (req, res) => {
+  const filename = req.headers['x-filename'];
+  if (!filename || typeof filename !== 'string') {
+    return res.status(400).json({ error: 'Header X-Filename required' });
+  }
+
+  // Sanitize filename
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  if (!/\.(mp4|webm|mov|mkv|wav|mp3)$/i.test(safe)) {
+    return res.status(400).json({ error: 'Formato não suportado. Use: mp4, webm, mov, mkv, wav, mp3' });
+  }
+
+  const filePath = path.join(MEDIA_DIR, safe);
+  const ws = fs.createWriteStream(filePath);
+  let bytes = 0;
+
+  req.on('data', chunk => { bytes += chunk.length; ws.write(chunk); });
+  req.on('end', () => {
+    ws.end();
+    addLogEntry(`📁 Arquivo carregado: ${safe} (${Math.round(bytes / 1024 / 1024)}MB)`);
+    res.json({ ok: true, name: safe, url: `/media/${safe}`, size: bytes, sizeMB: Math.round(bytes / 1024 / 1024) });
+  });
+  req.on('error', err => {
+    ws.destroy();
+    try { fs.unlinkSync(filePath); } catch {}
+    res.status(500).json({ error: err.message });
+  });
+});
+
+// Delete media file
+app.delete('/api/media/:filename', (req, res) => {
+  const safe = req.params.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filePath = path.join(MEDIA_DIR, safe);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
+  try {
+    fs.unlinkSync(filePath);
+    addLogEntry(`🗑️ Arquivo removido: ${safe}`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Assign video to a TV (updates config + optional re-cast)
+app.post('/api/media/assign', async (req, res) => {
+  const { tvId, videoUrl, videoTitle, recast } = req.body;
+  if (!tvId || !videoUrl) return res.status(400).json({ error: 'tvId and videoUrl required' });
+
+  // Update config in memory
+  const tvConf = (config.tvs || []).find(t => t.id === tvId);
+  if (!tvConf) return res.status(404).json({ error: `TV ${tvId} not found` });
+
+  tvConf.videoUrl = videoUrl;
+  if (videoTitle) tvConf.videoTitle = videoTitle;
+
+  // Persist to config file
+  try {
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const savedTv = (saved.tvs || []).find(t => t.id === tvId);
+    if (savedTv) {
+      savedTv.videoUrl = videoUrl;
+      if (videoTitle) savedTv.videoTitle = videoTitle;
+      fs.writeFileSync(configPath, JSON.stringify(saved, null, 2));
+    }
+  } catch {}
+
+  addLogEntry(`📺 Vídeo atribuído: ${tvId} → ${videoUrl}`);
+
+  // Optional: re-cast immediately
+  if (recast && tv) {
+    try {
+      const mediaServer = config.exhibition?.network?.mediaServer || 'localhost';
+      const port = config.server?.port || 3000;
+      const fullUrl = `http://${mediaServer}:${port}${videoUrl}`;
+      await tv.castVideo(tvConf, fullUrl, { title: videoTitle || tvConf.name });
+      return res.json({ ok: true, recast: true, message: `Vídeo atribuído e cast iniciado em ${tvConf.name}` });
+    } catch (err) {
+      return res.json({ ok: true, recast: false, message: `Vídeo atribuído, mas cast falhou: ${err.message}` });
+    }
+  }
+
+  res.json({ ok: true, recast: false, message: `Vídeo atribuído a ${tvConf.name}` });
+});
 
 // ─── API: Config editor ────────────────────────────────────
 app.get('/api/config', (req, res) => {

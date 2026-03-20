@@ -202,6 +202,32 @@
     .scan-dropdown td   { padding: 4px 8px; border-bottom: 1px solid var(--border); color: var(--text); }
     .scan-dropdown td:first-child { color: var(--cyan); }
 
+    /* ─── Media Upload ─── */
+    .media-drop {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      color: var(--text-dimmer);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 12px;
+    }
+    .media-drop:hover, .media-drop.dragover { border-color: var(--green); color: var(--text-dim); background: rgba(34,197,94,0.03); }
+    .media-drop input[type=file] { display: none; }
+    .media-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .media-item {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px 12px; font-size: 12px; display: flex; align-items: center; gap: 8px;
+      cursor: pointer; transition: border-color 0.2s;
+    }
+    .media-item:hover { border-color: var(--border-light); }
+    .media-item.active { border-color: var(--green); background: rgba(34,197,94,0.05); }
+    .media-item .size { color: var(--text-dimmer); font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+    .upload-progress { height: 3px; background: var(--border); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
+    .upload-progress .bar { height: 100%; background: var(--green); transition: width 0.3s; width: 0%; }
+
     /* ─── Health Semaphore ─── */
     .semaphore {
       display: flex;
@@ -394,6 +420,17 @@
         </div>
       </div>
       <div class="tv-grid" id="tv-grid"></div>
+
+      <!-- Media management -->
+      <div style="margin-top:16px;">
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;font-weight:500;">Vídeos</div>
+        <div class="media-drop" id="mediaDrop" onclick="document.getElementById('mediaFile').click()">
+          📁 Arraste um vídeo aqui ou clique para selecionar
+          <input type="file" id="mediaFile" accept="video/*,audio/*">
+        </div>
+        <div class="upload-progress" id="uploadProgress"><div class="bar" id="uploadBar"></div></div>
+        <div class="media-list" id="mediaList"></div>
+      </div>
     </section>
 
     <!-- Link para histórico -->
@@ -918,13 +955,25 @@
       if (!tvState.length) { section.style.display = 'none'; return; }
       section.style.display = '';
 
-      grid.innerHTML = tvState.map(t => `
-        <div class="tv-card">
+      grid.innerHTML = tvState.map(t => {
+        const videoName = t.videoUrl ? t.videoUrl.split('/').pop() : '—';
+        const mediaOpts = mediaFiles.map(f =>
+          `<option value="${f.url}" ${f.url === t.videoUrl ? 'selected' : ''}>${f.name} (${f.sizeMB}MB)</option>`
+        ).join('');
+
+        return `<div class="tv-card">
           <div class="tv-name">${t.name || t.id}</div>
           <div class="tv-status">
             <div class="status-dot ${t.online ? '' : 'offline'}" style="width:6px;height:6px;"></div>
             <span>${t.online ? (t.application ? '▶ Tocando' : 'Online') : 'Offline'}</span>
             ${t.volume ? `<span class="tv-volume-badge">🔊 ${t.volume.level}%</span>` : ''}
+          </div>
+          <div style="margin:8px 0;">
+            <select style="width:100%;background:var(--bg-card);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:11px;"
+              onchange="assignVideo('${t.id}', this.value, true)">
+              <option value="">— selecionar vídeo —</option>
+              ${mediaOpts}
+            </select>
           </div>
           <div class="tv-actions">
             ${t.application
@@ -932,8 +981,17 @@
               : `<button class="btn btn-on btn-sm" onclick="tvAction('${t.id}','cast')">▶ Play</button>`
             }
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
+    }
+
+    async function assignVideo(tvId, videoUrl, recast) {
+      if (!videoUrl) return;
+      toast(`📺 Atribuindo vídeo a ${tvId}...`);
+      const result = await api('POST', '/media/assign', { tvId, videoUrl, recast });
+      toast(result.message || '✓ Vídeo atribuído');
+      if (recast) setTimeout(pollTvs, 3000);
+      loadMedia();
     }
 
     async function tvAction(id, action) {
@@ -972,6 +1030,94 @@
       } catch (_) {}
     }
 
+    // ─── Media Management ───────────────────────────────────
+    let mediaFiles = [];
+    let assigningTvId = null;
+
+    async function loadMedia() {
+      try {
+        mediaFiles = await api('GET', '/media');
+        renderMediaList();
+      } catch (_) {}
+    }
+
+    function renderMediaList() {
+      const list = document.getElementById('mediaList');
+      if (!mediaFiles.length) {
+        list.innerHTML = '<div style="color:var(--text-dimmer);font-size:11px;">Nenhum vídeo na pasta media/</div>';
+        return;
+      }
+
+      // Show which videos are assigned to which TVs
+      const tvAssignments = {};
+      (config?.tvs || []).forEach(t => { if (t.videoUrl) tvAssignments[t.videoUrl] = t.name || t.id; });
+
+      list.innerHTML = mediaFiles.map(f => {
+        const assigned = tvAssignments[f.url];
+        return `<div class="media-item ${assigned ? 'active' : ''}" title="${assigned ? 'Atribuído a: ' + assigned : 'Clique para atribuir a uma TV'}">
+          <span>🎬 ${f.name}</span>
+          <span class="size">${f.sizeMB}MB</span>
+          ${assigned ? `<span style="font-size:10px;color:var(--green);">→ ${assigned}</span>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    // Drag & drop
+    const dropEl = document.getElementById('mediaDrop');
+    dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.classList.add('dragover'); });
+    dropEl.addEventListener('dragleave', () => dropEl.classList.remove('dragover'));
+    dropEl.addEventListener('drop', e => {
+      e.preventDefault();
+      dropEl.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) uploadFile(file);
+    });
+
+    document.getElementById('mediaFile').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) uploadFile(file);
+    });
+
+    async function uploadFile(file) {
+      const progress = document.getElementById('uploadProgress');
+      const bar = document.getElementById('uploadBar');
+      progress.style.display = 'block';
+      bar.style.width = '0%';
+
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/media/upload');
+        xhr.setRequestHeader('X-Filename', file.name);
+
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) {
+            bar.style.width = Math.round((e.loaded / e.total) * 100) + '%';
+          }
+        };
+
+        xhr.onload = () => {
+          progress.style.display = 'none';
+          if (xhr.status === 200) {
+            const data = JSON.parse(xhr.responseText);
+            toast(`✓ ${data.name} carregado (${data.sizeMB}MB)`);
+            loadMedia();
+          } else {
+            toast('Erro no upload', 'error');
+          }
+        };
+
+        xhr.onerror = () => {
+          progress.style.display = 'none';
+          toast('Erro de rede no upload', 'error');
+        };
+
+        xhr.send(file);
+      } catch (err) {
+        progress.style.display = 'none';
+        toast('Erro: ' + err.message, 'error');
+      }
+    }
+
     // ─── Init ────────────────────────────────────────────────
     connectWS();
     setInterval(pollHealth, 30000);
@@ -983,6 +1129,7 @@
     pollServerHealth();
     pollTvs();
     pollTimeline();
+    loadMedia();
   </script>
 </body>
 </html>
