@@ -88,6 +88,7 @@ class CVManager {
       '--model', this.cvConfig.model || 'yolov8n',
       '--confidence', String(this.cvConfig.confidence || 0.4),
       '--heatmap-decay', String(this.cvConfig.heatmapDecay || 0.999),
+      '--imgsz', String(this.cvConfig.imgsz || 640),
     ];
 
     if (configPath) {

@@ -149,6 +149,7 @@ def parse_config(config_path):
         "heatmap_decay": heatmap_decay,
         "confidence": confidence,
         "camera": cam_id,
+        "imgsz": cv_config.get("imgsz", 640),
     }
 
 
@@ -163,6 +164,7 @@ def main():
     parser.add_argument("--heatmap-decay", type=float, default=0.999, help="Heatmap decay per frame")
     parser.add_argument("--heatmap-reset", action="store_true", help="Reset accumulated heatmap")
     parser.add_argument("--camera-id", help="Camera ID for multi-camera mode (e.g., cam-1)")
+    parser.add_argument("--imgsz", type=int, default=640, help="YOLO inference size (640, 960, 1280)")
     args = parser.parse_args()
 
     # Setup per-camera output paths
@@ -180,9 +182,12 @@ def main():
             "heatmap_decay": args.heatmap_decay,
             "confidence": args.confidence,
             "camera": "cli",
+            "imgsz": args.imgsz,
         }
 
     # Override with CLI args if provided explicitly
+    if args.camera_id:
+        settings["camera"] = args.camera_id
     if args.rtsp:
         settings["rtsp"] = args.rtsp
     if args.gpu is not None:
@@ -300,7 +305,7 @@ def main():
             device=device,
             classes=[0],  # person only
             conf=settings["confidence"],
-            imgsz=640,    # inference size — good balance speed/accuracy
+            imgsz=settings.get("imgsz", 640),
         )
 
         detections = []
