@@ -266,6 +266,30 @@
       font-size: 11px; color: var(--text-dim);
       font-family: 'JetBrains Mono', monospace;
     }
+    .line-editor-help {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      background: rgba(6,182,212,0.04);
+    }
+    .line-editor-help summary {
+      font-size: 11px; font-weight: 500; color: var(--cyan);
+      cursor: pointer; user-select: none;
+    }
+    .line-editor-help summary:hover { opacity: 0.8; }
+    .line-editor-help ol {
+      margin: 8px 0 0 18px; font-size: 11px; color: var(--text-dim);
+      line-height: 1.8;
+    }
+    .line-editor-help ol strong { color: var(--text); }
+    .line-editor-help .help-note {
+      margin-top: 8px; font-size: 10px; color: var(--text-dimmer);
+      line-height: 1.5;
+    }
+    .le-cam-select {
+      background: var(--bg); border: 1px solid var(--border-light);
+      color: var(--text); font-size: 11px; padding: 4px 8px;
+      border-radius: var(--radius); font-family: 'JetBrains Mono', monospace;
+    }
 
     /* Dwell time card */
     .dwell-grid {
@@ -389,9 +413,11 @@
       <!-- Line editor — visual + counter frame -->
       <div class="line-editor" id="lineEditorSection">
         <div class="line-editor-header">
-          <span style="font-size:12px;font-weight:500;">✏️ Linha Virtual de Contagem</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:12px;font-weight:500;">✏️ Linha Virtual de Contagem</span>
+            <select class="le-cam-select" id="leCamSelect" onchange="leChangeCamera(this.value)"></select>
+          </div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:11px;color:var(--text-dim);" id="counterCam">—</span>
             <button class="btn btn-sm" onclick="leRefreshFrame()">🔄 Atualizar frame</button>
           </div>
         </div>
@@ -411,10 +437,24 @@
         <div class="line-editor-footer">
           <div class="line-editor-coords" id="leCoords">—</div>
           <div style="display:flex;gap:8px;align-items:center;">
-            <span style="font-size:10px;color:var(--text-dimmer);">Arraste os pontos para posicionar a linha</span>
             <button class="btn btn-sm btn-on" onclick="saveLine()">💾 Salvar &amp; Aplicar</button>
           </div>
         </div>
+        <details class="line-editor-help">
+          <summary>ℹ️ Como usar o editor de linha</summary>
+          <ol>
+            <li><strong>Escolha a câmera</strong> — no dropdown acima, selecione a câmera que cobre a <strong>entrada</strong> da exposição</li>
+            <li><strong>Posicione a linha</strong> — arraste os pontos <strong>P1</strong> e <strong>P2</strong> sobre a imagem, ou clique diretamente na imagem (1º clique = P1, 2º clique = P2)</li>
+            <li><strong>Orientação</strong> — a zona <strong>↑ FORA</strong> (acima da linha) é onde as pessoas estão <em>antes</em> de entrar. A zona <strong>↓ DENTRO</strong> (abaixo da linha) é o interior da exposição</li>
+            <li><strong>Dica</strong> — posicione a linha <strong>na soleira da porta</strong> ou logo após a entrada, perpendicular ao fluxo de passagem</li>
+            <li><strong>Salvar &amp; Aplicar</strong> — grava a configuração e reinicia o CV automaticamente com a nova linha</li>
+          </ol>
+          <div class="help-note">
+            A contagem usa YOLO + ByteTrack para rastrear pessoas cruzando a linha.
+            Cada pessoa que cruza de cima para baixo = entrada. De baixo para cima = saída.
+            O contador reseta automaticamente à meia-noite.
+          </div>
+        </details>
       </div>
     </div>
 
@@ -461,15 +501,25 @@
         $('expoName').textContent = info.exhibition?.name || '—';
       } catch {}
 
-      // Load config for line editor
+      // Load config for line editor + camera selector
       try {
         const cfg = await api('/api/config');
         const lineStr = cfg.cv?.counter?.line || '500,480,1400,480';
         const parts = lineStr.split(',').map(Number);
         leLineReal = { x1: parts[0], y1: parts[1], x2: parts[2], y2: parts[3] };
         leCounterCam = cfg.cv?.counter?.camera || 'cam-2';
-        $('counterCam').textContent = leCounterCam;
         counterEnabled = !!cfg.cv?.counter?.enabled;
+
+        // Populate camera selector
+        const select = $('leCamSelect');
+        (cfg.cameras || []).forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = `${c.id} — ${c.name || c.id}`;
+          if (c.id === leCounterCam) opt.selected = true;
+          select.appendChild(opt);
+        });
+
         leInit();
       } catch {}
 
@@ -959,6 +1009,15 @@
     // Redraw on resize
     window.addEventListener('resize', () => { if (leReady) leRedraw(); });
 
+    function leChangeCamera(camId) {
+      leCounterCam = camId;
+      leReady = false;
+      $('lePlaceholder').style.display = 'flex';
+      $('lePlaceholder').textContent = 'Carregando frame da câmera...';
+      $('leImg').style.display = 'none';
+      leRefreshFrame();
+    }
+
     async function saveLine() {
       const line = `${leLineReal.x1},${leLineReal.y1},${leLineReal.x2},${leLineReal.y2}`;
       try {
@@ -966,19 +1025,20 @@
         if (!cfg.cv) cfg.cv = {};
         if (!cfg.cv.counter) cfg.cv.counter = {};
         cfg.cv.counter.line = line;
+        cfg.cv.counter.camera = leCounterCam;
         await api('/api/config', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(cfg),
         });
-        // Restart CV to apply new line
+        // Restart CV to apply new line + camera
         await api('/api/cv/stop', { method: 'POST' });
         setTimeout(async () => {
           await api('/api/cv/start', { method: 'POST' });
-          toast(`Linha salva e CV reiniciado: ${line}`, 'success');
+          toast(`Salvo: câmera ${leCounterCam}, linha ${line}. CV reiniciado.`, 'success');
         }, 2000);
       } catch {
-        toast('Erro ao salvar linha', 'error');
+        toast('Erro ao salvar configuração', 'error');
       }
     }
 
