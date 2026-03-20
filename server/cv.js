@@ -136,6 +136,13 @@ class CVManager {
   }
 
   _startCounter(pythonCmd, configPath, counterCfg) {
+    // Find camera RTSP
+    const camId = counterCfg.camera || 'cam-2';
+    const cam = this.camerasConfig.find(c => c.id === camId);
+    const rtspUrl = cam
+      ? `rtsp://${cam.user || 'admin'}:${cam.password || ''}@${cam.ip}:554/cam/realmonitor?channel=1&subtype=0`
+      : null;
+
     const args = [
       path.join(CV_DIR, 'counter.py'),
       '--gpu', String(this.cvConfig.gpu || 1),
@@ -145,6 +152,7 @@ class CVManager {
       '--model', this.cvConfig.model || 'yolov8n',
     ];
 
+    if (rtspUrl) args.push('--rtsp', rtspUrl);
     if (configPath) args.push('--config', configPath);
 
     console.log(`  👁️ CV [counter]: starting visitor counter on ${counterCfg.camera || 'cam-2'}`);
