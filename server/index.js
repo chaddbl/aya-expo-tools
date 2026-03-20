@@ -699,8 +699,9 @@ app.post('/api/tv/all/cast', async (req, res) => {
   for (const t of tvs) {
     if (!t.videoUrl) { results.push({ id: t.id, ok: false, error: 'videoUrl não configurada' }); continue; }
     try {
-      tv.startLoop(t, t.videoUrl, { title: t.videoTitle, baseUrl });
-      results.push({ id: t.id, ok: true, looping: true });
+      const result = await tv.startLoop(t, t.videoUrl, { title: t.videoTitle, baseUrl });
+      if (result?.wakingUp) addLogEntry(`📺 ${t.name}: WOL enviado — cast automático em ~35s`);
+      results.push({ id: t.id, ok: true, looping: true, wakingUp: result?.wakingUp || false });
     } catch (err) {
       results.push({ id: t.id, ok: false, error: err.message });
     }
@@ -753,7 +754,7 @@ app.post('/api/tv/:id/off', async (req, res) => {
   }
 });
 
-// Cast video to a specific TV (with loop monitoring)
+// Cast video to a specific TV (with WOL automático + loop monitoring)
 app.post('/api/tv/:id/cast', async (req, res) => {
   const tvs = config.tvs || [];
   const t = tvs.find(t => t.id === req.params.id);
@@ -765,8 +766,11 @@ app.post('/api/tv/:id/cast', async (req, res) => {
     const mediaServer = config.exhibition?.network?.mediaServer || 'localhost';
     const port = config.server?.port || 3000;
     const baseUrl = `http://${mediaServer}:${port}`;
-    tv.startLoop(t, videoUrl, { title: title || t.videoTitle, baseUrl });
-    res.json({ ok: true, looping: true, videoUrl });
+    const result = await tv.startLoop(t, videoUrl, { title: title || t.videoTitle, baseUrl });
+    if (result?.wakingUp) {
+      addLogEntry(`📺 ${t.name}: WOL enviado — cast automático em ~35s`);
+    }
+    res.json({ ok: true, looping: true, wakingUp: result?.wakingUp || false, videoUrl });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }

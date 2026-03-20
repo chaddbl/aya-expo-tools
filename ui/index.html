@@ -1059,13 +1059,39 @@
 
     async function tvAction(id, action) {
       if (id === 'all') {
-        toast(`${action === 'cast' ? '▶ Playing' : '⏹ Stopping'} todas as TVs...`);
-        await api('POST', `/tv/all/${action}`);
+        if (action === 'cast') {
+          toast('📺 Verificando TVs...');
+          const results = await api('POST', '/tv/all/cast');
+          if (Array.isArray(results)) {
+            const waking = results.filter(r => r.wakingUp).map(r => r.id);
+            const casting = results.filter(r => !r.wakingUp && r.ok).map(r => r.id);
+            if (waking.length > 0) {
+              toast(`⏳ Acordando ${waking.join(', ')} via WOL — vídeo inicia em ~35s`);
+            }
+            if (casting.length > 0) {
+              toast(`▶ Iniciando ${casting.join(', ')}...`, 'success');
+            }
+          }
+        } else {
+          toast('⏹ Parando todas as TVs...');
+          await api('POST', '/tv/all/stop');
+        }
       } else {
-        toast(`${action === 'cast' ? '▶ Playing' : '⏹ Stopping'} ${id}...`);
-        await api('POST', `/tv/${id}/${action}`);
+        if (action === 'cast') {
+          toast(`📺 Verificando ${id}...`);
+          const result = await api('POST', `/tv/${id}/cast`);
+          if (result?.wakingUp) {
+            toast(`⏳ ${id} em standby — WOL enviado, vídeo inicia em ~35s`);
+          } else if (result?.ok) {
+            toast(`▶ ${id}: iniciando vídeo...`, 'success');
+          }
+        } else {
+          toast(`⏹ Parando ${id}...`);
+          await api('POST', `/tv/${id}/stop`);
+        }
       }
       setTimeout(pollTvs, 3000);
+      setTimeout(pollTvs, 38000); // poll extra após boot completo
     }
 
     // ─── Timeline ────────────────────────────────────────────

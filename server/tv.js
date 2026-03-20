@@ -297,7 +297,7 @@ async function powerOff(tv) {
 
 const _loopState = new Map();  // tvId → { timer, videoUrl, title, tv, retries }
 
-function startLoop(tv, videoUrl, opts = {}) {
+async function startLoop(tv, videoUrl, opts = {}) {
   const id = tv.id;
   stopLoop(tv);
 
@@ -306,47 +306,74 @@ function startLoop(tv, videoUrl, opts = {}) {
   const fullUrl = videoUrl.startsWith('http') ? videoUrl : `${baseUrl}${videoUrl}`;
   const checkInterval = opts.checkInterval || 15000; // 15s
 
-  console.log(`[TV Loop] ${id}: monitoring started — ${fullUrl}`);
+  // ── WOL automático ───────────────────────────────────────
+  // Se TV está offline e tem MAC configurado, manda WOL e aguarda o boot
+  let wakingUp = false;
+  try {
+    const online = await isOnline(tv);
+    if (!online && tv.mac && tv.mac.replace(/[:\-]/g, '') !== '000000000000' && tv.mac !== '') {
+      await powerOn(tv);
+      wakingUp = true;
+      console.log(`[TV Loop] ${id}: offline → WOL enviado, aguardando boot (35s)...`);
+    }
+  } catch (err) {
+    console.log(`[TV Loop] ${id}: WOL check failed: ${err.message}`);
+  }
+
+  console.log(`[TV Loop] ${id}: monitoring started — ${fullUrl}${wakingUp ? ' (waking up)' : ''}`);
 
   const state = {
     tv,
     videoUrl: fullUrl,
     title,
     retries: 0,
-    maxRetries: 5,
+    maxRetries: 20,  // ~5min de retries (20 × 15s) — cobre boot completo da TV
     timer: null,
     casting: false,
+    wakingUp,
+    seenOnline: false, // flag: já viu a TV online pelo menos uma vez
   };
 
   const check = async () => {
-    if (state.casting) return; // avoid overlap
+    if (state.casting) return;
 
     try {
       const status = await getStatus(tv);
 
       if (!status.online) {
-        // TV offline — skip, will retry next cycle
+        // TV ainda offline — não conta como retry durante boot
+        if (!state.seenOnline) return;
         return;
       }
 
-      // If nothing playing (no application or IDLE), re-cast
+      // TV online pela primeira vez — zera estado de boot
+      if (!state.seenOnline) {
+        state.seenOnline = true;
+        state.wakingUp = false;
+        state.retries = 0;
+        console.log(`[TV Loop] ${id}: TV online — iniciando cast`);
+      }
+
+      // Se nada tocando, re-cast
       if (!status.application) {
         state.casting = true;
-        console.log(`[TV Loop] ${id}: video ended — re-casting`);
         try {
           await castVideo(tv, state.videoUrl, { title: state.title, loop: false });
           state.retries = 0;
-          console.log(`[TV Loop] ${id}: re-cast OK`);
+          console.log(`[TV Loop] ${id}: cast OK`);
         } catch (err) {
           state.retries++;
-          console.log(`[TV Loop] ${id}: re-cast failed (${state.retries}/${state.maxRetries}): ${err.message}`);
+          console.log(`[TV Loop] ${id}: cast failed (${state.retries}/${state.maxRetries}): ${err.message}`);
           if (state.retries >= state.maxRetries) {
-            console.log(`[TV Loop] ${id}: max retries reached — stopping loop`);
+            console.log(`[TV Loop] ${id}: max retries — parando monitor`);
             stopLoop(tv);
             return;
           }
         }
         state.casting = false;
+      } else {
+        // Está tocando — zera retries
+        state.retries = 0;
       }
     } catch {
       // status check failed — skip
@@ -356,10 +383,19 @@ function startLoop(tv, videoUrl, opts = {}) {
   state.timer = setInterval(check, checkInterval);
   _loopState.set(id, state);
 
-  // First cast immediately
-  castVideo(tv, state.videoUrl, { title: state.title, loop: false })
-    .then(() => console.log(`[TV Loop] ${id}: initial cast OK`))
-    .catch(err => console.log(`[TV Loop] ${id}: initial cast failed: ${err.message}`));
+  // Primeiro cast: imediato se TV estava online, com delay se mandou WOL
+  const initialDelay = wakingUp ? 35000 : 0;
+  setTimeout(() => {
+    castVideo(tv, state.videoUrl, { title: state.title, loop: false })
+      .then(() => {
+        state.seenOnline = true;
+        state.wakingUp = false;
+        console.log(`[TV Loop] ${id}: initial cast OK`);
+      })
+      .catch(err => console.log(`[TV Loop] ${id}: initial cast failed: ${err.message}`));
+  }, initialDelay);
+
+  return { looping: true, wakingUp };
 }
 
 function stopLoop(tv) {
