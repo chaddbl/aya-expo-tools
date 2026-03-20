@@ -646,19 +646,23 @@ app.post('/api/tv/all/cast', async (req, res) => {
   const port = config.server?.port || 3000;
   const baseUrl = `http://${mediaServer}:${port}`;
 
-  const results = await Promise.allSettled(tvs.map(async t => {
-    const videoUrl = t.videoUrl;
-    if (!videoUrl) return { id: t.id, ok: false, error: 'videoUrl não configurada' };
-    const fullUrl = videoUrl.startsWith('http') ? videoUrl : `${baseUrl}${videoUrl}`;
-    const result = await tv.castVideo(t, fullUrl, { title: t.videoTitle });
-    return { id: t.id, ok: true, ...result };
-  }));
-
-  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
+  const results = [];
+  for (const t of tvs) {
+    if (!t.videoUrl) { results.push({ id: t.id, ok: false, error: 'videoUrl não configurada' }); continue; }
+    try {
+      tv.startLoop(t, t.videoUrl, { title: t.videoTitle, baseUrl });
+      results.push({ id: t.id, ok: true, looping: true });
+    } catch (err) {
+      results.push({ id: t.id, ok: false, error: err.message });
+    }
+  }
+  res.json(results);
 });
 
 app.post('/api/tv/all/stop', async (req, res) => {
   const tvs = config.tvs || [];
+  // Stop loops first
+  for (const t of tvs) { tv.stopLoop(t); }
   const results = await Promise.allSettled(tvs.map(t => tv.castStop(t).then(r => ({ id: t.id, ok: true, ...r }))));
   res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
 });
@@ -700,17 +704,20 @@ app.post('/api/tv/:id/off', async (req, res) => {
   }
 });
 
-// Cast video to a specific TV
+// Cast video to a specific TV (with loop monitoring)
 app.post('/api/tv/:id/cast', async (req, res) => {
   const tvs = config.tvs || [];
   const t = tvs.find(t => t.id === req.params.id);
   if (!t) return res.status(404).json({ error: 'TV não encontrada' });
-  const { url, title, contentType, loop } = req.body;
+  const { url, title } = req.body;
   const videoUrl = url || t.videoUrl;
   if (!videoUrl) return res.status(400).json({ error: 'url obrigatória (body ou config tv.videoUrl)' });
   try {
-    const result = await tv.castVideo(t, videoUrl, { title: title || t.videoTitle, contentType, loop });
-    res.json({ ok: true, ...result });
+    const mediaServer = config.exhibition?.network?.mediaServer || 'localhost';
+    const port = config.server?.port || 3000;
+    const baseUrl = `http://${mediaServer}:${port}`;
+    tv.startLoop(t, videoUrl, { title: title || t.videoTitle, baseUrl });
+    res.json({ ok: true, looping: true, videoUrl });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
@@ -722,6 +729,7 @@ app.post('/api/tv/:id/stop', async (req, res) => {
   const t = tvs.find(t => t.id === req.params.id);
   if (!t) return res.status(404).json({ error: 'TV não encontrada' });
   try {
+    tv.stopLoop(t); // stop loop monitor
     const result = await tv.castStop(t);
     res.json({ ok: true, ...result });
   } catch (e) {
@@ -742,6 +750,11 @@ app.post('/api/tv/:id/volume', async (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
+});
+
+// Loop status
+app.get('/api/tv/loops', (req, res) => {
+  res.json(tv.getLoopStatus());
 });
 
 // (bulk TV routes defined above, before :id routes)

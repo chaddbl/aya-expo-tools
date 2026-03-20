@@ -84,15 +84,17 @@ class Scheduler {
       // Wait for TVs to boot
       await this._sleep(delay);
 
-      // Step 2: Cast video to each TV
+      // Step 2: Cast video to each TV with loop monitoring
       try {
         this.addLog('tv-cast-all', 'started');
         const baseUrl = `http://${this.serverConfig.host === '0.0.0.0' ? '192.168.0.10' : this.serverConfig.host}:${this.serverConfig.port || 3000}`;
-        await Promise.allSettled(this.tvConfig.map(t => {
-          const videoUrl = t.videoUrl ? `${baseUrl}${t.videoUrl}` : null;
-          if (!videoUrl) return Promise.resolve();
-          return this.tvModule.castVideo(t, videoUrl, { title: t.videoTitle || t.name });
-        }));
+        for (const t of this.tvConfig) {
+          if (!t.videoUrl) continue;
+          this.tvModule.startLoop(t, t.videoUrl, {
+            title: t.videoTitle || t.name,
+            baseUrl,
+          });
+        }
         this.addLog('tv-cast-all', 'completed');
       } catch (err) {
         this.addLog('tv-cast-all', 'error', err.message);
@@ -126,10 +128,15 @@ class Scheduler {
       this.addLog('power-off-all', 'error', err.message);
     }
 
-    // Step 2: Stop TV casting
+    // Step 2: Stop TV loops + casting
     if (this.tvModule && this.tvConfig.length > 0) {
       try {
         this.addLog('tv-stop-all', 'started');
+        // Stop loop monitors first
+        for (const t of this.tvConfig) {
+          this.tvModule.stopLoop(t);
+        }
+        // Then stop cast
         await Promise.allSettled(this.tvConfig.map(t => this.tvModule.castStop(t)));
         this.addLog('tv-stop-all', 'completed');
       } catch (err) {

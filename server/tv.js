@@ -292,6 +292,102 @@ async function powerOff(tv) {
   }
 }
 
+// ── Video Loop Monitor ───────────────────────────────────
+// Polls Cast status and re-casts when video ends (IDLE state)
+
+const _loopState = new Map();  // tvId → { timer, videoUrl, title, tv, retries }
+
+function startLoop(tv, videoUrl, opts = {}) {
+  const id = tv.id;
+  stopLoop(tv);
+
+  const title = opts.title || tv.videoTitle || 'AYA Expo';
+  const baseUrl = opts.baseUrl || '';
+  const fullUrl = videoUrl.startsWith('http') ? videoUrl : `${baseUrl}${videoUrl}`;
+  const checkInterval = opts.checkInterval || 15000; // 15s
+
+  console.log(`[TV Loop] ${id}: monitoring started — ${fullUrl}`);
+
+  const state = {
+    tv,
+    videoUrl: fullUrl,
+    title,
+    retries: 0,
+    maxRetries: 5,
+    timer: null,
+    casting: false,
+  };
+
+  const check = async () => {
+    if (state.casting) return; // avoid overlap
+
+    try {
+      const status = await getStatus(tv);
+
+      if (!status.online) {
+        // TV offline — skip, will retry next cycle
+        return;
+      }
+
+      // If nothing playing (no application or IDLE), re-cast
+      if (!status.application) {
+        state.casting = true;
+        console.log(`[TV Loop] ${id}: video ended — re-casting`);
+        try {
+          await castVideo(tv, state.videoUrl, { title: state.title, loop: false });
+          state.retries = 0;
+          console.log(`[TV Loop] ${id}: re-cast OK`);
+        } catch (err) {
+          state.retries++;
+          console.log(`[TV Loop] ${id}: re-cast failed (${state.retries}/${state.maxRetries}): ${err.message}`);
+          if (state.retries >= state.maxRetries) {
+            console.log(`[TV Loop] ${id}: max retries reached — stopping loop`);
+            stopLoop(tv);
+            return;
+          }
+        }
+        state.casting = false;
+      }
+    } catch {
+      // status check failed — skip
+    }
+  };
+
+  state.timer = setInterval(check, checkInterval);
+  _loopState.set(id, state);
+
+  // First cast immediately
+  castVideo(tv, state.videoUrl, { title: state.title, loop: false })
+    .then(() => console.log(`[TV Loop] ${id}: initial cast OK`))
+    .catch(err => console.log(`[TV Loop] ${id}: initial cast failed: ${err.message}`));
+}
+
+function stopLoop(tv) {
+  const id = tv.id;
+  const state = _loopState.get(id);
+  if (state) {
+    if (state.timer) clearInterval(state.timer);
+    _loopState.delete(id);
+    console.log(`[TV Loop] ${id}: monitoring stopped`);
+  }
+}
+
+function isLooping(tv) {
+  return _loopState.has(tv.id);
+}
+
+function getLoopStatus() {
+  const result = {};
+  for (const [id, state] of _loopState) {
+    result[id] = {
+      videoUrl: state.videoUrl,
+      title: state.title,
+      retries: state.retries,
+    };
+  }
+  return result;
+}
+
 module.exports = {
   powerOn,
   powerOff,
@@ -301,4 +397,8 @@ module.exports = {
   castStop,
   setVolume,
   isReachable,
+  startLoop,
+  stopLoop,
+  isLooping,
+  getLoopStatus,
 };
