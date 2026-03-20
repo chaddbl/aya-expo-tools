@@ -75,7 +75,10 @@
       "mac": "E0:3E:CB:E2:60:4C",
       "model": "Hisense 55A51HUA",
       "zone": "",
-      "broadcastAddr": "192.168.0.255"
+      "broadcastAddr": "192.168.0.255",
+      "protocol": "cast",
+      "videoUrl": "/files/tv1-video.mp4",
+      "videoTitle": "Beleza Astral — TV 1"
     },
     {
       "id": "tv-2",
@@ -84,7 +87,10 @@
       "mac": "E0:3E:CB:E2:61:56",
       "model": "Hisense 55A51HUA",
       "zone": "",
-      "broadcastAddr": "192.168.0.255"
+      "broadcastAddr": "192.168.0.255",
+      "protocol": "cast",
+      "videoUrl": "/files/tv2-video.mp4",
+      "videoTitle": "Beleza Astral — TV 2"
     }
   ],
 

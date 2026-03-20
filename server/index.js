@@ -482,7 +482,7 @@ app.get('/api/discover/subnet', async (req, res) => {
   res.end();
 });
 
-// ─── API: TVs ─────────────────────────────────────────────
+// ─── API: TVs (Google Cast + WOL) ─────────────────────────
 app.get('/api/tv', (req, res) => {
   const tvs = config.tvs || [];
   res.json(tvs.map(t => ({ ...t, password: undefined })));
@@ -493,8 +493,8 @@ app.get('/api/tv/:id/status', async (req, res) => {
   const t = tvs.find(t => t.id === req.params.id);
   if (!t) return res.status(404).json({ error: 'TV não encontrada' });
   try {
-    const online = await tv.isOnline(t);
-    res.json({ id: t.id, name: t.name, online });
+    const status = await tv.getStatus(t);
+    res.json({ id: t.id, name: t.name, ...status });
   } catch (e) {
     res.json({ id: t.id, name: t.name, online: false, error: e.message });
   }
@@ -517,13 +517,58 @@ app.post('/api/tv/:id/off', async (req, res) => {
   const t = tvs.find(t => t.id === req.params.id);
   if (!t) return res.status(404).json({ error: 'TV não encontrada' });
   try {
-    await tv.powerOff(t);
-    res.json({ ok: true, message: `${t.name} desligada via MQTT` });
+    const result = await tv.powerOff(t);
+    res.json({ ok: true, message: result.message });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
 
+// Cast video to a specific TV
+app.post('/api/tv/:id/cast', async (req, res) => {
+  const tvs = config.tvs || [];
+  const t = tvs.find(t => t.id === req.params.id);
+  if (!t) return res.status(404).json({ error: 'TV não encontrada' });
+  const { url, title, contentType, loop } = req.body;
+  const videoUrl = url || t.videoUrl;
+  if (!videoUrl) return res.status(400).json({ error: 'url obrigatória (body ou config tv.videoUrl)' });
+  try {
+    const result = await tv.castVideo(t, videoUrl, { title: title || t.videoTitle, contentType, loop });
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Stop cast on a specific TV
+app.post('/api/tv/:id/stop', async (req, res) => {
+  const tvs = config.tvs || [];
+  const t = tvs.find(t => t.id === req.params.id);
+  if (!t) return res.status(404).json({ error: 'TV não encontrada' });
+  try {
+    const result = await tv.castStop(t);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Set volume on a specific TV (0-100)
+app.post('/api/tv/:id/volume', async (req, res) => {
+  const tvs = config.tvs || [];
+  const t = tvs.find(t => t.id === req.params.id);
+  if (!t) return res.status(404).json({ error: 'TV não encontrada' });
+  const { level } = req.body;
+  if (level === undefined) return res.status(400).json({ error: 'level obrigatório (0-100)' });
+  try {
+    const result = await tv.setVolume(t, level);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Bulk operations
 app.post('/api/tv/all/on', async (req, res) => {
   const tvs = config.tvs || [];
   const results = await Promise.allSettled(tvs.map(t => tv.powerOn(t).then(() => ({ id: t.id, ok: true }))));
@@ -533,6 +578,31 @@ app.post('/api/tv/all/on', async (req, res) => {
 app.post('/api/tv/all/off', async (req, res) => {
   const tvs = config.tvs || [];
   const results = await Promise.allSettled(tvs.map(t => tv.powerOff(t).then(() => ({ id: t.id, ok: true }))));
+  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
+});
+
+// Cast configured videos to all TVs (each TV plays its own videoUrl)
+app.post('/api/tv/all/cast', async (req, res) => {
+  const tvs = config.tvs || [];
+  const mediaServer = config.exhibition?.network?.mediaServer || 'localhost';
+  const port = config.server?.port || 3000;
+  const baseUrl = `http://${mediaServer}:${port}`;
+
+  const results = await Promise.allSettled(tvs.map(async t => {
+    const videoUrl = t.videoUrl;
+    if (!videoUrl) return { id: t.id, ok: false, error: 'videoUrl não configurada' };
+    // Se videoUrl é relativo (ex: /files/video.mp4), prefixar com baseUrl
+    const fullUrl = videoUrl.startsWith('http') ? videoUrl : `${baseUrl}${videoUrl}`;
+    const result = await tv.castVideo(t, fullUrl, { title: t.videoTitle });
+    return { id: t.id, ok: true, ...result };
+  }));
+
+  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
+});
+
+app.post('/api/tv/all/stop', async (req, res) => {
+  const tvs = config.tvs || [];
+  const results = await Promise.allSettled(tvs.map(t => tv.castStop(t).then(r => ({ id: t.id, ok: true, ...r }))));
   res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
 });
 

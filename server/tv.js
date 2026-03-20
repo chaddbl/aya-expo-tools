@@ -1,21 +1,32 @@
 /**
- * tv.js — Controle de TVs Hisense VIDAA OS
+ * tv.js — Controle de TVs Hisense via Google Cast + Wake-on-LAN
  *
- * Liga:   Wake-on-LAN (magic packet UDP porta 9)
- * Desliga: MQTT porta 36669 (protocolo nativo VIDAA)
- * Status:  TCP probe porta 36669 — se responde, TV está ligada
+ * Liga:     Wake-on-LAN (magic packet UDP porta 9)
+ * Desliga:  Google Cast — para o app receiver → TV volta ao input padrão
+ * Status:   Google Cast API (porta 8009) — isStandBy, isActiveInput, volume
+ * Vídeo:    Google Cast — load de URL HTTP servida pelo media server
+ * Volume:   Google Cast — setVolume
  *
- * Pré-requisitos na TV (configurar uma vez):
- *   Configurações → Rede → Wake on LAN: ATIVADO
- *   Configurações → Rede → Wake on WiFi: ATIVADO (se for via WiFi)
+ * Descoberta (19/03/2026):
+ *   Hisense 55A51HUA tem Chromecast built-in (portas 8008/8009/8443)
+ *   MQTT porta 36669 NÃO disponível neste modelo
+ *   Protocolo Cast dá controle completo: play, stop, volume, status
  */
 
-const dgram  = require('dgram');
-const net    = require('net');
-const mqtt   = require('mqtt');
+const dgram = require('dgram');
+const net   = require('net');
+
+// castv2-client — lazy loaded (pode não estar instalado em todas as expos)
+let CastClient = null;
+let DefaultMediaReceiver = null;
+try {
+  CastClient = require('castv2-client').Client;
+  DefaultMediaReceiver = require('castv2-client').DefaultMediaReceiver;
+} catch {
+  // castv2-client not installed — cast features disabled
+}
 
 // ── Wake-on-LAN ──────────────────────────────────────────
-// Monta o magic packet: 6x FF + 16x MAC
 function buildMagicPacket(mac) {
   const hex = mac.replace(/[:\-\.]/g, '');
   if (hex.length !== 12) throw new Error(`MAC inválido: ${mac}`);
@@ -29,7 +40,7 @@ function buildMagicPacket(mac) {
 async function powerOn(tv) {
   const mac = tv.mac || '';
   if (!mac || mac === 'TBD' || mac === '') {
-    throw new Error('MAC não configurado — adicione em /config.html após encontrar o endereço no roteador');
+    throw new Error('MAC não configurado');
   }
 
   const broadcast = tv.broadcastAddr || '192.168.0.255';
@@ -42,7 +53,6 @@ async function powerOn(tv) {
       socket.once('error', err => { socket.close(); reject(err); });
       socket.bind(() => {
         socket.setBroadcast(true);
-        // Envia 3x para garantir entrega (UDP não tem confirmação)
         let sent = 0;
         const send = () => {
           socket.send(packet, 0, packet.length, 9, broadcast, err => {
@@ -54,112 +64,226 @@ async function powerOn(tv) {
         };
         send();
       });
-    } catch (e) {
-      reject(e);
-    }
+    } catch (e) { reject(e); }
   });
 }
 
-// ── MQTT Power Off ───────────────────────────────────────
-// Protocolo Hisense VIDAA: broker MQTT porta 36669
-// Tópico: <mac_sem_colons>/remoteapp/ui/ui_service/data/keyevent
-// Payload: { "keyCode": "KEY_POWER", "type": 1, "status": 1 }
-async function powerOff(tv) {
-  const ip  = tv.ip  || '';
-  const mac = tv.mac || '';
-  if (!ip) throw new Error('IP não configurado');
+// ── Google Cast ──────────────────────────────────────────
 
-  // MAC normalizado: lowercase sem separadores
-  const macNorm = mac.replace(/[:\-\.]/g, '').toLowerCase();
-
+/**
+ * Connect to Cast device, run callback, then disconnect.
+ * Handles timeout and cleanup automatically.
+ */
+function withCastClient(ip, timeoutMs, callback) {
+  if (!CastClient) {
+    return Promise.reject(new Error('castv2-client não instalado — execute npm install'));
+  }
   return new Promise((resolve, reject) => {
-    const client = mqtt.connect(`mqtt://${ip}:36669`, {
-      username: 'hisenseservice',
-      password: 'multimqttservice',
-      connectTimeout: 5000,
-      reconnectPeriod: 0,
-      rejectUnauthorized: false,
+    const client = new CastClient();
+    const timeout = setTimeout(() => {
+      client.close();
+      reject(new Error('Cast timeout'));
+    }, timeoutMs);
+
+    client.on('error', (err) => {
+      clearTimeout(timeout);
+      client.close();
+      reject(err);
     });
 
-    const timeout = setTimeout(() => {
-      client.end(true);
-      reject(new Error('Timeout — TV não respondeu na porta 36669'));
-    }, 8000);
-
-    client.on('connect', () => {
+    client.connect(ip, () => {
       clearTimeout(timeout);
-      // Tenta com MAC no tópico (padrão A51H); fallback sem MAC se necessário
-      const topic   = macNorm
-        ? `${macNorm}/remoteapp/ui/ui_service/data/keyevent`
-        : `remoteapp/ui/ui_service/data/keyevent`;
-      const payload = JSON.stringify({ keyCode: 'KEY_POWER', type: 1, status: 1 });
+      callback(client)
+        .then(result => { client.close(); resolve(result); })
+        .catch(err => { client.close(); reject(err); });
+    });
+  });
+}
 
-      client.publish(topic, payload, {}, () => {
-        setTimeout(() => { client.end(); resolve(); }, 500);
+/**
+ * Get Cast device status (volume, standby, active input)
+ */
+async function getStatus(tv) {
+  const ip = tv.ip || '';
+  if (!ip) return { online: false, error: 'IP não configurado' };
+
+  try {
+    const status = await withCastClient(ip, 8000, (client) => {
+      return new Promise((resolve, reject) => {
+        client.getStatus((err, status) => {
+          if (err) reject(err);
+          else resolve(status);
+        });
       });
     });
 
-    client.on('error', err => {
-      clearTimeout(timeout);
-      client.end(true);
-      // Erros de certificado são normais em algumas versões VIDAA — não são fatais
-      if (err.code === 'ECONNREFUSED') {
-        reject(new Error('Conexão recusada — TV pode estar desligada ou IP incorreto'));
-      } else {
-        reject(err);
-      }
-    });
-  });
+    return {
+      online: true,
+      isActiveInput: status.isActiveInput ?? null,
+      isStandBy: status.isStandBy ?? null,
+      volume: status.volume ? {
+        level: Math.round((status.volume.level || 0) * 100),
+        muted: status.volume.muted || false,
+      } : null,
+      // Check if something is playing
+      application: status.applications?.[0]?.displayName || null,
+    };
+  } catch (err) {
+    // Fallback: ping check
+    const pingOk = await isReachable(ip);
+    return {
+      online: pingOk,
+      castAvailable: false,
+      error: err.message,
+    };
+  }
 }
 
-// ── Status ───────────────────────────────────────────────
-// Proba TCP porta 36669: se aceita conexão, TV está ligada e com rede
-async function isOnline(tv) {
-  const ip = tv.ip || '';
-  if (!ip) return false;
-
+/**
+ * Simple ping/TCP check (fallback when Cast unavailable)
+ */
+async function isReachable(ip) {
   return new Promise(resolve => {
     const socket = new net.Socket();
     socket.setTimeout(3000);
-    socket.once('connect', () => { socket.destroy(); resolve(true);  });
-    socket.once('timeout', () => { socket.destroy(); resolve(false); });
-    socket.once('error',   () => { socket.destroy(); resolve(false); });
-    socket.connect(36669, ip);
+    // Try Cast port first, then generic
+    socket.connect(8009, ip, () => { socket.destroy(); resolve(true); });
+    socket.on('error', () => { socket.destroy(); resolve(false); });
+    socket.on('timeout', () => { socket.destroy(); resolve(false); });
   });
 }
 
-// ── Volume ───────────────────────────────────────────────
-async function setVolume(tv, level) {
-  const ip  = tv.ip  || '';
-  const mac = tv.mac || '';
+/**
+ * Check if TV is online (simplified boolean)
+ */
+async function isOnline(tv) {
+  const ip = tv.ip || '';
+  if (!ip) return false;
+  return isReachable(ip);
+}
+
+/**
+ * Cast a video to the TV (plays immediately)
+ * @param {object} tv — TV config entry
+ * @param {string} videoUrl — HTTP URL accessible from the TV's network
+ * @param {object} opts — { title, contentType, loop }
+ */
+async function castVideo(tv, videoUrl, opts = {}) {
+  const ip = tv.ip || '';
   if (!ip) throw new Error('IP não configurado');
+  if (!CastClient) throw new Error('castv2-client não instalado');
 
-  const macNorm = mac.replace(/[:\-\.]/g, '').toLowerCase();
+  const title = opts.title || tv.videoTitle || 'AYA Expo';
+  const contentType = opts.contentType || 'video/mp4';
 
-  return new Promise((resolve, reject) => {
-    const client = mqtt.connect(`mqtt://${ip}:36669`, {
-      username: 'hisenseservice',
-      password: 'multimqttservice',
-      connectTimeout: 5000,
-      reconnectPeriod: 0,
-      rejectUnauthorized: false,
-    });
+  return withCastClient(ip, 15000, (client) => {
+    return new Promise((resolve, reject) => {
+      client.launch(DefaultMediaReceiver, (err, player) => {
+        if (err) return reject(err);
 
-    const timeout = setTimeout(() => { client.end(true); reject(new Error('Timeout')); }, 8000);
+        const media = {
+          contentId: videoUrl,
+          contentType,
+          streamType: 'BUFFERED',
+          metadata: {
+            type: 0,
+            metadataType: 0,
+            title,
+          },
+        };
 
-    client.on('connect', () => {
-      clearTimeout(timeout);
-      const topic   = macNorm
-        ? `${macNorm}/remoteapp/ui/ui_service/data/keyevent`
-        : `remoteapp/ui/ui_service/data/keyevent`;
-      const payload = JSON.stringify({ keyCode: 'KEY_VOLUMEUP', type: 1, status: 1, value: level });
-      client.publish(topic, payload, {}, () => {
-        setTimeout(() => { client.end(); resolve(); }, 300);
+        // repeatMode in load options
+        const loadOpts = { autoplay: true };
+
+        player.load(media, loadOpts, (err, status) => {
+          if (err) return reject(err);
+
+          // Set repeat mode after load (some receivers need this separately)
+          if (opts.loop !== false) {
+            try {
+              player.queueUpdate({ repeatMode: 'REPEAT_SINGLE' }, () => {});
+            } catch { /* best effort */ }
+          }
+
+          resolve({
+            playing: true,
+            mediaSessionId: status.mediaSessionId,
+            playerState: status.extendedStatus?.playerState || status.playerState,
+            contentId: videoUrl,
+            title,
+          });
+        });
       });
     });
-
-    client.on('error', err => { clearTimeout(timeout); client.end(true); reject(err); });
   });
 }
 
-module.exports = { powerOn, powerOff, isOnline, setVolume };
+/**
+ * Stop playback / close Cast app on TV
+ */
+async function castStop(tv) {
+  const ip = tv.ip || '';
+  if (!ip) throw new Error('IP não configurado');
+  if (!CastClient) throw new Error('castv2-client não instalado');
+
+  return withCastClient(ip, 8000, (client) => {
+    return new Promise((resolve, reject) => {
+      client.getStatus((err, status) => {
+        if (err) return reject(err);
+        if (!status.applications || status.applications.length === 0) {
+          return resolve({ stopped: true, message: 'Nothing was playing' });
+        }
+        // Stop the first running application
+        const app = status.applications[0];
+        client.stop(app, (err) => {
+          if (err) return reject(err);
+          resolve({ stopped: true, appId: app.appId, displayName: app.displayName });
+        });
+      });
+    });
+  });
+}
+
+/**
+ * Set volume on TV (0-100)
+ */
+async function setVolume(tv, level) {
+  const ip = tv.ip || '';
+  if (!ip) throw new Error('IP não configurado');
+  if (!CastClient) throw new Error('castv2-client não instalado');
+
+  const normalized = Math.max(0, Math.min(1, level / 100));
+
+  return withCastClient(ip, 8000, (client) => {
+    return new Promise((resolve, reject) => {
+      client.setVolume({ level: normalized }, (err, vol) => {
+        if (err) return reject(err);
+        resolve({ level: Math.round(vol.level * 100), muted: vol.muted });
+      });
+    });
+  });
+}
+
+/**
+ * Power off via Cast — stops app, which returns TV to home/input
+ * Combined with removing the Cast session, TV may go to standby
+ */
+async function powerOff(tv) {
+  try {
+    await castStop(tv);
+    return { ok: true, message: 'Cast stopped — TV retorna ao input padrão' };
+  } catch (err) {
+    throw new Error(`Power off failed: ${err.message}`);
+  }
+}
+
+module.exports = {
+  powerOn,
+  powerOff,
+  isOnline,
+  getStatus,
+  castVideo,
+  castStop,
+  setVolume,
+  isReachable,
+};
