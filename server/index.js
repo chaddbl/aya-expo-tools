@@ -494,6 +494,43 @@ app.get('/api/tv', (req, res) => {
   res.json(tvs.map(t => ({ ...t, password: undefined })));
 });
 
+// ── Bulk TV operations (MUST come before :id routes) ──────
+app.post('/api/tv/all/on', async (req, res) => {
+  const tvs = config.tvs || [];
+  const results = await Promise.allSettled(tvs.map(t => tv.powerOn(t).then(() => ({ id: t.id, ok: true }))));
+  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
+});
+
+app.post('/api/tv/all/off', async (req, res) => {
+  const tvs = config.tvs || [];
+  const results = await Promise.allSettled(tvs.map(t => tv.powerOff(t).then(() => ({ id: t.id, ok: true }))));
+  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
+});
+
+app.post('/api/tv/all/cast', async (req, res) => {
+  const tvs = config.tvs || [];
+  const mediaServer = config.exhibition?.network?.mediaServer || 'localhost';
+  const port = config.server?.port || 3000;
+  const baseUrl = `http://${mediaServer}:${port}`;
+
+  const results = await Promise.allSettled(tvs.map(async t => {
+    const videoUrl = t.videoUrl;
+    if (!videoUrl) return { id: t.id, ok: false, error: 'videoUrl não configurada' };
+    const fullUrl = videoUrl.startsWith('http') ? videoUrl : `${baseUrl}${videoUrl}`;
+    const result = await tv.castVideo(t, fullUrl, { title: t.videoTitle });
+    return { id: t.id, ok: true, ...result };
+  }));
+
+  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
+});
+
+app.post('/api/tv/all/stop', async (req, res) => {
+  const tvs = config.tvs || [];
+  const results = await Promise.allSettled(tvs.map(t => tv.castStop(t).then(r => ({ id: t.id, ok: true, ...r }))));
+  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
+});
+
+// ── Individual TV operations ──────────────────────────────
 app.get('/api/tv/:id/status', async (req, res) => {
   const tvs = config.tvs || [];
   const t = tvs.find(t => t.id === req.params.id);
@@ -574,43 +611,7 @@ app.post('/api/tv/:id/volume', async (req, res) => {
   }
 });
 
-// Bulk operations
-app.post('/api/tv/all/on', async (req, res) => {
-  const tvs = config.tvs || [];
-  const results = await Promise.allSettled(tvs.map(t => tv.powerOn(t).then(() => ({ id: t.id, ok: true }))));
-  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
-});
-
-app.post('/api/tv/all/off', async (req, res) => {
-  const tvs = config.tvs || [];
-  const results = await Promise.allSettled(tvs.map(t => tv.powerOff(t).then(() => ({ id: t.id, ok: true }))));
-  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
-});
-
-// Cast configured videos to all TVs (each TV plays its own videoUrl)
-app.post('/api/tv/all/cast', async (req, res) => {
-  const tvs = config.tvs || [];
-  const mediaServer = config.exhibition?.network?.mediaServer || 'localhost';
-  const port = config.server?.port || 3000;
-  const baseUrl = `http://${mediaServer}:${port}`;
-
-  const results = await Promise.allSettled(tvs.map(async t => {
-    const videoUrl = t.videoUrl;
-    if (!videoUrl) return { id: t.id, ok: false, error: 'videoUrl não configurada' };
-    // Se videoUrl é relativo (ex: /files/video.mp4), prefixar com baseUrl
-    const fullUrl = videoUrl.startsWith('http') ? videoUrl : `${baseUrl}${videoUrl}`;
-    const result = await tv.castVideo(t, fullUrl, { title: t.videoTitle });
-    return { id: t.id, ok: true, ...result };
-  }));
-
-  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
-});
-
-app.post('/api/tv/all/stop', async (req, res) => {
-  const tvs = config.tvs || [];
-  const results = await Promise.allSettled(tvs.map(t => tv.castStop(t).then(r => ({ id: t.id, ok: true, ...r }))));
-  res.json(results.map((r, i) => r.status === 'fulfilled' ? r.value : { id: tvs[i].id, ok: false, error: r.reason?.message }));
-});
+// (bulk TV routes defined above, before :id routes)
 
 // ─── API: Computer Vision ──────────────────────────────────
 app.get('/api/cv/status', (req, res) => {
