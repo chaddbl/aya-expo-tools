@@ -77,7 +77,8 @@
       "zone": "",
       "broadcastAddr": "192.168.0.255",
       "protocol": "cast",
-      "videoUrl": "/media/tv1-video.mp4",
+      "videoUrl": "/loops/tv1-loop.mp4",
+      "videoUrlOriginal": "/media/tv1-video.mp4",
       "videoTitle": "Beleza Astral — TV 1"
     },
     {
@@ -89,7 +90,8 @@
       "zone": "",
       "broadcastAddr": "192.168.0.255",
       "protocol": "cast",
-      "videoUrl": "/media/tv2-video.mp4",
+      "videoUrl": "/loops/tv2-loop.mp4",
+      "videoUrlOriginal": "/media/tv2-video.mp4",
       "videoTitle": "Beleza Astral — TV 2"
     }
   ],

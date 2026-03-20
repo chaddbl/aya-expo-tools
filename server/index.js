@@ -340,6 +340,16 @@ app.use('/media', express.static(MEDIA_DIR, {
   acceptRanges: true,  // necessário para seek em vídeo
 }));
 
+// Loops — pre-concatenated videos on D: drive (11h seamless)
+const LOOPS_DIR = 'D:\\aya-expo-data\\loops';
+if (fs.existsSync(LOOPS_DIR)) {
+  app.use('/loops', express.static(LOOPS_DIR, {
+    maxAge: '1h',
+    acceptRanges: true,
+  }));
+  console.log('  🔁 Loop files served from D:\\aya-expo-data\\loops\\');
+}
+
 // ─── API: Media management (upload, list, assign to TV) ────
 
 // List media files
