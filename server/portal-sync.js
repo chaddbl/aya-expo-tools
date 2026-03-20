@@ -174,6 +174,44 @@ class PortalSync {
     return results.map(r => r.status === 'fulfilled' ? r.value : r.reason)
   }
 
+  _buildCvPayload() {
+    if (!this.cvManager) return null
+    const status = this.cvManager.getStatus()
+    const counter = this.cvManager.getCounterData()
+
+    const payload = {
+      enabled: status.enabled,
+      running: status.running,
+      cameras: status.cameras,
+      totalCount: status.totalCount,
+      countStrategy: status.countStrategy,
+      model: status.model,
+      gpu: status.gpu,
+      counter: counter || null,
+      perCamera: status.perCamera ? Object.fromEntries(
+        Object.entries(status.perCamera).map(([k, v]) => [k, { count: v.count, fps: v.fps, running: v.running }])
+      ) : undefined,
+    }
+
+    // Heatmap: push 1x per hour (base64 PNG of first CV camera)
+    const now = Date.now()
+    if (!this._lastHeatmapPush || now - this._lastHeatmapPush > 3600_000) {
+      const cvCams = this.config.cv?.cameras || []
+      const camId = cvCams[0] || null
+      if (camId) {
+        const buffer = this.cvManager.getHeatmap(camId)
+        if (buffer) {
+          payload.heatmapBase64 = buffer.toString('base64')
+          payload.heatmapCamId = camId
+          payload.heatmapUpdatedAt = new Date().toISOString()
+          this._lastHeatmapPush = now
+        }
+      }
+    }
+
+    return payload
+  }
+
   async _buildPayload() {
     const slug = this.config.exhibition.slug
 
@@ -210,7 +248,7 @@ class PortalSync {
       tvs: await this._getTvStatus(),
       log: this.readLog().slice(0, 50),
       session: this.session ? { active: this.session.active, startedAt: this.session.startedAt, startedBy: this.session.startedBy } : null,
-      cv: this.cvManager ? this.cvManager.getStatus() : null,
+      cv: this.cvManager ? this._buildCvPayload() : null,
       server: this.serverHealth ? this.serverHealth.getCurrent() : null,
       schedule: this.scheduler ? this.scheduler.getStatus() : null,
     }
