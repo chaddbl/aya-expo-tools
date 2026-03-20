@@ -73,6 +73,24 @@
 
   <main class="main-content" style="max-width: 1100px; margin: 0 auto; padding: 20px;">
 
+    <!-- Page help -->
+    <details class="help-block" style="border:1px solid var(--border);border-radius:6px;margin-bottom:16px;">
+      <summary>O que é esta página</summary>
+      <div class="help-content">
+        <p>Monitora a saúde do <strong>media server</strong> (o computador que roda o conteúdo da expo).</p>
+        <ul>
+          <li><strong>GPU Temperatura</strong> — se passar de 75°C aparece alerta amarelo, acima de 84°C é crítico</li>
+          <li><strong>CPU / RAM</strong> — uso do processador e memória. Acima de 90% é alerta</li>
+          <li><strong>Timelapse</strong> — fotos das câmeras a cada minuto. Use o controle deslizante para navegar no tempo</li>
+          <li><strong>Alertas</strong> — qualquer anomalia detectada durante o dia</li>
+        </ul>
+        <div class="help-note">
+          Use o seletor de data para ver dias anteriores. Os gráficos mostram o histórico de 1 amostra por minuto.
+          O cursor deslizante do timelapse sincroniza com os gráficos — ao mover o timelapse, os gráficos acompanham o horário.
+        </div>
+      </div>
+    </details>
+
     <!-- Date picker -->
     <div class="date-picker">
       <label style="font-size:13px;color:var(--text-muted);">Data:</label>

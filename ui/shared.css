@@ -720,6 +720,44 @@ input:checked + .sw-track:before { transform: translateX(16px); background: whit
 .save-msg.ok  { color: var(--green); }
 .save-msg.err { color: var(--red); }
 
+/* ─── Help / Instructions (reusable across all pages) ─── */
+.help-block {
+  border-top: 1px solid var(--border);
+  background: rgba(6,182,212,0.03);
+}
+.help-block summary {
+  padding: 10px 14px;
+  font-size: 11px; font-weight: 500; color: var(--cyan);
+  cursor: pointer; user-select: none;
+  list-style: none;
+}
+.help-block summary::-webkit-details-marker { display: none; }
+.help-block summary::before {
+  content: 'ℹ️ ';
+}
+.help-block summary:hover { opacity: 0.8; }
+.help-block .help-content {
+  padding: 0 14px 12px 14px;
+}
+.help-block ol, .help-block ul {
+  margin: 0 0 0 18px; font-size: 11px; color: var(--text-dim);
+  line-height: 1.9;
+}
+.help-block ol strong, .help-block ul strong { color: var(--text); }
+.help-block p {
+  font-size: 11px; color: var(--text-dim); line-height: 1.7;
+  margin: 0 0 6px 0;
+}
+.help-block .help-note {
+  margin-top: 8px; font-size: 10px; color: var(--text-dimmer);
+  line-height: 1.6; border-top: 1px solid var(--border); padding-top: 8px;
+}
+.help-block code {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  background: rgba(255,255,255,0.05); padding: 1px 5px;
+  border-radius: 2px; color: var(--text);
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 768px) {
   .main            { padding: 16px; }

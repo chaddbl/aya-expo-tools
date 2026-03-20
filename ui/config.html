@@ -290,6 +290,25 @@
       <!-- Lista padrão (when nothing selected) -->
       <div id="device-list-panel">
 
+        <details class="help-block" style="border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;">
+          <summary>Como configurar dispositivos</summary>
+          <div class="help-content">
+            <ol>
+              <li><strong>Adicionar</strong> — clique em "+ Adicionar" na categoria desejada</li>
+              <li><strong>Configurar IP</strong> — preencha o IP do dispositivo na rede da sala (ex: <code>192.168.0.101</code>)</li>
+              <li><strong>Testar</strong> — use "Testar agora" para verificar se o dispositivo responde</li>
+              <li><strong>Posicionar</strong> — carregue a planta na aba "Espaço" e arraste o dispositivo para a posição correta, ou clique em "Marcar na planta"</li>
+              <li><strong>Salvar</strong> — clique no botão "Salvar" no topo direito para gravar todas as alterações</li>
+            </ol>
+            <div class="help-note">
+              <strong>Projetores:</strong> precisam estar na mesma rede e com PJLink habilitado (porta 4352).<br>
+              <strong>Câmeras:</strong> precisam de usuário e senha RTSP para acesso ao vídeo.<br>
+              <strong>TVs:</strong> precisam de MAC para Wake-on-LAN. Use "Descobrir" para encontrar automaticamente.<br>
+              <strong>Tomadas:</strong> controlam energia de projetores e áudio remotamente.
+            </div>
+          </div>
+        </details>
+
         <div class="section">
           <div class="section-label">Projetores</div>
           <div id="proj-list"></div>
@@ -319,6 +338,19 @@
 
     <!-- ABA: ESPAÇO -->
     <div class="panel-body" id="panel-espaco" style="display:none;">
+
+      <details class="help-block" style="border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;">
+        <summary>Sobre a planta e o espaço</summary>
+        <div class="help-content">
+          <p>Carregue a planta da sala (PNG, JPG ou PDF) para visualizar a posição dos equipamentos.
+          Após carregar, você pode <strong>arrastar dispositivos</strong> da paleta na parte inferior da tela
+          diretamente para a posição correta na planta.</p>
+          <div class="help-note">
+            A planta é apenas uma referência visual — não precisa estar em escala.
+            Use o PDF original da expografia se disponível.
+          </div>
+        </div>
+      </details>
 
       <div class="section">
         <div class="section-label">Planta</div>
@@ -354,9 +386,22 @@
 
     <!-- ABA: AGENDA -->
     <div class="panel-body" id="panel-agenda" style="display:none;">
-      <div class="notice">
-        <strong>Atenção:</strong> se o Chataigne estiver controlando os projetores, deixe o agendamento desativado para evitar conflito.
-      </div>
+      <details class="help-block" style="border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;">
+        <summary>Como funciona o agendamento</summary>
+        <div class="help-content">
+          <p>O agendamento liga e desliga <strong>projetores e TVs</strong> automaticamente nos horários configurados, todos os dias.</p>
+          <ol>
+            <li><strong>Ligar às</strong> — horário em que os projetores ligam e os vídeos das TVs começam a rodar</li>
+            <li><strong>Desligar às</strong> — horário em que tudo desliga no final do expediente</li>
+          </ol>
+          <div class="help-note">
+            <strong>⚠️ Se o Chataigne estiver controlando os projetores</strong>, deixe o agendamento <strong>desativado</strong>
+            para evitar conflito (os dois tentariam ligar/desligar ao mesmo tempo).
+            <br><br>
+            O agendamento usa o fuso horário configurado. Confira se está correto para a cidade da expo.
+          </div>
+        </div>
+      </details>
       <div class="section">
         <div class="toggle-row">
           <div class="toggle-info">
@@ -394,6 +439,22 @@
 
     <!-- ABA: ACESSO -->
     <div class="panel-body" id="panel-acesso" style="display:none;">
+      <details class="help-block" style="border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;">
+        <summary>Rede e acesso remoto</summary>
+        <div class="help-content">
+          <ul>
+            <li><strong>RustDesk</strong> — ID para acesso remoto à tela do media server (suporte sem ir ao local)</li>
+            <li><strong>IP do servidor</strong> — IP fixo deste computador na rede da sala (ex: <code>192.168.0.10</code>)</li>
+            <li><strong>Gateway</strong> — IP do roteador da sala (geralmente <code>192.168.0.1</code>)</li>
+            <li><strong>Escanear rede</strong> — descobre todos os dispositivos conectados com IP e MAC. Útil para encontrar câmeras e TVs novas</li>
+            <li><strong>Contatos</strong> — telefones da equipe técnica para emergências</li>
+          </ul>
+          <div class="help-note">
+            Se não souber o IP do servidor, abra um terminal e digite <code>ipconfig</code>.
+            O IP aparece em "Adaptador Ethernet" → "Endereço IPv4".
+          </div>
+        </div>
+      </details>
       <div class="section">
         <div class="section-label">Acesso remoto</div>
         <div class="field">
@@ -454,6 +515,15 @@
 
     <!-- ABA: LOG -->
     <div class="panel-body" id="panel-log" style="display:none;">
+      <details class="help-block" style="border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;">
+        <summary>Para que serve o log</summary>
+        <div class="help-content">
+          <p>Registre aqui tudo que acontecer durante a montagem e temporada:
+          problemas encontrados, trocas de equipamento, quedas de energia, visitas técnicas, etc.</p>
+          <p>O log é compartilhado com a equipe remota pelo Portal AYA.
+          Quanto mais detalhado, mais fácil diagnosticar problemas à distância.</p>
+        </div>
+      </details>
       <div class="section">
         <div class="section-label">Nova ocorrência</div>
         <textarea id="log-input" placeholder="Descreva o que aconteceu..." rows="3" style="margin-bottom:8px;"></textarea>
