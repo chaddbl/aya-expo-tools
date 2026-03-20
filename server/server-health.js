@@ -20,16 +20,21 @@ const POLL_INTERVAL = 30_000       // 30s
 const HISTORY_SIZE = 60            // 30min de histórico a 30s
 const NVIDIA_SMI = 'C:\\Windows\\System32\\nvidia-smi.exe'
 const GPU_QUERY = 'index,name,temperature.gpu,utilization.gpu,memory.used,memory.total,fan.speed,power.draw,power.limit'
-const LOG_DIR = path.join(__dirname, '..', 'logs', 'health')
+// Health logs: use D: drive if available, fallback to local
+const LOG_DIR = fs.existsSync('D:\\aya-expo-data\\health-logs')
+  ? 'D:\\aya-expo-data\\health-logs'
+  : path.join(__dirname, '..', 'logs', 'health')
 
 // Processos críticos a monitorar
 const WATCHED_PROCESSES = ['Arena.exe', 'node.exe', 'chrome.exe', 'rustdesk.exe']
 
-// Pastas a medir tamanho
+// Pastas a medir tamanho (auto-detect D: drive)
+const HAS_D_DRIVE = fs.existsSync('D:\\aya-expo-data')
 const TRACKED_FOLDERS = {
   media: path.join(__dirname, '..', 'media'),
-  timelapse: path.join(__dirname, '..', 'logs', 'timelapse'),
-  healthLogs: path.join(__dirname, '..', 'logs', 'health'),
+  timelapse: HAS_D_DRIVE ? 'D:\\aya-expo-data\\timelapse' : path.join(__dirname, '..', 'logs', 'timelapse'),
+  healthLogs: LOG_DIR,
+  cv: HAS_D_DRIVE ? 'D:\\aya-expo-data\\cv' : path.join(__dirname, '..', 'logs', 'cv'),
 }
 
 // ── State ────────────────────────────────────────────────────
@@ -126,28 +131,36 @@ function getRam() {
 
 function getDisk() {
   return new Promise((resolve) => {
-    // PowerShell — works on Windows 11 where wmic is deprecated
+    // PowerShell — get all FileSystem drives
+    const cmd = HAS_D_DRIVE
+      ? "Get-PSDrive C,D -ErrorAction SilentlyContinue | Select-Object Name,Used,Free | ConvertTo-Json"
+      : "Get-PSDrive C | Select-Object Used,Free | ConvertTo-Json"
+
     execFile('powershell.exe', [
-      '-NoProfile', '-Command',
-      "Get-PSDrive C | Select-Object Used,Free | ConvertTo-Json"
+      '-NoProfile', '-Command', cmd
     ], { timeout: 8000 }, (err, stdout) => {
-      if (err) {
-        resolve(null)
-        return
-      }
+      if (err) { resolve(null); return }
 
       try {
-        const data = JSON.parse(stdout.trim())
-        const used = data.Used || 0
-        const free = data.Free || 0
-        const total = used + free
+        const raw = JSON.parse(stdout.trim())
+        const drives = Array.isArray(raw) ? raw : [raw]
+        const result = {}
 
-        resolve({
-          free: Math.round(free / 1024 / 1024 / 1024),    // GB
-          total: Math.round(total / 1024 / 1024 / 1024),   // GB
-          used: Math.round(used / 1024 / 1024 / 1024),     // GB
-          pct: total > 0 ? Math.round((used / total) * 100) : 0,
-        })
+        for (const d of drives) {
+          const name = (d.Name || 'C').toUpperCase()
+          const used = d.Used || 0
+          const free = d.Free || 0
+          const total = used + free
+          result[name] = {
+            free: Math.round(free / 1024 / 1024 / 1024),
+            total: Math.round(total / 1024 / 1024 / 1024),
+            used: Math.round(used / 1024 / 1024 / 1024),
+            pct: total > 0 ? Math.round((used / total) * 100) : 0,
+          }
+        }
+
+        // Primary disk = C for backward compat; add drives array
+        resolve({ ...result.C, drives: result })
       } catch {
         resolve(null)
       }

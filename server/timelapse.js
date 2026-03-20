@@ -13,7 +13,10 @@
 const fs = require('fs')
 const path = require('path')
 
-const BASE_DIR = path.join(__dirname, '..', 'logs', 'timelapse')
+// Use D: drive if available, fallback to local
+const BASE_DIR = fs.existsSync('D:\\aya-expo-data\\timelapse')
+  ? 'D:\\aya-expo-data\\timelapse'
+  : path.join(__dirname, '..', 'logs', 'timelapse')
 const DEFAULT_INTERVAL = 60_000  // 60s
 
 class TimelapseCapture {
