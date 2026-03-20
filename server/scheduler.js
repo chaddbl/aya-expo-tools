@@ -25,6 +25,8 @@
  */
 
 const cron = require('node-cron');
+let _audio = null;
+try { _audio = require('./audio'); } catch { /* audio opcional */ }
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const DAY_LABELS = {
@@ -187,6 +189,18 @@ class Scheduler {
       this.addLog('power-on-all', 'error', err.message);
     }
 
+    // Step 4: Restore audio volume
+    const openVolume = this.config.audioVolume ?? 80;
+    if (_audio) {
+      try {
+        _audio.setVolume(openVolume);
+        this.addLog('audio-volume', 'completed', `${openVolume}%`);
+        console.log(`[Scheduler] 🔊 Volume restaurado: ${openVolume}%`);
+      } catch (err) {
+        this.addLog('audio-volume', 'error', err.message);
+      }
+    }
+
     this.addLog('open-sequence', 'completed');
     console.log(`[Scheduler] ▶ OPEN sequence completed`);
   }
@@ -212,6 +226,17 @@ class Scheduler {
         this.addLog('tv-stop-all', 'completed');
       } catch (err) {
         this.addLog('tv-stop-all', 'error', err.message);
+      }
+    }
+
+    // Step 3: Fade audio to 0
+    if (_audio) {
+      try {
+        _audio.setVolume(0);
+        this.addLog('audio-volume', 'completed', '0% (fechamento)');
+        console.log(`[Scheduler] 🔇 Volume zerado (fechamento)`);
+      } catch (err) {
+        this.addLog('audio-volume', 'error', err.message);
       }
     }
 

@@ -19,6 +19,7 @@ const tv = require('./tv');
 const serverHealth = require('./server-health');
 const { TimelapseCapture } = require('./timelapse');
 const loopGen = require('./loop-generator');
+const audio = require('./audio');
 
 // ─── Load Config ───────────────────────────────────────────
 const configArg = process.argv.find(a => a.startsWith('--config='));
@@ -932,6 +933,22 @@ app.get('/api/cv/counter/history/:date', (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ─── API: Audio (Windows Master Volume) ──────────────────
+app.get('/api/audio/volume', (req, res) => {
+  const level = audio.getVolume()
+  res.json({ level, muted: level === 0 })
+})
+
+app.post('/api/audio/volume', (req, res) => {
+  const { level } = req.body
+  if (level === undefined || isNaN(Number(level))) {
+    return res.status(400).json({ error: 'level (0-100) obrigatório' })
+  }
+  const result = audio.setVolume(Number(level))
+  addLogEntry(`🔊 Volume: ${result}%` + (isRemoteCommand(req) ? ' (remoto)' : ''))
+  res.json({ ok: true, level: result })
+})
 
 // ─── API: Server Health (GPU, CPU, RAM, disco) ────────────
 app.get('/api/server/health', (req, res) => {
