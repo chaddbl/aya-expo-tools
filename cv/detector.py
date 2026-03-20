@@ -186,15 +186,18 @@ def main():
         else:
             device = str(settings["gpu"])
             gpu_name = torch.cuda.get_device_name(int(device))
-            gpu_mem = torch.cuda.get_device_properties(int(device)).total_mem / 1e9
+            props = torch.cuda.get_device_properties(int(device))
+            gpu_mem = (getattr(props, 'total_memory', None) or getattr(props, 'total_mem', 0)) / 1e9
             print(f"[CV] Using GPU {device}: {gpu_name} ({gpu_mem:.1f} GB)")
 
         model = YOLO(settings["model"])
-        model.to(device)
+        # ultralytics expects "cuda:N" format, not just "N"
+        cuda_device = f"cuda:{device}" if device not in ("cpu",) and not device.startswith("cuda") else device
+        model.to(cuda_device)
 
         # Warm up with a dummy frame
         dummy = np.zeros((480, 640, 3), dtype=np.uint8)
-        model.predict(dummy, verbose=False, device=device, classes=[0])  # class 0 = person
+        model.predict(dummy, verbose=False, device=cuda_device, classes=[0])  # class 0 = person
         print("[CV] Model loaded and warmed up.")
 
     except Exception as e:

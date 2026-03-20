@@ -130,7 +130,7 @@
   },
 
   "cv": {
-    "enabled": false,
+    "enabled": true,
     "camera": "cam-1",
     "gpu": 1,
     "model": "yolov8n",
