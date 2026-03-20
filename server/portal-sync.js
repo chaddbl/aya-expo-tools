@@ -178,6 +178,7 @@ class PortalSync {
       health,
       projectors: this.projectors.getAllStatus(),
       cameras: this.cameras.getAllStatus(),
+      tvs: (this.config.tvs || []).map(t => ({ id: t.id, name: t.name, model: t.model, videoUrl: t.videoUrl, videoTitle: t.videoTitle })),
       log: this.readLog().slice(0, 50),
       session: this.session ? { active: this.session.active, startedAt: this.session.startedAt, startedBy: this.session.startedBy } : null,
       cv: this.cvManager ? this.cvManager.getStatus() : null,
