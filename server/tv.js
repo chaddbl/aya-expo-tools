@@ -236,30 +236,24 @@ async function castStop(tv) {
   if (!ip) throw new Error('IP não configurado');
   if (!CastClient) throw new Error('castv2-client não instalado');
 
-  return withCastClient(ip, 10000, (client) => {
+  // Use raw castv2 protocol to send STOP to receiver
+  return withCastClient(ip, 8000, (client) => {
     return new Promise((resolve, reject) => {
-      // Launch the default receiver, then close/stop it
-      client.launch(DefaultMediaReceiver, (err, player) => {
-        if (err) {
-          // If can't launch, try to get status and see if anything is running
-          client.getStatus((err2, status) => {
-            if (err2) return reject(err2);
-            if (!status?.applications?.length) {
-              return resolve({ stopped: true, message: 'Nothing was playing' });
-            }
-            // Use receiver session to stop
-            const appId = status.applications[0].appId;
-            client.receiver.send({ type: 'STOP', requestId: 1 });
-            setTimeout(() => resolve({ stopped: true, appId }), 500);
-          });
-          return;
+      client.getSessions((err, sessions) => {
+        if (err) return reject(err);
+        if (!sessions || sessions.length === 0) {
+          return resolve({ stopped: true, message: 'Nothing was playing' });
         }
-        // Player obtained — stop it
-        player.stop(() => {
-          // Also close the receiver session
-          try { player.close(); } catch { /* ignore */ }
-          resolve({ stopped: true });
+        const session = sessions[0];
+        client.receiver.send({
+          type: 'STOP',
+          sessionId: session.sessionId,
+          requestId: Math.floor(Math.random() * 100000),
         });
+        // Give it a moment to process
+        setTimeout(() => {
+          resolve({ stopped: true, sessionId: session.sessionId, appId: session.appId });
+        }, 1000);
       });
     });
   });
