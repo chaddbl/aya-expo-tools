@@ -445,24 +445,33 @@ def main():
                     "zones": [],
                 })
 
-                # Acumula heatmap (gaussian no ponto dos pés)
-                cx = (x1 + x2) // 2
-                cy = y2
-                sigma = max(x2 - x1, y2 - y1) // 3
-                if sigma > 0:
-                    y_range = np.arange(max(0, cy - sigma * 2), min(h, cy + sigma * 2))
-                    x_range = np.arange(max(0, cx - sigma * 2), min(w, cx + sigma * 2))
-                    if len(y_range) > 0 and len(x_range) > 0:
-                        yy, xx = np.meshgrid(y_range, x_range, indexing="ij")
-                        gaussian = np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * sigma ** 2))
-                        heatmap_acc[y_range[0]:y_range[-1] + 1,
-                                    x_range[0]:x_range[-1] + 1] += gaussian
-
         heatmap_acc *= settings["heatmap_decay"]
 
         # ─── Classificação por zonas ─────────────────────────────────────────
 
         zone_counts = classify_detections_to_zones(detections, zones)
+
+        # ─── Heatmap — só dentro das zonas (evita falsos positivos) ──────────
+        # Se não há zonas configuradas: acumula tudo (comportamento legacy).
+        # Se há zonas: só acumula detecções que pertencem a pelo menos uma zona.
+        for d in detections:
+            # Filtra: se zonas definidas, só acumula se a detecção está em alguma zona
+            if zones and not d.get("zones"):
+                continue
+
+            x1, y1 = d["x"], d["y"]
+            x2, y2 = d["x"] + d["w"], d["y"] + d["h"]
+            cx = (x1 + x2) // 2
+            cy = y2  # ponto dos pés
+            sigma = max(x2 - x1, y2 - y1) // 3
+            if sigma > 0:
+                y_range = np.arange(max(0, cy - sigma * 2), min(h, cy + sigma * 2))
+                x_range = np.arange(max(0, cx - sigma * 2), min(w, cx + sigma * 2))
+                if len(y_range) > 0 and len(x_range) > 0:
+                    yy, xx = np.meshgrid(y_range, x_range, indexing="ij")
+                    gaussian = np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * sigma ** 2))
+                    heatmap_acc[y_range[0]:y_range[-1] + 1,
+                                x_range[0]:x_range[-1] + 1] += gaussian
 
         # ─── FPS ─────────────────────────────────────────────────────────────
 
