@@ -483,15 +483,16 @@ class CVManager extends EventEmitter {
   }
 
   _findPython() {
-    // System Python first — on Windows, venv python.exe is a thin launcher that
-    // spawns system python as a child process. This creates two PIDs per detector
-    // and kill() doesn't tree-kill, leaving orphan system python processes.
-    // By using system Python directly we avoid the launcher indirection entirely.
+    // Venv first — on Windows, the venv launcher spawns system python as a child
+    // process, but crucially it activates the virtual environment so the child
+    // inherits torch/ultralytics/etc from venv site-packages. Running system
+    // Python directly would fail on import (deps not installed globally).
+    // The tree-kill in stop() handles orphan child processes on Windows.
     const candidates = [
-      'C:\\Users\\AYA\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
-      'C:\\Users\\Ihon\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
       path.join(CV_DIR, 'venv', 'Scripts', 'python.exe'),
       path.join(CV_DIR, 'venv', 'bin', 'python'),
+      'C:\\Users\\AYA\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
+      'C:\\Users\\Ihon\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
       'python',
       'python3',
     ];
