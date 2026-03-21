@@ -282,6 +282,25 @@
     }
     .ws-banner.show { display: flex; }
 
+    /* ─── Metric Cards ─── */
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+    }
+    .metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dimmer); margin-bottom: 4px; }
+    .metric-value { font-size: 28px; font-weight: 600; font-family: 'JetBrains Mono', monospace; line-height: 1.1; }
+    .metric-sub { font-size: 11px; color: var(--text-dimmer); margin-top: 4px; }
+    .metric-value .unit { font-size: 14px; font-weight: 400; color: var(--text-dim); }
+
+    .zone-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+    .zone-row:last-child { border-bottom: none; }
+    .zone-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .zone-name { flex: 1; font-weight: 500; }
+    .zone-count { font-family: 'JetBrains Mono', monospace; font-size: 13px; min-width: 24px; text-align: right; }
+    .zone-dwell { font-size: 10px; color: var(--text-dimmer); font-family: 'JetBrains Mono', monospace; min-width: 50px; text-align: right; }
+
     /* ─── Responsive ─── */
     @media (max-width: 768px) {
       .camera-grid    { grid-template-columns: repeat(2, 1fr); }
@@ -335,6 +354,30 @@
       <div class="semaphore-dot"></div>
       <span id="semaphore-text">Tudo operacional</span>
     </div>
+
+    <!-- ① RESUMO DO DIA — visitantes, zonas, dwell, gráfico horário -->
+    <section class="section" id="daily-summary" style="margin-bottom:20px;display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px;" id="daily-cards">
+        <!-- Preenchido via JS -->
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+        <!-- Gráfico de barras horário -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
+          <div style="font-size:11px;color:var(--text-dimmer);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Visitantes por hora</div>
+          <div style="display:flex;align-items:flex-end;gap:4px;height:80px;" id="hourly-chart">
+            <!-- Barras via JS -->
+          </div>
+          <div style="display:flex;gap:4px;margin-top:4px;" id="hourly-labels"></div>
+        </div>
+        <!-- Zonas + Dwell -->
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
+          <div style="font-size:11px;color:var(--text-dimmer);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Zonas</div>
+          <div id="zone-dwell-list" style="font-size:12px;">
+            <!-- Via JS -->
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Network bar (com scan integrado) -->
     <section class="section" style="margin-bottom:20px;">
@@ -1268,6 +1311,102 @@
       api('POST', '/audio/volume', { level: newLevel });
     }
 
+    // ─── Daily Summary ─────────────────────────────────────
+    const ZONE_COLORS = { 'sala-imersiva': '#8b5cf6', 'galeria': '#f59e0b', 'corredor': '#3b82f6', 'entrada': '#22c55e' };
+
+    async function pollDailySummary() {
+      try {
+        // Real-time CV status for "agora"
+        const cv = await api('GET', '/cv/status');
+        // Daily summary (on-the-fly consolidation)
+        let daily = null;
+        try { daily = await api('GET', '/cv/daily/today/summary'); } catch {}
+
+        const section = document.getElementById('daily-summary');
+        if (!cv.running && !daily) { section.style.display = 'none'; return; }
+        section.style.display = '';
+
+        const entries = cv.counter?.entries || daily?.counter?.entries || 0;
+        const exits = cv.counter?.exits || daily?.counter?.exits || 0;
+        const occupancy = Math.max(0, entries - exits);
+        const totalNow = cv.totalCount || 0;
+
+        // Peak
+        const peakCount = daily?.peak?.count || totalNow;
+        const peakTime = daily?.peak?.time ? daily.peak.time.slice(11, 16) : '—';
+
+        // Dwell (aggregated)
+        const dwellAvg = cv.dwell && Object.keys(cv.dwell).length > 0
+          ? Object.values(cv.dwell).reduce((a, d) => a + (d.avgSeconds || 0), 0) / Object.keys(cv.dwell).length
+          : null;
+
+        // Cards
+        document.getElementById('daily-cards').innerHTML = `
+          <div class="metric-card">
+            <div class="metric-label">Visitantes hoje</div>
+            <div class="metric-value">${entries}</div>
+            <div class="metric-sub">${exits} saídas · ${occupancy} dentro</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Agora no espaço</div>
+            <div class="metric-value" style="color:${totalNow > 0 ? 'var(--green)' : 'var(--text-dim)'};">${totalNow}</div>
+            <div class="metric-sub">${Object.entries(cv.zones || {}).map(([k,v]) => `${k.split('-').pop()}: ${v}`).join(' · ')}</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Pico do dia</div>
+            <div class="metric-value">${peakCount}</div>
+            <div class="metric-sub">${peakTime !== '—' ? `às ${peakTime}` : 'aguardando dados'}</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Tempo médio</div>
+            <div class="metric-value">${dwellAvg ? formatDwell(dwellAvg) : '—'}</div>
+            <div class="metric-sub">${dwellAvg ? 'permanência nas zonas' : 'aguardando visitantes'}</div>
+          </div>
+        `;
+
+        // Hourly chart
+        const hourly = cv.counter?.hourly || daily?.counterHourly || {};
+        const chart = document.getElementById('hourly-chart');
+        const labels = document.getElementById('hourly-labels');
+        const hours = [];
+        for (let h = 8; h <= 21; h++) hours.push(String(h).padStart(2, '0'));
+        const maxH = Math.max(1, ...hours.map(h => (hourly[h]?.entries || 0)));
+        chart.innerHTML = hours.map(h => {
+          const val = hourly[h]?.entries || 0;
+          const pct = (val / maxH * 100).toFixed(0);
+          return `<div style="flex:1;background:${val > 0 ? 'var(--green)' : 'var(--border)'};height:${Math.max(2, pct)}%;border-radius:2px 2px 0 0;transition:height .3s;" title="${h}h: ${val} entradas"></div>`;
+        }).join('');
+        labels.innerHTML = hours.map((h, i) => 
+          `<div style="flex:1;text-align:center;font-size:8px;font-family:'JetBrains Mono',monospace;color:var(--text-dimmer);">${i % 2 === 0 ? h : ''}</div>`
+        ).join('');
+
+        // Zone + dwell list
+        const zoneList = document.getElementById('zone-dwell-list');
+        const zones = cv.zones || {};
+        const dwell = cv.dwell || {};
+        zoneList.innerHTML = Object.entries(zones).map(([id, count]) => {
+          const d = dwell[id];
+          const color = ZONE_COLORS[id] || '#666';
+          const zoneInfo = daily?.zones?.[id];
+          const occRate = zoneInfo ? `${zoneInfo.occupancyRate}% ocupado` : '';
+          return `<div class="zone-row">
+            <div class="zone-dot" style="background:${color};"></div>
+            <span class="zone-name">${id.replace(/-/g, ' ')}</span>
+            <span class="zone-count" style="color:${count > 0 ? 'var(--green)' : 'var(--text-dimmer)'};">${count}</span>
+            <span class="zone-dwell">${d?.avgFormatted || '—'}</span>
+          </div>`;
+        }).join('');
+
+      } catch (e) {
+        console.error('Daily summary error:', e);
+      }
+    }
+
+    function formatDwell(seconds) {
+      if (seconds >= 60) return `${Math.floor(seconds/60)}m${Math.round(seconds%60).toString().padStart(2,'0')}s`;
+      return `${Math.round(seconds)}s`;
+    }
+
     // ─── Init ────────────────────────────────────────────────
     connectWS();
     pollAudioVolume();
@@ -1281,6 +1420,8 @@
     pollServerHealth();
     pollTvs();
     pollTimeline();
+    pollDailySummary();
+    setInterval(pollDailySummary, 15000);
     loadMedia();
   </script>
 </body>
