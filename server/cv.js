@@ -143,9 +143,15 @@ class CVManager extends EventEmitter {
       };
     }
 
-    const totalCount = strategy === 'sum'
-      ? counts.reduce((a, b) => a + b, 0)
-      : (counts.length > 0 ? Math.max(...counts) : 0);
+    // totalCount: se há zonas configuradas, usa soma das zonas (mais preciso —
+    // ignora detecções fora dos polígonos como spots de luz e falsos positivos).
+    // Sem zonas: fallback para max de câmeras (comportamento legado).
+    const hasZones = zonesConfig.length > 0 && Object.keys(aggregatedZones).length > 0;
+    const totalCount = hasZones
+      ? Object.values(aggregatedZones).reduce((a, b) => a + b, 0)
+      : (strategy === 'sum'
+          ? counts.reduce((a, b) => a + b, 0)
+          : (counts.length > 0 ? Math.max(...counts) : 0));
 
     // Agrega zonas respeitando strategy por zona:
     //   "max" (padrão) → câmeras no mesmo espaço físico (ex: cam-1 + cam-3 na sala imersiva)
