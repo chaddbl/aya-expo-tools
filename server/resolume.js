@@ -17,7 +17,8 @@
  *   }
  *
  * OSC addresses usados:
- *   /composition/layers/<N>/clips/<N>/connect  → int 1 (play) | int 0 (stop)
+ *   PLAY:  /composition/layers/<N>/clips/<N>/connect  → int 1
+ *   STOP:  /composition/layers/<N>/clear              → int 1
  */
 
 const dgram = require('dgram');
@@ -73,8 +74,14 @@ class ResolumeOSC {
     });
   }
 
-  _address(layer, clip) {
+  _playAddress(layer, clip) {
+    // Conecta (play) um clip específico na layer
     return `/composition/layers/${layer}/clips/${clip}/connect`;
+  }
+
+  _clearAddress(layer) {
+    // Limpa (para) a layer inteira — mapeamento correto do Resolume
+    return `/composition/layers/${layer}/clear`;
   }
 
   _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -84,35 +91,47 @@ class ResolumeOSC {
   /**
    * Inicia reprodução — conecta áudio primeiro, vídeo 500ms depois.
    * Usar no open sequence ANTES de ligar os projetores.
+   * OSC: /composition/layers/N/clips/N/connect → int 1
    */
   async playAll() {
     if (!this.enabled) return;
     // Áudio primeiro — sem flash visual
-    await this._send(this._address(this.audioLayer, this.clip), 1);
+    await this._send(this._playAddress(this.audioLayer, this.clip), 1);
     await this._sleep(500);
-    await this._send(this._address(this.videoLayer, this.clip), 1);
-    console.log('  🎬 Resolume ▶ play — vídeo + áudio');
+    await this._send(this._playAddress(this.videoLayer, this.clip), 1);
+    console.log('  🎬 Resolume ▶ play — vídeo layer ' + this.videoLayer + ' + áudio layer ' + this.audioLayer);
   }
 
   /**
-   * Para reprodução — desconecta clips → GPU vai para idle.
+   * Para reprodução — clear em cada layer.
    * Usar no close sequence ANTES de desligar os projetores.
+   * OSC: /composition/layers/N/clear → int 1
    */
   async stopAll() {
     if (!this.enabled) return;
-    await this._send(this._address(this.videoLayer, this.clip), 0);
+    await this._send(this._clearAddress(this.videoLayer), 1);
     await this._sleep(200);
-    await this._send(this._address(this.audioLayer, this.clip), 0);
-    console.log('  🎬 Resolume ⏹ stop — GPU idle');
+    await this._send(this._clearAddress(this.audioLayer), 1);
+    console.log('  🎬 Resolume ⏹ clear layers ' + this.videoLayer + ' + ' + this.audioLayer);
   }
 
   /**
-   * Teste — envia play e loga o resultado (sem afetar projetores).
+   * Teste manual — envia stop e play em sequência.
+   * Acessível via POST /api/resolume/test
    */
   async test() {
     console.log(`  🎬 Resolume OSC test → ${this.host}:${this.port}`);
-    const ok = await this._send(this._address(this.videoLayer, this.clip), 1);
-    return { ok, host: this.host, port: this.port, videoLayer: this.videoLayer, audioLayer: this.audioLayer, clip: this.clip };
+    await this.stopAll();
+    await this._sleep(1000);
+    await this.playAll();
+    return {
+      ok: true,
+      host: this.host,
+      port: this.port,
+      videoLayer: this.videoLayer,
+      audioLayer: this.audioLayer,
+      clip: this.clip,
+    };
   }
 
   getStatus() {
