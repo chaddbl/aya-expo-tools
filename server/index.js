@@ -21,6 +21,7 @@ const { TimelapseCapture } = require('./timelapse');
 const loopGen = require('./loop-generator');
 const audio = require('./audio');
 const cvLogger = require('./cv-logger');
+const cvReport = require('./cv-report');
 
 // ─── Load Config ───────────────────────────────────────────
 const configArg = process.argv.find(a => a.startsWith('--config='));
@@ -954,6 +955,19 @@ app.get('/api/cv/daily/today/summary', (req, res) => {
   const summary = cvLogger.getDailySummary();
   if (!summary) return res.json({ error: 'No samples yet', samples: 0 });
   res.json(summary);
+});
+
+// ─── API: CV Reports (weekly/monthly aggregation) ────────
+app.get('/api/cv/report/week', (req, res) => res.json(cvReport.thisWeek()));
+app.get('/api/cv/report/month', (req, res) => res.json(cvReport.thisMonth()));
+app.get('/api/cv/report/last7', (req, res) => res.json(cvReport.last7()));
+app.get('/api/cv/report/last30', (req, res) => res.json(cvReport.last30()));
+app.get('/api/cv/report/:from/:to', (req, res) => {
+  const { from, to } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    return res.status(400).json({ error: 'Format: YYYY-MM-DD' });
+  }
+  res.json(cvReport.aggregate(from, to));
 });
 
 // ─── API: Audio (Windows Master Volume) ──────────────────

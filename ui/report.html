@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório CV — AYA Expo Tools</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/shared.css">
+  <style>
+    .report { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .report-header { margin-bottom: 24px; }
+    .report-title { font-size: 20px; font-weight: 600; }
+    .report-period { font-size: 13px; color: var(--text-dimmer); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+    .tab {
+      padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      cursor: pointer; border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-dim); transition: all .15s;
+    }
+    .tab:hover { border-color: var(--border-light); }
+    .tab.active { background: var(--green); color: #000; border-color: var(--green); }
+
+    .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+    .card-label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dimmer); }
+    .card-value { font-size: 28px; font-weight: 600; font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+    .card-sub { font-size: 11px; color: var(--text-dimmer); margin-top: 4px; }
+
+    .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dimmer); margin: 20px 0 10px; }
+
+    /* Chart */
+    .chart-wrap { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+    .bars { display: flex; align-items: flex-end; gap: 3px; height: 120px; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .bar { border-radius: 2px 2px 0 0; min-width: 100%; transition: height .3s; }
+    .bar-label { font-size: 8px; font-family: 'JetBrains Mono', monospace; color: var(--text-dimmer); }
+    .bar-value { font-size: 9px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); }
+
+    /* Table */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .data-table th { text-align: left; padding: 8px; border-bottom: 2px solid var(--border); color: var(--text-dimmer); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: .5px; }
+    .data-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+    .data-table td:not(:first-child) { font-family: 'JetBrains Mono', monospace; text-align: right; }
+    .data-table tr:hover td { background: var(--bg-card-hover); }
+
+    .zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .zone-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+    .zone-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .zone-stat { font-size: 11px; color: var(--text-dim); margin: 3px 0; }
+    .zone-stat strong { color: var(--text); }
+
+    .loading { text-align: center; padding: 40px; color: var(--text-dimmer); }
+
+    @media (max-width: 640px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">←</span>
+        <span class="header-label">Dashboard</span>
+      </a>
+      <div class="header-divider"></div>
+      <span class="header-label" style="font-weight:600;">📈 Relatório CV</span>
+    </div>
+    <div class="header-right">
+      <span id="exhibition-name" style="font-size:13px;color:var(--text-dim);"></span>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="report">
+      <div class="tabs">
+        <div class="tab active" onclick="load('last7')">Últimos 7 dias</div>
+        <div class="tab" onclick="load('week')">Esta semana</div>
+        <div class="tab" onclick="load('month')">Este mês</div>
+        <div class="tab" onclick="load('last30')">Últimos 30 dias</div>
+      </div>
+
+      <div id="content"><div class="loading">Carregando...</div></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-left"><span>AYA Studio · Art & Tech</span></div>
+    <div class="footer-right">
+      <svg class="pi-mark" viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="22,2 42,22 22,42 2,22" fill="none" stroke="#555" stroke-width="2.5"/>
+        <circle cx="22" cy="22" r="4.5" fill="#555"/>
+      </svg>
+      <span>Pi · Claude Code</span>
+    </div>
+  </footer>
+
+<script>
+  const ZONE_COLORS = { 'sala-imersiva': '#8b5cf6', 'galeria': '#f59e0b', 'corredor': '#3b82f6', 'entrada': '#22c55e' };
+  const WEEKDAYS = { 'Dom': 0, 'Seg': 1, 'Ter': 2, 'Qua': 3, 'Qui': 4, 'Sex': 5, 'Sáb': 6 };
+
+  // Get exhibition name
+  fetch('/api/info').then(r => r.json()).then(d => {
+    document.getElementById('exhibition-name').textContent = d.exhibition?.name || '';
+  }).catch(() => {});
+
+  async function load(range) {
+    // Update tab
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event?.target?.classList?.add('active');
+
+    const el = document.getElementById('content');
+    el.innerHTML = '<div class="loading">Gerando relatório...</div>';
+
+    try {
+      const r = await fetch(`/api/cv/report/${range}`);
+      const data = await r.json();
+      render(data);
+    } catch (e) {
+      el.innerHTML = `<div class="loading" style="color:var(--red);">Erro: ${e.message}</div>`;
+    }
+  }
+
+  function render(d) {
+    const el = document.getElementById('content');
+    if (!d.daysWithData || d.daysWithData === 0) {
+      el.innerHTML = `
+        <div class="loading">
+          Nenhum dado disponível para ${d.from} → ${d.to}<br>
+          <span style="font-size:12px;color:var(--text-dimmer);margin-top:8px;display:block;">
+            O CV Logger grava dados a cada minuto. Dados começam a aparecer após o primeiro dia completo de operação.
+          </span>
+        </div>`;
+      return;
+    }
+
+    const v = d.visitors || {};
+    const dwellAll = Object.values(d.dwell || {});
+    const avgDwell = dwellAll.length > 0
+      ? Math.round(dwellAll.reduce((a, x) => a + x.avgSeconds, 0) / dwellAll.length)
+      : null;
+
+    let html = `
+      <div class="report-header">
+        <div class="report-title">Relatório de Público</div>
+        <div class="report-period">${d.from} → ${d.to} · ${d.daysWithData} dia(s) com dados</div>
+      </div>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-label">Total visitantes</div>
+          <div class="card-value">${v.total || 0}</div>
+          <div class="card-sub">no período</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Média diária</div>
+          <div class="card-value">${v.avgDaily || 0}</div>
+          <div class="card-sub">visitantes/dia</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Dia de pico</div>
+          <div class="card-value">${v.peakDay?.entries || 0}</div>
+          <div class="card-sub">${v.peakDay?.date || '—'}</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Tempo médio</div>
+          <div class="card-value">${avgDwell ? fmtDwell(avgDwell) : '—'}</div>
+          <div class="card-sub">permanência nas zonas</div>
+        </div>
+      </div>
+    `;
+
+    // ── Daily chart ──
+    if (d.daily && d.daily.length > 0) {
+      const maxE = Math.max(1, ...d.daily.map(x => x.entries));
+      html += `
+        <div class="section-title">Visitantes por dia</div>
+        <div class="chart-wrap">
+          <div class="bars">
+            ${d.daily.map(x => {
+              const pct = (x.entries / maxE * 100).toFixed(0);
+              const day = x.date.slice(5); // MM-DD
+              return `<div class="bar-col">
+                <div class="bar-value">${x.entries || ''}</div>
+                <div class="bar" style="height:${Math.max(2, pct)}%;background:var(--green);"></div>
+                <div class="bar-label">${day}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Hourly pattern ──
+    if (d.hourly && Object.keys(d.hourly).length > 0) {
+      const hours = [];
+      for (let h = 8; h <= 21; h++) hours.push(String(h).padStart(2, '0'));
+      const maxH = Math.max(1, ...hours.map(h => d.hourly[h]?.avgEntries || 0));
+      html += `
+        <div class="section-title">Padrão horário (média)</div>
+        <div class="chart-wrap">
+          <div class="bars">
+            ${hours.map(h => {
+              const val = d.hourly[h]?.avgEntries || 0;
+              const pct = (val / maxH * 100).toFixed(0);
+              return `<div class="bar-col">
+                <div class="bar-value">${val > 0 ? val : ''}</div>
+                <div class="bar" style="height:${Math.max(2, pct)}%;background:var(--cyan);"></div>
+                <div class="bar-label">${h}h</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Zones ──
+    if (d.zones && Object.keys(d.zones).length > 0) {
+      html += `<div class="section-title">Zonas</div><div class="zone-grid">`;
+      for (const [zid, z] of Object.entries(d.zones)) {
+        const dw = d.dwell?.[zid];
+        const color = ZONE_COLORS[zid] || '#666';
+        html += `
+          <div class="zone-card">
+            <div class="zone-title">
+              <div style="width:10px;height:10px;border-radius:3px;background:${color};"></div>
+              ${zid.replace(/-/g, ' ')}
+            </div>
+            <div class="zone-stat">Ocupação máx: <strong>${z.maxOccupancy}</strong> pessoas</div>
+            <div class="zone-stat">Ocupação média: <strong>${z.avgOccupancy}</strong></div>
+            <div class="zone-stat">Taxa ocupação: <strong>${z.avgOccupancyRate}%</strong></div>
+            <div class="zone-stat">Horas ocupado: <strong>${z.totalHoursOccupied}h</strong></div>
+            ${dw ? `<div class="zone-stat" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border);">
+              Tempo médio: <strong>${dw.avgFormatted}</strong> (${dw.samples} amostras)
+            </div>` : ''}
+          </div>
+        `;
+      }
+      html += '</div>';
+    }
+
+    // ── Weekday pattern ──
+    if (d.weekday && Object.keys(d.weekday).length > 0) {
+      const order = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+      html += `
+        <div class="section-title">Padrão por dia da semana</div>
+        <table class="data-table">
+          <tr><th>Dia</th><th>Dias</th><th>Total</th><th>Média</th></tr>
+          ${order.filter(d2 => d.weekday[d2]).map(name => {
+            const w = d.weekday[name];
+            return `<tr>
+              <td style="font-family:'JetBrains Mono',monospace;">${name}</td>
+              <td>${w.days}</td>
+              <td>${w.entries}</td>
+              <td>${w.avgEntries}</td>
+            </tr>`;
+          }).join('')}
+        </table>
+      `;
+    }
+
+    // ── Daily breakdown table ──
+    if (d.daily && d.daily.length > 1) {
+      html += `
+        <div class="section-title">Detalhamento diário</div>
+        <table class="data-table">
+          <tr><th>Data</th><th>Entradas</th><th>Saídas</th><th>Pico</th><th>Hora pico</th></tr>
+          ${d.daily.map(x => `
+            <tr>
+              <td style="font-family:'JetBrains Mono',monospace;">${x.date}</td>
+              <td>${x.entries}</td>
+              <td>${x.exits}</td>
+              <td>${x.peak}</td>
+              <td>${x.peakTime || '—'}</td>
+            </tr>
+          `).join('')}
+        </table>
+      `;
+    }
+
+    // ── Generated at ──
+    html += `<div style="margin-top:24px;font-size:10px;color:var(--text-dimmer);text-align:right;font-family:'JetBrains Mono',monospace;">
+      Gerado em ${d.generatedAt?.slice(0,19).replace('T',' ')} UTC
+    </div>`;
+
+    el.innerHTML = html;
+  }
+
+  function fmtDwell(s) {
+    if (s >= 60) return `${Math.floor(s/60)}m${Math.round(s%60).toString().padStart(2,'0')}s`;
+    return `${Math.round(s)}s`;
+  }
+
+  // Init
+  load('last7');
+</script>
+</body>
+</html>
