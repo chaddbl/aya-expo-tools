@@ -44,7 +44,7 @@
     { "id": "cam-1", "name": "Câmera 1", "ip": "192.168.0.107", "mac": "80:85:44:6C:68:C6", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac", "serial": "FJ1M24007238M" },
     { "id": "cam-2", "name": "Câmera 2", "ip": "192.168.0.108", "mac": "98:2A:0A:82:0A:C5", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" },
     { "id": "cam-3", "name": "Câmera 3", "ip": "192.168.0.181", "mac": "98:2A:0A:82:0A:8B", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" },
-    { "id": "cam-4", "name": "Câmera 4", "ip": "192.168.0.204", "mac": "", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac", "notes": "Não encontrada no scan 19/03 — offline ou desconectada" }
+    { "id": "cam-4", "name": "Câmera 4", "ip": "192.168.0.200", "mac": "98:2A:0A:82:0A:9E", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "Abcd1234#!", "notes": "Instalada por Ihon em 20/03/2026" }
   ],
 
   "audio": {
@@ -123,23 +123,33 @@
   },
 
   "schedule": {
-    "enabled": false,
+    "enabled": true,
+    "timezone": "America/Sao_Paulo",
     "powerOn": "09:00",
     "powerOff": "20:00",
-    "timezone": "America/Sao_Paulo"
+    "days": {
+      "mon": null,
+      "tue": { "open": "09:00", "close": "20:00" },
+      "wed": { "open": "09:00", "close": "20:00" },
+      "thu": { "open": "09:00", "close": "20:00" },
+      "fri": { "open": "09:00", "close": "20:00" },
+      "sat": { "open": "09:00", "close": "20:00" },
+      "sun": { "open": "09:00", "close": "20:00" }
+    }
   },
 
   "cv": {
     "enabled": true,
-    "cameras": ["cam-1", "cam-2", "cam-3"],
+    "cameras": ["cam-1", "cam-2", "cam-3", "cam-4"],
     "gpu": 1,
-    "model": "yolo11n",
+    "model": "yolov8m",
     "interval": 0,
-    "confidence": 0.4,
+    "confidence": 0.3,
     "heatmapDecay": 0.999,
-    "imgsz": 640,
+    "imgsz": 960,
+    "countStrategy": "max",
 
-    "_comment_zones": "Polígonos em pixels na resolução nativa de cada câmera (1920x1080 nas Intelbras iMD 3C). Editar com o frame annotado aberto no VLC para pegar as coordenadas reais.",
+    "_comment_zones": "Polígonos em pixels na resolução nativa de cada câmera (1920x1080). Calibrar com frame annotado (cv/output/cam-X/frame.jpg). Coordenadas: [x, y] top-left origin.",
     "zones": [
       {
         "id": "sala-imersiva",
@@ -152,14 +162,14 @@
         "id": "entrada",
         "name": "Entrada",
         "cameras": ["cam-2"],
-        "polygon": [[200,600],[1720,600],[1720,1080],[200,1080]],
+        "polygon": [[0,600],[1920,600],[1920,1080],[0,1080]],
         "alert": {}
       },
       {
         "id": "corredor",
         "name": "Corredor / Acesso",
         "cameras": ["cam-2"],
-        "polygon": [[200,0],[1720,0],[1720,600],[200,600]],
+        "polygon": [[0,0],[1920,0],[1920,600],[0,600]],
         "alert": {}
       },
       {
@@ -168,13 +178,19 @@
         "cameras": ["cam-3"],
         "polygon": [[0,0],[1920,0],[1920,1080],[0,1080]],
         "alert": {}
+      },
+      {
+        "id": "area-cam4",
+        "name": "Área Cam 4",
+        "cameras": ["cam-4"],
+        "polygon": [[0,0],[1920,0],[1920,1080],[0,1080]],
+        "alert": {}
       }
     ],
-    "countStrategy": "max",
     "counter": {
       "enabled": true,
       "camera": "cam-2",
-      "line": "500,480,1400,480",
+      "line": "188,295,306,302",
       "confidence": 0.45,
       "interval": 0.5
     }
