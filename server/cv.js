@@ -143,16 +143,6 @@ class CVManager extends EventEmitter {
       };
     }
 
-    // totalCount: se há zonas configuradas, usa soma das zonas (mais preciso —
-    // ignora detecções fora dos polígonos como spots de luz e falsos positivos).
-    // Sem zonas: fallback para max de câmeras (comportamento legado).
-    const hasZones = zonesConfig.length > 0 && Object.keys(aggregatedZones).length > 0;
-    const totalCount = hasZones
-      ? Object.values(aggregatedZones).reduce((a, b) => a + b, 0)
-      : (strategy === 'sum'
-          ? counts.reduce((a, b) => a + b, 0)
-          : (counts.length > 0 ? Math.max(...counts) : 0));
-
     // Agrega zonas respeitando strategy por zona:
     //   "max" (padrão) → câmeras no mesmo espaço físico (ex: cam-1 + cam-3 na sala imersiva)
     //   "sum"          → câmeras em espaços distintos sem sobreposição
@@ -160,7 +150,7 @@ class CVManager extends EventEmitter {
     const aggregatedZones = {};
 
     for (const zone of zonesConfig) {
-      const strategy = zone.strategy || 'max';
+      const zoneStrategy = zone.strategy || 'max';
       const cameras = zone.cameras || {};
       // Suporta cameras como dict (novo) ou array (legado)
       const zoneCamIds = Array.isArray(cameras) ? cameras : Object.keys(cameras);
@@ -170,12 +160,22 @@ class CVManager extends EventEmitter {
 
       if (values.length === 0) {
         aggregatedZones[zone.id] = 0;
-      } else if (strategy === 'sum') {
+      } else if (zoneStrategy === 'sum') {
         aggregatedZones[zone.id] = values.reduce((a, b) => a + b, 0);
       } else {
         aggregatedZones[zone.id] = Math.max(...values);
       }
     }
+
+    // totalCount: se há zonas configuradas, usa soma das zonas (mais preciso —
+    // ignora detecções fora dos polígonos como spots de luz e falsos positivos).
+    // Sem zonas: fallback para max de câmeras (comportamento legado).
+    const hasZones = zonesConfig.length > 0 && Object.keys(aggregatedZones).length > 0;
+    const totalCount = hasZones
+      ? Object.values(aggregatedZones).reduce((a, b) => a + b, 0)
+      : (strategy === 'sum'
+          ? counts.reduce((a, b) => a + b, 0)
+          : (counts.length > 0 ? Math.max(...counts) : 0));
 
     const counterData = this._readCounterData();
 
