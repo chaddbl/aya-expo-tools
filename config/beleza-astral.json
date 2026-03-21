@@ -133,10 +133,43 @@
     "enabled": true,
     "cameras": ["cam-1", "cam-2", "cam-3"],
     "gpu": 1,
-    "model": "yolov8s",
-    "interval": 2,
+    "model": "yolo11n",
+    "interval": 0,
     "confidence": 0.4,
     "heatmapDecay": 0.999,
+    "imgsz": 640,
+
+    "_comment_zones": "Polígonos em pixels na resolução nativa de cada câmera (1920x1080 nas Intelbras iMD 3C). Editar com o frame annotado aberto no VLC para pegar as coordenadas reais.",
+    "zones": [
+      {
+        "id": "sala-imersiva",
+        "name": "Sala Imersiva",
+        "cameras": ["cam-1"],
+        "polygon": [[0,0],[1920,0],[1920,1080],[0,1080]],
+        "alert": { "emptyAfter": 300 }
+      },
+      {
+        "id": "entrada",
+        "name": "Entrada",
+        "cameras": ["cam-2"],
+        "polygon": [[200,600],[1720,600],[1720,1080],[200,1080]],
+        "alert": {}
+      },
+      {
+        "id": "corredor",
+        "name": "Corredor / Acesso",
+        "cameras": ["cam-2"],
+        "polygon": [[200,0],[1720,0],[1720,600],[200,600]],
+        "alert": {}
+      },
+      {
+        "id": "sala-secundaria",
+        "name": "Sala Secundária",
+        "cameras": ["cam-3"],
+        "polygon": [[0,0],[1920,0],[1920,1080],[0,1080]],
+        "alert": {}
+      }
+    ],
     "countStrategy": "max",
     "counter": {
       "enabled": true,

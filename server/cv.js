@@ -1,35 +1,53 @@
 /**
- * AYA Expo Tools — Computer Vision Manager (Multi-Camera)
+ * AYA Expo Tools — Computer Vision Manager v2
  *
- * Spawns one Python detector per camera.
- * Aggregates counts using configurable strategy:
- *   - "max": total = max count from any single camera (conservative, no over-count)
- *   - "sum": total = sum of all cameras (use only if cameras have zero overlap)
+ * v2: protocolo JSONL stdout (zero latência) em vez de polling de arquivo.
+ *     Python emite eventos linha a linha; Node lê e processa em tempo real.
+ *     Arquivos (heatmap.png, frame.jpg) ainda servidos como static.
  *
- * Each camera writes to cv/output/<cam-id>/ (detections.json, frame.jpg, heatmap.png)
- * Legacy single-camera writes to cv/output/ (backward compat)
+ * API pública (inalterada):
+ *   cvManager.start()
+ *   cvManager.stop()
+ *   cvManager.getStatus()           → { enabled, running, totalCount, perCamera, zones, ... }
+ *   cvManager.getDetections(camId)  → { count, detections, zones, fps, timestamp }
+ *   cvManager.getHeatmap(camId)     → Buffer (PNG) | null
+ *   cvManager.getFrame(camId)       → Buffer (JPEG) | null
+ *   cvManager.resetHeatmap(camId)
+ *   cvManager.getCounterData()
+ *   cvManager.getCounterFrame()
+ *
+ * Eventos Node.js emitidos:
+ *   cvManager.on('detection', { camId, count, fps, zones, detections, timestamp })
+ *   cvManager.on('zone_change', { camId, zoneId, count, previous, timestamp }) [futuro]
+ *   cvManager.on('ready', { camId, model, format, gpuName, zones })
+ *   cvManager.on('error', { camId, message, retriable })
  */
 
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { EventEmitter } = require('events');
 
 const CV_DIR = path.join(__dirname, '..', 'cv');
 const OUTPUT_DIR = path.join(CV_DIR, 'output');
 
-class CVManager {
+class CVManager extends EventEmitter {
   constructor(config) {
+    super();
     this.config = config;
     this.cvConfig = config.cv || {};
     this.camerasConfig = config.cameras || [];
     this.enabled = !!this.cvConfig.enabled;
-    this.processes = new Map();  // camId → { process, pid }
-    this.counterProcess = null;  // visitor counter process
-    this._readInterval = null;
-    this._cache = new Map();    // camId → { detections, status }
+
+    this.processes = new Map();   // camId → { process, pid, camId }
+    this.counterProcess = null;
+    this._buffers = new Map();    // camId → string (linha parcial)
+    this._cache = new Map();      // camId → último evento 'detection' recebido
+    this._readyInfo = new Map();  // camId → evento 'ready' (model, format, gpuName)
+    this._configPath = null;      // definido no start()
   }
 
-  // ─── Public API ─────────────────────────────────────────────
+  // ─── Public API ────────────────────────────────────────────────────────────
 
   start() {
     if (!this.enabled) {
@@ -39,189 +57,46 @@ class CVManager {
 
     const pythonCmd = this._findPython();
     if (!pythonCmd) {
-      console.log('  👁️ CV: Python não encontrado — execute install.bat para instalar');
+      console.log('  👁️ CV: Python não encontrado — execute install.bat');
       return;
     }
 
-    // Determine cameras to run CV on
     const cvCameras = this.cvConfig.cameras || [this.cvConfig.camera || 'cam-1'];
-    const configPath = this._getConfigPath();
+    this._configPath = this._getConfigPath();
 
-    console.log(`  👁️ CV: iniciando ${cvCameras.length} detector(es) na GPU ${this.cvConfig.gpu || 1}`);
-
-    // Ensure output directory exists
     if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
+    console.log(`  👁️ CV v2: iniciando ${cvCameras.length} detector(es) | JSONL protocol`);
+
     for (const camId of cvCameras) {
-      this._startDetector(camId, pythonCmd, configPath);
+      this._startDetector(camId, pythonCmd, this._configPath);
     }
 
-    // Start visitor counter if configured
+    // Visitor counter (ainda usa arquivo — não muda nesta versão)
     const counterCfg = this.cvConfig.counter;
-    if (counterCfg && counterCfg.enabled) {
-      this._startCounter(pythonCmd, configPath, counterCfg);
+    if (counterCfg?.enabled) {
+      this._startCounter(pythonCmd, this._configPath, counterCfg);
     }
-
-    this._startReading();
-  }
-
-  _startDetector(camId, pythonCmd, configPath) {
-    // Find camera RTSP from config
-    const cam = this.camerasConfig.find(c => c.id === camId);
-    if (!cam) {
-      console.log(`  👁️ CV: câmera ${camId} não encontrada no config`);
-      return;
-    }
-
-    const camUser = encodeURIComponent(cam.user || 'admin');
-    const camPass = cam.password ? encodeURIComponent(cam.password) : '';
-    const rtspUrl = `rtsp://${camUser}:${camPass}@${cam.ip}:554/cam/realmonitor?channel=1&subtype=0`;
-
-    // Ensure per-camera output dir
-    const camOutDir = path.join(OUTPUT_DIR, camId);
-    if (!fs.existsSync(camOutDir)) fs.mkdirSync(camOutDir, { recursive: true });
-
-    const args = [
-      path.join(CV_DIR, 'detector.py'),
-      '--camera-id', camId,
-      '--rtsp', rtspUrl,
-      '--gpu', String(this.cvConfig.gpu || 1),
-      '--interval', String(this.cvConfig.interval || 2),
-      '--model', this.cvConfig.model || 'yolov8n',
-      '--confidence', String(this.cvConfig.confidence || 0.4),
-      '--heatmap-decay', String(this.cvConfig.heatmapDecay || 0.999),
-      '--imgsz', String(this.cvConfig.imgsz || 640),
-    ];
-
-    if (configPath) {
-      args.push('--config', configPath);
-    }
-
-    console.log(`  👁️ CV [${camId}]: starting detector`);
-
-    const proc = spawn(pythonCmd, args, {
-      cwd: CV_DIR,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    });
-
-    proc.stdout.on('data', (data) => {
-      const lines = data.toString().trim().split('\n');
-      for (const line of lines) {
-        if (line.trim()) console.log(`  👁️ [${camId}] ${line.trim()}`);
-      }
-    });
-
-    proc.stderr.on('data', (data) => {
-      const lines = data.toString().trim().split('\n');
-      for (const line of lines) {
-        if (line.trim()) console.error(`  👁️ [${camId}] [err] ${line.trim()}`);
-      }
-    });
-
-    proc.on('exit', (code) => {
-      console.log(`  👁️ CV [${camId}]: processo saiu (code ${code})`);
-      this.processes.delete(camId);
-
-      // Auto-restart after 10s if still enabled
-      if (this.enabled && code !== 0) {
-        console.log(`  👁️ CV [${camId}]: reiniciando em 10s...`);
-        setTimeout(() => {
-          if (this.enabled && !this.processes.has(camId)) {
-            const py = this._findPython();
-            if (py) this._startDetector(camId, py, configPath);
-          }
-        }, 10000);
-      }
-    });
-
-    this.processes.set(camId, { process: proc, pid: proc.pid, camId });
-  }
-
-  _startCounter(pythonCmd, configPath, counterCfg) {
-    // Find camera RTSP
-    const camId = counterCfg.camera || 'cam-2';
-    const cam = this.camerasConfig.find(c => c.id === camId);
-    const rtspUrl = cam
-      ? `rtsp://${encodeURIComponent(cam.user || 'admin')}:${encodeURIComponent(cam.password || '')}@${cam.ip}:554/cam/realmonitor?channel=1&subtype=0`
-      : null;
-
-    const args = [
-      path.join(CV_DIR, 'counter.py'),
-      '--gpu', String(this.cvConfig.gpu || 1),
-      '--line', counterCfg.line || '500,480,1400,480',
-      '--confidence', String(counterCfg.confidence || 0.45),
-      '--interval', String(counterCfg.interval || 0.5),
-      '--model', this.cvConfig.model || 'yolov8n',
-    ];
-
-    if (rtspUrl) args.push('--rtsp', rtspUrl);
-    if (configPath) args.push('--config', configPath);
-
-    console.log(`  👁️ CV [counter]: starting visitor counter on ${counterCfg.camera || 'cam-2'}`);
-
-    const proc = spawn(pythonCmd, args, {
-      cwd: CV_DIR,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    });
-
-    proc.stdout.on('data', (data) => {
-      data.toString().trim().split('\n').forEach(line => {
-        if (line.trim()) console.log(`  👁️ [counter] ${line.trim()}`);
-      });
-    });
-
-    proc.stderr.on('data', (data) => {
-      data.toString().trim().split('\n').forEach(line => {
-        if (line.trim()) console.error(`  👁️ [counter] [err] ${line.trim()}`);
-      });
-    });
-
-    proc.on('exit', (code) => {
-      console.log(`  👁️ CV [counter]: process exited (code ${code})`);
-      this.counterProcess = null;
-      if (this.enabled && code !== 0) {
-        console.log('  👁️ CV [counter]: restarting in 10s...');
-        setTimeout(() => {
-          if (this.enabled) {
-            const py = this._findPython();
-            if (py) this._startCounter(py, configPath, counterCfg);
-          }
-        }, 10000);
-      }
-    });
-
-    this.counterProcess = { process: proc, pid: proc.pid };
-  }
-
-  reload(config) {
-    this.config = config;
-    this.cvConfig = config.cv || {};
-    this.camerasConfig = config.cameras || [];
-    // Note: does not restart processes — call stop() then start() to apply changes
   }
 
   stop() {
     this.enabled = false;
-    this._stopReading();
 
     for (const [camId, entry] of this.processes) {
       console.log(`  👁️ CV [${camId}]: parando...`);
       try { entry.process.kill('SIGTERM'); } catch {}
     }
 
-    // Stop counter
     if (this.counterProcess) {
       try { this.counterProcess.process.kill('SIGTERM'); } catch {}
     }
 
-    // Force kill after 5s
     setTimeout(() => {
-      for (const [camId, entry] of this.processes) {
+      for (const [, entry] of this.processes) {
         try { entry.process.kill('SIGKILL'); } catch {}
       }
       this.processes.clear();
+      this._buffers.clear();
       if (this.counterProcess) {
         try { this.counterProcess.process.kill('SIGKILL'); } catch {}
         this.counterProcess = null;
@@ -229,42 +104,53 @@ class CVManager {
     }, 5000);
   }
 
+  reload(config) {
+    this.config = config;
+    this.cvConfig = config.cv || {};
+    this.camerasConfig = config.cameras || [];
+    // Para aplicar mudanças: chamar stop() depois start()
+  }
+
   /**
-   * Get aggregated status (for API and push)
+   * Status agregado — shape mantido compatível com portal-sync e API REST.
    */
   getStatus() {
     const cvCameras = this.cvConfig.cameras || [this.cvConfig.camera || 'cam-1'];
     const strategy = this.cvConfig.countStrategy || 'max';
     const perCamera = {};
-    let totalCount = 0;
     const counts = [];
 
     for (const camId of cvCameras) {
-      const det = this._readDetections(camId);
-      const status = this._readStatusFile(camId);
-      const count = det?.count ?? 0;
+      const cached = this._cache.get(camId);
+      const readyInfo = this._readyInfo.get(camId) || {};
+      const count = cached?.count ?? 0;
       counts.push(count);
 
       perCamera[camId] = {
         count,
-        fps: det?.fps ?? 0,
+        fps: cached?.fps ?? 0,
         running: this.processes.has(camId),
         pid: this.processes.get(camId)?.pid || null,
-        status: status?.status || 'unknown',
-        error: status?.error || null,
-        timestamp: det?.timestamp || null,
+        model: readyInfo.model || this.cvConfig.model || 'yolo11n',
+        format: readyInfo.format || 'unknown',
+        gpuName: readyInfo.gpuName || null,
+        zones: cached?.zones || {},
+        timestamp: cached?.timestamp || null,
       };
     }
 
-    // Aggregation strategy
-    if (strategy === 'sum') {
-      totalCount = counts.reduce((a, b) => a + b, 0);
-    } else {
-      // "max" — conservative: total = highest single-camera count
-      totalCount = counts.length > 0 ? Math.max(...counts) : 0;
+    const totalCount = strategy === 'sum'
+      ? counts.reduce((a, b) => a + b, 0)
+      : (counts.length > 0 ? Math.max(...counts) : 0);
+
+    // Zona agregada (soma de todas as câmeras por zona)
+    const aggregatedZones = {};
+    for (const [, camData] of Object.entries(perCamera)) {
+      for (const [zoneId, zCount] of Object.entries(camData.zones || {})) {
+        aggregatedZones[zoneId] = (aggregatedZones[zoneId] || 0) + zCount;
+      }
     }
 
-    // Visitor counter data
     const counterData = this._readCounterData();
 
     return {
@@ -273,30 +159,31 @@ class CVManager {
       cameras: cvCameras.length,
       countStrategy: strategy,
       totalCount,
+      zones: aggregatedZones,
+      zonesConfig: (this.cvConfig.zones || []).map(z => ({
+        id: z.id,
+        name: z.name,
+        cameras: z.cameras,
+        alert: z.alert,
+      })),
       perCamera,
-      counter: counterData ? {
-        running: !!this.counterProcess,
-        pid: this.counterProcess?.pid || null,
-        ...counterData,
-      } : {
-        running: !!this.counterProcess,
-        enabled: !!(this.cvConfig.counter?.enabled),
-      },
-      model: this.cvConfig.model || 'yolov8n',
-      gpu: this.cvConfig.gpu || 1,
+      counter: counterData
+        ? { running: !!this.counterProcess, pid: this.counterProcess?.pid || null, ...counterData }
+        : { running: !!this.counterProcess, enabled: !!(this.cvConfig.counter?.enabled) },
+      model: this.cvConfig.model || 'yolo11n',
+      gpu: this.cvConfig.gpu ?? 0,
+      protocol: 'jsonl-v2',
     };
   }
 
-  /**
-   * Get detections for a specific camera
-   */
   getDetections(camId) {
-    return this._readDetections(camId);
+    // Retorna cache em memória (do JSONL) em vez de ler arquivo
+    const cached = this._cache.get(camId);
+    if (cached) return cached;
+    // Fallback: arquivo (backward compat com processos antigos)
+    return this._readDetectionsFile(camId);
   }
 
-  /**
-   * Get heatmap for a specific camera (PNG buffer)
-   */
   getHeatmap(camId) {
     const file = camId
       ? path.join(OUTPUT_DIR, camId, 'heatmap.png')
@@ -305,9 +192,6 @@ class CVManager {
     try { return fs.readFileSync(file); } catch { return null; }
   }
 
-  /**
-   * Get annotated frame for a specific camera (JPEG buffer)
-   */
   getFrame(camId) {
     const file = camId
       ? path.join(OUTPUT_DIR, camId, 'frame.jpg')
@@ -316,9 +200,6 @@ class CVManager {
     try { return fs.readFileSync(file); } catch { return null; }
   }
 
-  /**
-   * Reset heatmap for a specific camera (or all)
-   */
   resetHeatmap(camId) {
     const dirs = camId ? [path.join(OUTPUT_DIR, camId)] : this._getCameraDirs();
     let ok = true;
@@ -333,20 +214,215 @@ class CVManager {
     return ok;
   }
 
-  // ─── Private ────────────────────────────────────────────────
+  getCounterData() { return this._readCounterData(); }
+  getCounterFrame() {
+    const file = path.join(OUTPUT_DIR, 'counter', 'frame.jpg');
+    if (!fs.existsSync(file)) return null;
+    try { return fs.readFileSync(file); } catch { return null; }
+  }
 
-  _readDetections(camId) {
+  // ─── Private: processo detector ────────────────────────────────────────────
+
+  _startDetector(camId, pythonCmd, configPath) {
+    const cam = this.camerasConfig.find(c => c.id === camId);
+    if (!cam) {
+      console.log(`  👁️ CV: câmera ${camId} não encontrada no config`);
+      return;
+    }
+
+    // Garante diretório de output por câmera
+    const camOutDir = path.join(OUTPUT_DIR, camId);
+    if (!fs.existsSync(camOutDir)) fs.mkdirSync(camOutDir, { recursive: true });
+
+    // URL-encode credenciais
+    const user = encodeURIComponent(cam.user || 'admin');
+    const pass = cam.password ? encodeURIComponent(cam.password) : '';
+    const rtspUrl = `rtsp://${user}:${pass}@${cam.ip}:554/cam/realmonitor?channel=1&subtype=0`;
+
+    const args = [
+      path.join(CV_DIR, 'detector.py'),
+      '--camera-id', camId,
+      '--rtsp', rtspUrl,
+      '--gpu', String(this.cvConfig.gpu ?? 0),
+      '--interval', String(this.cvConfig.interval ?? 0),
+      '--model', this.cvConfig.model || 'yolo11n',
+      '--confidence', String(this.cvConfig.confidence ?? 0.4),
+      '--heatmap-decay', String(this.cvConfig.heatmapDecay ?? 0.999),
+      '--imgsz', String(this.cvConfig.imgsz ?? 640),
+    ];
+
+    if (configPath) args.push('--config', configPath);
+    if (this.cvConfig.noTrt) args.push('--no-trt');
+
+    console.log(`  👁️ CV [${camId}]: iniciando (${this.cvConfig.model || 'yolo11n'}, GPU ${this.cvConfig.gpu ?? 0})`);
+
+    const proc = spawn(pythonCmd, args, {
+      cwd: CV_DIR,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+
+    // ─── stdout: protocolo JSONL ──────────────────────────────────────────────
+    this._buffers.set(camId, '');
+
+    proc.stdout.on('data', (data) => {
+      // Acumula buffer (pode chegar fragmentado)
+      const buf = (this._buffers.get(camId) || '') + data.toString();
+      const lines = buf.split('\n');
+      this._buffers.set(camId, lines.pop()); // guarda fragmento incompleto
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Tenta parsear como JSON
+        let event;
+        try {
+          event = JSON.parse(trimmed);
+        } catch {
+          // Linha de log não-JSON — exibe normalmente
+          console.log(`  👁️ [${camId}] ${trimmed}`);
+          continue;
+        }
+
+        this._handleEvent(camId, event);
+      }
+    });
+
+    // stderr: logs Python (model loading, warnings, erros internos)
+    proc.stderr.on('data', (data) => {
+      data.toString().trim().split('\n').forEach(line => {
+        if (line.trim()) console.log(`  👁️ [${camId}] ${line.trim()}`);
+      });
+    });
+
+    proc.on('exit', (code) => {
+      console.log(`  👁️ CV [${camId}]: processo encerrado (code ${code})`);
+      this.processes.delete(camId);
+      this._buffers.delete(camId);
+
+      if (this.enabled && code !== 0) {
+        console.log(`  👁️ CV [${camId}]: reiniciando em 10s...`);
+        setTimeout(() => {
+          if (this.enabled && !this.processes.has(camId)) {
+            const py = this._findPython();
+            if (py) this._startDetector(camId, py, configPath);
+          }
+        }, 10000);
+      }
+    });
+
+    this.processes.set(camId, { process: proc, pid: proc.pid, camId });
+  }
+
+  /**
+   * Processa evento JSONL recebido do Python.
+   * Atualiza cache interno e emite evento Node.js correspondente.
+   */
+  _handleEvent(camId, event) {
+    switch (event.event) {
+      case 'ready':
+        this._readyInfo.set(camId, {
+          model: event.model,
+          format: event.format,
+          gpuName: event.gpuName,
+          zones: event.zones || [],
+          resolution: event.resolution,
+        });
+        console.log(`  👁️ CV [${camId}]: pronto | ${event.format} | GPU: ${event.gpuName} | zonas: ${(event.zones || []).join(', ') || 'nenhuma'}`);
+        this.emit('ready', { camId, ...event });
+        break;
+
+      case 'detection': {
+        // Atualiza cache (em memória — sem I/O de arquivo)
+        const payload = {
+          count: event.count,
+          fps: event.fps,
+          zones: event.zones || {},
+          detections: event.detections || [],
+          resolution: event.resolution,
+          model: event.model,
+          format: event.format,
+          timestamp: event.timestamp,
+          camera: camId,
+        };
+        this._cache.set(camId, payload);
+        this.emit('detection', { camId, ...payload });
+        break;
+      }
+
+      case 'status':
+        // Reemite para quem precisar
+        this.emit('status', { camId, ...event });
+        break;
+
+      case 'error':
+        console.error(`  👁️ CV [${camId}] erro: ${event.message}`);
+        this.emit('error', { camId, ...event });
+        break;
+
+      default:
+        // Evento desconhecido — ignora silenciosamente
+        break;
+    }
+  }
+
+  // ─── Visitor Counter (arquivo-based, inalterado) ───────────────────────────
+
+  _startCounter(pythonCmd, configPath, counterCfg) {
+    const camId = counterCfg.camera || 'cam-2';
+    const cam = this.camerasConfig.find(c => c.id === camId);
+    const user = cam ? encodeURIComponent(cam.user || 'admin') : 'admin';
+    const pass = cam?.password ? encodeURIComponent(cam.password) : '';
+    const rtspUrl = cam
+      ? `rtsp://${user}:${pass}@${cam.ip}:554/cam/realmonitor?channel=1&subtype=0`
+      : null;
+
+    const args = [
+      path.join(CV_DIR, 'counter.py'),
+      '--gpu', String(this.cvConfig.gpu ?? 0),
+      '--line', counterCfg.line || '500,480,1400,480',
+      '--confidence', String(counterCfg.confidence ?? 0.45),
+      '--interval', String(counterCfg.interval ?? 0.5),
+      '--model', this.cvConfig.model || 'yolo11n',
+    ];
+
+    if (rtspUrl) args.push('--rtsp', rtspUrl);
+    if (configPath) args.push('--config', configPath);
+
+    console.log(`  👁️ CV [counter]: iniciando em ${camId}`);
+
+    const proc = spawn(pythonCmd, args, {
+      cwd: CV_DIR,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+
+    proc.stdout.on('data', d => d.toString().trim().split('\n').forEach(l => l.trim() && console.log(`  👁️ [counter] ${l.trim()}`)));
+    proc.stderr.on('data', d => d.toString().trim().split('\n').forEach(l => l.trim() && console.error(`  👁️ [counter] [err] ${l.trim()}`)));
+
+    proc.on('exit', (code) => {
+      console.log(`  👁️ CV [counter]: encerrado (code ${code})`);
+      this.counterProcess = null;
+      if (this.enabled && code !== 0) {
+        setTimeout(() => {
+          if (this.enabled) {
+            const py = this._findPython();
+            if (py) this._startCounter(py, configPath, counterCfg);
+          }
+        }, 10000);
+      }
+    });
+
+    this.counterProcess = { process: proc, pid: proc.pid };
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  _readDetectionsFile(camId) {
     const file = camId
       ? path.join(OUTPUT_DIR, camId, 'detections.json')
       : path.join(OUTPUT_DIR, 'detections.json');
-    if (!fs.existsSync(file)) return null;
-    try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
-  }
-
-  _readStatusFile(camId) {
-    const file = camId
-      ? path.join(OUTPUT_DIR, camId, 'status.json')
-      : path.join(OUTPUT_DIR, 'status.json');
     if (!fs.existsSync(file)) return null;
     try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
   }
@@ -355,16 +431,6 @@ class CVManager {
     const file = path.join(OUTPUT_DIR, 'counter', 'count.json');
     if (!fs.existsSync(file)) return null;
     try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
-  }
-
-  getCounterData() {
-    return this._readCounterData();
-  }
-
-  getCounterFrame() {
-    const file = path.join(OUTPUT_DIR, 'counter', 'frame.jpg');
-    if (!fs.existsSync(file)) return null;
-    try { return fs.readFileSync(file); } catch { return null; }
   }
 
   _getCameraDirs() {
@@ -380,6 +446,7 @@ class CVManager {
       path.join(CV_DIR, 'venv', 'Scripts', 'python.exe'),
       path.join(CV_DIR, 'venv', 'bin', 'python'),
       'C:\\Users\\AYA\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
+      'C:\\Users\\Ihon\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
       'python',
       'python3',
     ];
@@ -394,29 +461,20 @@ class CVManager {
   }
 
   _getConfigPath() {
+    // Tenta ler do argv (--config=beleza-astral) ou usa o primeiro config disponível
     const configArg = process.argv.find(a => a.startsWith('--config='));
-    const configName = configArg ? configArg.split('=')[1] : 'beleza-astral';
-    const configPath = path.join(__dirname, '..', 'config', `${configName}.json`);
-    return fs.existsSync(configPath) ? configPath : null;
-  }
-
-  _startReading() {
-    this._readInterval = setInterval(() => {
-      const cvCameras = this.cvConfig.cameras || [this.cvConfig.camera || 'cam-1'];
-      for (const camId of cvCameras) {
-        this._cache.set(camId, {
-          detections: this._readDetections(camId),
-          status: this._readStatusFile(camId),
-        });
-      }
-    }, 2000);
-  }
-
-  _stopReading() {
-    if (this._readInterval) {
-      clearInterval(this._readInterval);
-      this._readInterval = null;
+    const configName = configArg ? configArg.split('=')[1] : null;
+    if (configName) {
+      const p = path.join(__dirname, '..', 'config', `${configName}.json`);
+      if (fs.existsSync(p)) return p;
     }
+    // Detecta automaticamente: pega o primeiro config da pasta (exceto template)
+    const configDir = path.join(__dirname, '..', 'config');
+    try {
+      const files = fs.readdirSync(configDir).filter(f => f.endsWith('.json') && f !== 'template.json');
+      if (files.length > 0) return path.join(configDir, files[0]);
+    } catch {}
+    return null;
   }
 }
 
