@@ -347,10 +347,19 @@
           <div class="cv-status-value" id="cvGpu">—</div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn btn-on btn-sm" id="btnCvStart" onclick="cvStart()">▶ Iniciar</button>
         <button class="btn btn-off btn-sm" id="btnCvStop" onclick="cvStop()">⏹ Parar</button>
         <button class="btn btn-sm" onclick="cvResetHeatmap()">🔄 Reset Heatmap</button>
+        <a href="/cv-calibrate.html" style="
+          display:inline-flex;align-items:center;gap:6px;
+          padding:7px 14px;border-radius:4px;
+          background:#3b82f6;color:#fff;font-size:13px;font-weight:600;
+          text-decoration:none;border:none;cursor:pointer;
+          font-family:inherit;transition:background .15s;
+        " onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+          ⊹ Calibrar Zonas
+        </a>
       </div>
     </div>
 
