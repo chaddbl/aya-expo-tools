@@ -36,9 +36,10 @@ const DAY_LABELS = {
 const DAY_CRON = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
 
 class Scheduler {
-  constructor(projectorManager, config, tvModule) {
+  constructor(projectorManager, config, tvModule, serverHealth) {
     this.pm = projectorManager;
     this.tvModule = tvModule || null;
+    this.serverHealth = serverHealth || null;  // para verificar se Arena está pronto
     this.fullConfig = config;
     this.config = config.schedule || {};
     this.tvConfig = config.tvs || [];
@@ -148,6 +149,11 @@ class Scheduler {
     console.log(`[Scheduler] ▶ OPEN sequence started at ${new Date().toISOString()}`);
     this.addLog('open-sequence', 'started');
 
+    // Step 0: Aguarda Resolume estar pronto (caso o servidor tenha reiniciado)
+    // Arena.exe demora ~60s para abrir e começar a renderizar após o boot.
+    // Proxy: GPU 0 com utilização > 20% indica que o Resolume está renderizando.
+    await this._waitForResolume();
+
     // Step 1: Wake TVs via WOL
     if (this.tvModule && this.tvConfig.length > 0) {
       try {
@@ -242,6 +248,50 @@ class Scheduler {
 
     this.addLog('close-sequence', 'completed');
     console.log(`[Scheduler] ⏹ CLOSE sequence completed`);
+  }
+
+  /**
+   * Aguarda o Resolume (Arena.exe) estar rodando e renderizando.
+   * Verifica via server-health: processo ativo + GPU 0 util > 20%.
+   * Timeout: 90s (Arena demora ~60s para abrir o projeto).
+   * Se server-health não disponível, apenas aguarda 5s e segue.
+   */
+  async _waitForResolume() {
+    const MAX_WAIT = 90_000;  // 90s máximo
+    const CHECK_INTERVAL = 5_000;
+    const start = Date.now();
+
+    if (!this.serverHealth) {
+      // Sem health monitor — espera conservadora e segue
+      console.log('[Scheduler] Sem health monitor — aguardando 5s antes de ligar projetores');
+      await this._sleep(5000);
+      return;
+    }
+
+    console.log('[Scheduler] Verificando se Resolume está pronto...');
+    this.addLog('resolume-check', 'started');
+
+    while (Date.now() - start < MAX_WAIT) {
+      const snap = this.serverHealth.getCurrent?.();
+      const arenaRunning = snap?.resolume === true;
+      const gpuUtil = snap?.gpus?.[0]?.utilization ?? 0;
+      const gpuReady = gpuUtil > 20;
+
+      if (arenaRunning && gpuReady) {
+        const waited = Math.round((Date.now() - start) / 1000);
+        console.log(`[Scheduler] ✅ Resolume pronto (${waited}s, GPU ${gpuUtil}%)`);
+        this.addLog('resolume-check', 'completed', `pronto em ${waited}s, GPU ${gpuUtil}%`);
+        return;
+      }
+
+      const elapsed = Math.round((Date.now() - start) / 1000);
+      console.log(`[Scheduler] ⏳ Resolume não pronto ainda (${elapsed}s) — Arena: ${arenaRunning}, GPU: ${gpuUtil}%`);
+      await this._sleep(CHECK_INTERVAL);
+    }
+
+    // Timeout — segue mesmo assim (melhor ligar os projetores tarde do que não ligar)
+    console.log('[Scheduler] ⚠️ Resolume não confirmado após 90s — prosseguindo mesmo assim');
+    this.addLog('resolume-check', 'timeout', '90s sem confirmar — projetores ligados assim mesmo');
   }
 
   async runOpen() { return this._runOpenSequence(); }

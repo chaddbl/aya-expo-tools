@@ -69,7 +69,7 @@ const session = {
 // ─── Initialize Managers ───────────────────────────────────
 const projectors = new ProjectorManager(config);
 const cameras = new CameraManager(config);
-const scheduler = new Scheduler(projectors, config, tv);
+const scheduler = new Scheduler(projectors, config, tv, serverHealth);
 const cvManager = new CVManager(config);
 const timelapse = new TimelapseCapture(cameras, { interval: 60_000 });
 const portalSync = new PortalSync(config, projectors, cameras, scheduler, readLog, session, cvManager, serverHealth);
