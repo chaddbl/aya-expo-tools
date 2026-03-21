@@ -147,11 +147,27 @@ class CVManager extends EventEmitter {
       ? counts.reduce((a, b) => a + b, 0)
       : (counts.length > 0 ? Math.max(...counts) : 0);
 
-    // Zona agregada (soma de todas as câmeras por zona)
+    // Agrega zonas respeitando strategy por zona:
+    //   "max" (padrão) → câmeras no mesmo espaço físico (ex: cam-1 + cam-3 na sala imersiva)
+    //   "sum"          → câmeras em espaços distintos sem sobreposição
+    const zonesConfig = this.cvConfig.zones || [];
     const aggregatedZones = {};
-    for (const [, camData] of Object.entries(perCamera)) {
-      for (const [zoneId, zCount] of Object.entries(camData.zones || {})) {
-        aggregatedZones[zoneId] = (aggregatedZones[zoneId] || 0) + zCount;
+
+    for (const zone of zonesConfig) {
+      const strategy = zone.strategy || 'max';
+      const cameras = zone.cameras || {};
+      // Suporta cameras como dict (novo) ou array (legado)
+      const zoneCamIds = Array.isArray(cameras) ? cameras : Object.keys(cameras);
+      const values = zoneCamIds
+        .map(cid => perCamera[cid]?.zones?.[zone.id])
+        .filter(v => v !== undefined);
+
+      if (values.length === 0) {
+        aggregatedZones[zone.id] = 0;
+      } else if (strategy === 'sum') {
+        aggregatedZones[zone.id] = values.reduce((a, b) => a + b, 0);
+      } else {
+        aggregatedZones[zone.id] = Math.max(...values);
       }
     }
 

@@ -149,41 +149,43 @@
     "imgsz": 960,
     "countStrategy": "max",
 
-    "_comment_zones": "Polígonos em pixels na resolução nativa de cada câmera (1920x1080). Calibrar com frame annotado (cv/output/cam-X/frame.jpg). Coordenadas: [x, y] top-left origin.",
+    "_comment_zones": "cameras é um dict: {cam_id: 'full' | [[x,y],...]}. strategy: 'max' para câmeras no mesmo espaço físico (evita dupla contagem), 'sum' para espaços distintos sem sobreposição.",
     "zones": [
       {
         "id": "sala-imersiva",
         "name": "Sala Imersiva",
-        "cameras": ["cam-1"],
-        "polygon": [[0,0],[1920,0],[1920,1080],[0,1080]],
+        "strategy": "max",
+        "cameras": {
+          "cam-1": "full",
+          "cam-3": "full"
+        },
         "alert": { "emptyAfter": 300 }
       },
       {
-        "id": "entrada",
-        "name": "Entrada",
-        "cameras": ["cam-2"],
-        "polygon": [[0,600],[1920,600],[1920,1080],[0,1080]],
+        "id": "galeria",
+        "name": "Galeria",
+        "strategy": "single",
+        "cameras": {
+          "cam-4": "full"
+        },
         "alert": {}
       },
       {
         "id": "corredor",
-        "name": "Corredor / Acesso",
-        "cameras": ["cam-2"],
-        "polygon": [[0,0],[1920,0],[1920,600],[0,600]],
+        "name": "Corredor",
+        "strategy": "single",
+        "cameras": {
+          "cam-2": [[0,0],[1920,0],[1920,450],[0,450]]
+        },
         "alert": {}
       },
       {
-        "id": "sala-secundaria",
-        "name": "Sala Secundária",
-        "cameras": ["cam-3"],
-        "polygon": [[0,0],[1920,0],[1920,1080],[0,1080]],
-        "alert": {}
-      },
-      {
-        "id": "area-cam4",
-        "name": "Área Cam 4",
-        "cameras": ["cam-4"],
-        "polygon": [[0,0],[1920,0],[1920,1080],[0,1080]],
+        "id": "entrada",
+        "name": "Entrada",
+        "strategy": "single",
+        "cameras": {
+          "cam-2": [[0,450],[1920,450],[1920,1080],[0,1080]]
+        },
         "alert": {}
       }
     ],

@@ -6,132 +6,159 @@
   <title>Calibração CV — AYA Expo Tools</title>
   <link rel="stylesheet" href="shared.css">
   <style>
-    .page { display: grid; grid-template-columns: 240px 1fr; gap: 0; height: calc(100vh - 57px); }
+    .page { display: grid; grid-template-columns: 260px 1fr; height: calc(100vh - 57px); }
 
-    /* ── Painel esquerdo ── */
-    .sidebar {
-      border-right: 1px solid var(--border);
-      display: flex; flex-direction: column;
-      overflow-y: auto; padding: 16px;
+    /* ── Sidebar ── */
+    .sidebar { border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+    .sidebar-scroll { flex: 1; overflow-y: auto; padding: 14px; }
+    .sidebar-footer { padding: 12px 14px; border-top: 1px solid var(--border); }
+
+    .section-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--text-dimmer); margin: 14px 0 6px;
     }
-    .sidebar-section { margin-bottom: 20px; }
-    .sidebar-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-dimmer); margin-bottom: 8px; }
+    .section-label:first-child { margin-top: 0; }
 
-    /* Camera tabs */
-    .cam-tabs { display: flex; flex-direction: column; gap: 4px; }
-    .cam-tab {
-      padding: 8px 10px; border-radius: var(--radius);
-      border: 1px solid var(--border); background: var(--bg);
-      color: var(--text-dim); cursor: pointer; font-size: 13px;
-      display: flex; align-items: center; gap: 8px; transition: all .15s;
+    /* Zone cards */
+    .zone-card {
+      border: 1px solid var(--border); border-radius: var(--radius);
+      margin-bottom: 6px; overflow: hidden; cursor: pointer;
+      transition: border-color .15s;
     }
-    .cam-tab:hover { border-color: var(--border-light); color: var(--text); }
-    .cam-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(255,255,255,.04); }
-    .cam-tab .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
-    .cam-tab .dot.off { background: var(--text-dimmer); }
+    .zone-card:hover { border-color: var(--border-light); }
+    .zone-card.active { border-color: var(--accent); }
 
-    /* Tools */
-    .tool-btns { display: flex; flex-direction: column; gap: 4px; }
+    .zone-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; background: var(--bg-card);
+    }
+    .zone-color { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .zone-title { flex: 1; font-size: 13px; font-weight: 500; }
+    .zone-strategy {
+      font-size: 10px; padding: 2px 6px; border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg); border: 1px solid var(--border); color: var(--text-dimmer);
+    }
+    .zone-del { color: var(--text-dimmer); font-size: 14px; padding: 0 2px; }
+    .zone-del:hover { color: var(--red); }
+
+    .zone-body { padding: 8px 10px; background: var(--bg); display: none; }
+    .zone-card.active .zone-body { display: block; }
+
+    .cam-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 0; border-bottom: 1px solid var(--border);
+    }
+    .cam-row:last-child { border-bottom: none; }
+    .cam-id { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); width: 52px; flex-shrink: 0; }
+    .cam-poly-status {
+      flex: 1; font-size: 11px; color: var(--text-dimmer);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cam-poly-status.set { color: var(--green); }
+    .cam-poly-status.full { color: var(--blue); }
+
+    .cam-actions { display: flex; gap: 4px; }
+    .btn-xs {
+      font-size: 10px; padding: 3px 7px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text-dim); cursor: pointer; transition: all .1s;
+      font-family: inherit; white-space: nowrap;
+    }
+    .btn-xs:hover { border-color: var(--border-light); color: var(--text); }
+    .btn-xs.active { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+    .btn-xs.clear { border-color: var(--red-dim); color: var(--red); }
+
+    .strategy-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+    .strategy-label { font-size: 11px; color: var(--text-dimmer); }
+    .strategy-select {
+      font-size: 11px; background: var(--bg-card); color: var(--text);
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 2px 4px; font-family: inherit; cursor: pointer;
+    }
+    .strategy-hint { font-size: 10px; color: var(--text-dimmer); line-height: 1.4; margin-top: 4px; }
+
+    /* Line section */
+    .line-box {
+      padding: 8px; border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--bg-card); margin-bottom: 8px;
+    }
+    .line-cam { font-size: 11px; color: var(--text-dimmer); margin-bottom: 4px; }
+    .line-coords { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-dim); margin-bottom: 6px; }
+    .line-coords.set { color: var(--amber); }
+
+    /* Tool selector */
+    .tool-row { display: flex; gap: 6px; margin-bottom: 12px; }
     .tool-btn {
-      padding: 8px 10px; border-radius: var(--radius);
+      flex: 1; padding: 7px 6px; border-radius: var(--radius);
       border: 1px solid var(--border); background: var(--bg);
-      color: var(--text-dim); cursor: pointer; font-size: 13px;
-      display: flex; align-items: center; gap: 8px; transition: all .15s;
-      text-align: left;
+      color: var(--text-dim); cursor: pointer; font-size: 12px;
+      transition: all .15s; text-align: center; font-family: inherit;
     }
     .tool-btn:hover { border-color: var(--border-light); color: var(--text); }
     .tool-btn.active { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
-    .tool-icon { font-size: 14px; }
 
-    /* Zonas */
-    .zone-list { display: flex; flex-direction: column; gap: 4px; }
-    .zone-item {
-      padding: 7px 10px; border-radius: var(--radius);
-      border: 1px solid var(--border); background: var(--bg);
-      display: flex; align-items: center; gap: 8px;
-      font-size: 12px; cursor: pointer; transition: all .15s;
-    }
-    .zone-item:hover { border-color: var(--border-light); }
-    .zone-item.active { border-color: v; }
-    .zone-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-    .zone-name { flex: 1; color: var(--text); }
-    .zone-cam { font-size: 10px; color: var(--text-dimmer); font-family: 'JetBrains Mono', monospace; }
-    .zone-del { color: var(--text-dimmer); font-size: 14px; padding: 0 2px; line-height: 1; }
-    .zone-del:hover { color: var(--red); }
-
+    /* Add zone */
     .btn-add {
-      padding: 7px 10px; border-radius: var(--radius);
+      width: 100%; padding: 7px 10px; border-radius: var(--radius);
       border: 1px dashed var(--border); background: transparent;
       color: var(--text-dimmer); cursor: pointer; font-size: 12px;
-      width: 100%; text-align: left; transition: all .15s;
+      font-family: inherit; transition: all .15s; text-align: left; margin-top: 4px;
     }
     .btn-add:hover { border-color: var(--border-light); color: var(--text); }
 
-    /* Counter line section */
-    .line-info {
-      font-size: 11px; font-family: 'JetBrains Mono', monospace;
-      color: var(--text-dim); padding: 6px 8px;
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius); word-break: break-all;
-    }
-    .line-clear {
-      margin-top: 6px; font-size: 11px; color: var(--text-dimmer);
-      cursor: pointer; background: none; border: none; padding: 0; text-decoration: underline;
-    }
-    .line-clear:hover { color: var(--red); }
+    /* ── Main canvas ── */
+    .main { display: flex; flex-direction: column; padding: 14px; gap: 10px; overflow: hidden; }
 
-    /* ── Área principal ── */
-    .main { display: flex; flex-direction: column; padding: 16px; gap: 12px; overflow: hidden; }
+    .cam-selector { display: flex; gap: 6px; flex-shrink: 0; }
+    .cam-tab {
+      padding: 6px 12px; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--bg);
+      color: var(--text-dim); cursor: pointer; font-size: 12px;
+      font-family: 'JetBrains Mono', monospace; transition: all .15s;
+    }
+    .cam-tab:hover { border-color: var(--border-light); }
+    .cam-tab.active { border-color: var(--accent); color: var(--accent); }
+    .cam-tab .dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--green); margin-right: 5px; vertical-align: middle; }
 
     .canvas-wrap {
       position: relative; flex: 1; min-height: 0;
       background: #000; border: 1px solid var(--border); border-radius: var(--radius);
-      overflow: hidden; cursor: crosshair;
+      overflow: hidden;
     }
-    .canvas-wrap img {
-      position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%; object-fit: contain; display: block;
-      pointer-events: none; user-select: none;
-    }
-    .canvas-wrap canvas {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    }
+    .canvas-wrap.drawing { cursor: crosshair; }
+    .canvas-wrap img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    .canvas-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     .canvas-hint {
-      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,.7); color: var(--text-dim);
-      font-size: 11px; padding: 4px 10px; border-radius: 20px;
-      pointer-events: none; white-space: nowrap;
+      position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.75); color: var(--text-dim);
+      font-size: 11px; padding: 4px 12px; border-radius: 20px; pointer-events: none; white-space: nowrap;
+    }
+    .canvas-no-frame {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: var(--text-dimmer); font-size: 13px;
     }
 
-    .toolbar {
-      display: flex; align-items: center; gap: 10px;
-      flex-shrink: 0;
-    }
+    .bottom-bar { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .btn {
-      padding: 8px 16px; border-radius: var(--radius);
-      border: 1px solid var(--border); background: var(--bg-card);
-      color: var(--text); cursor: pointer; font-size: 13px;
+      padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--border);
+      background: var(--bg-card); color: var(--text); cursor: pointer; font-size: 13px;
       transition: all .15s; font-family: inherit;
     }
     .btn:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
     .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
     .btn.primary:hover { background: #e5e5e5; }
-    .btn.danger { border-color: var(--red); color: var(--red); }
-    .btn.danger:hover { background: var(--red-bg); }
-    .toolbar-sep { flex: 1; }
-    .save-msg { font-size: 12px; color: var(--green); display: none; }
+    .btn:disabled { opacity: .4; cursor: default; }
+    .spacer { flex: 1; }
+    .save-msg { font-size: 12px; color: var(--green); }
+    .kbd { font-size: 10px; color: var(--text-dimmer); font-family: 'JetBrains Mono', monospace; }
   </style>
 </head>
 <body>
 
 <div class="header">
-  <div class="header-left">
-    <a href="/" style="text-decoration:none; color: var(--text-dim); font-size:13px;">← Início</a>
-  </div>
-  <div class="header-center">
-    <span style="font-size:14px; font-weight:600;">Calibração CV</span>
-    <span id="expo-name" style="font-size:12px; color:var(--text-dim); margin-left:8px;"></span>
-  </div>
+  <div class="header-left"><a href="/" style="text-decoration:none;color:var(--text-dim);font-size:13px;">← Início</a></div>
+  <div class="header-center"><span style="font-size:14px;font-weight:600;">Calibração CV</span> <span id="expo-name" style="font-size:12px;color:var(--text-dim);margin-left:8px;"></span></div>
   <div class="header-right"></div>
 </div>
 
@@ -139,56 +166,58 @@
 
   <!-- ── Sidebar ── -->
   <div class="sidebar">
+    <div class="sidebar-scroll">
 
-    <div class="sidebar-section">
-      <div class="sidebar-label">Câmera</div>
-      <div class="cam-tabs" id="cam-tabs"></div>
+      <div class="section-label">Ferramenta</div>
+      <div class="tool-row">
+        <button class="tool-btn active" id="tool-zone" onclick="setTool('zone')">⬡ Zona</button>
+        <button class="tool-btn" id="tool-line" onclick="setTool('line')">╱ Linha</button>
+      </div>
+
+      <div id="zone-panel">
+        <div class="section-label">Zonas físicas</div>
+        <div id="zone-list"></div>
+        <button class="btn-add" onclick="addZone()">+ Nova zona</button>
+      </div>
+
+      <div id="line-panel" style="display:none;">
+        <div class="section-label">Linha de contagem</div>
+        <div class="line-box">
+          <div class="line-cam" id="line-cam">—</div>
+          <div class="line-coords" id="line-coords">não configurada</div>
+          <button class="btn-xs clear" onclick="clearLine()" style="margin-top:4px;">Limpar</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-dimmer);line-height:1.5;">
+          Clique em 2 pontos para definir a linha.<br>
+          Cima→baixo = <span style="color:var(--green)">entrada</span> · Baixo→cima = <span style="color:var(--red)">saída</span>
+        </div>
+      </div>
+
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-label">Ferramenta</div>
-      <div class="tool-btns">
-        <button class="tool-btn active" id="tool-zone" onclick="setTool('zone')">
-          <span class="tool-icon">⬡</span> Zona (polígono)
-        </button>
-        <button class="tool-btn" id="tool-line" onclick="setTool('line')">
-          <span class="tool-icon">╱</span> Linha de contagem
-        </button>
+    <div class="sidebar-footer">
+      <div style="font-size:10px;color:var(--text-dimmer);margin-bottom:6px;" class="kbd">
+        Enter · fechar zona &nbsp;|&nbsp; Esc · cancelar &nbsp;|&nbsp; ⌫ · desfazer ponto
       </div>
     </div>
-
-    <div class="sidebar-section" id="zones-section">
-      <div class="sidebar-label">Zonas <span style="color:var(--text-dimmer);font-size:9px;text-transform:none;margin-left:4px;">(todas as câmeras)</span></div>
-      <div class="zone-list" id="zone-list"></div>
-      <button class="btn-add" onclick="addZone()">+ Nova zona</button>
-    </div>
-
-    <div class="sidebar-section" id="line-section" style="display:none;">
-      <div class="sidebar-label">Linha de contagem</div>
-      <div class="line-info" id="line-info">não configurada</div>
-      <button class="line-clear" onclick="clearLine()">Limpar linha</button>
-      <div style="margin-top:10px; font-size:11px; color:var(--text-dimmer); line-height:1.5;">
-        Clique em 2 pontos na imagem para definir a linha.<br>
-        Pessoas que cruzam de cima→baixo = <span style="color:var(--green)">entrada</span><br>
-        Pessoas que cruzam de baixo→cima = <span style="color:var(--red)">saída</span>
-      </div>
-    </div>
-
   </div>
 
   <!-- ── Main ── -->
   <div class="main">
 
-    <div class="canvas-wrap" id="canvas-wrap" onclick="handleCanvasClick(event)">
-      <img id="cam-frame" src="" alt="" />
+    <div class="cam-selector" id="cam-selector"></div>
+
+    <div class="canvas-wrap" id="canvas-wrap" onclick="handleClick(event)">
+      <div class="canvas-no-frame" id="no-frame">Selecione uma câmera</div>
+      <img id="cam-frame" src="" style="display:none;" />
       <canvas id="overlay"></canvas>
-      <div class="canvas-hint" id="canvas-hint">Selecione uma câmera</div>
+      <div class="canvas-hint" id="hint">—</div>
     </div>
 
-    <div class="toolbar">
-      <button class="btn danger" onclick="cancelDrawing()">Cancelar desenho</button>
-      <span class="toolbar-sep"></span>
-      <span class="save-msg" id="save-msg">✓ Salvo</span>
+    <div class="bottom-bar">
+      <button class="btn" onclick="cancelDrawing()">Cancelar desenho</button>
+      <span class="spacer"></span>
+      <span class="save-msg" id="save-msg" style="display:none;">✓ Salvo</span>
       <button class="btn" onclick="reloadDetectors()">Reiniciar detectores</button>
       <button class="btn primary" onclick="saveConfig()">Salvar configuração</button>
     </div>
@@ -197,178 +226,168 @@
 </div>
 
 <script>
-// ── Estado global ──────────────────────────────────────────────────────────
-
+// ── Constantes ─────────────────────────────────────────────────────────────
 const FRAME_W = 1920, FRAME_H = 1080;
-const ZONE_COLORS = ['#3b82f6','#22c55e','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#f97316','#84cc16'];
+const COLORS = ['#3b82f6','#22c55e','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#f97316','#84cc16'];
 
+// ── Estado ─────────────────────────────────────────────────────────────────
 let config = {};
 let currentCam = null;
 let currentTool = 'zone';
-let drawing = [];          // pontos sendo desenhados agora
-let linePoints = [];       // pontos da linha em desenho (max 2)
-let activeZoneId = null;   // zona selecionada para editar
+let activeZoneId = null;
+let drawing = [];      // pontos em construção (zona)
+let linePoints = [];   // pontos da linha (max 2)
 
 // ── Init ───────────────────────────────────────────────────────────────────
-
 async function init() {
   const res = await fetch('/api/config');
   config = await res.json();
+  if (!config.cv) config.cv = {};
+  if (!config.cv.zones) config.cv.zones = [];
 
   document.getElementById('expo-name').textContent = config.exhibition?.name || '';
 
-  // Câmeras
-  const cameras = config.cv?.cameras || [];
-  const tabs = document.getElementById('cam-tabs');
-  cameras.forEach((camId, i) => {
-    const t = document.createElement('button');
-    t.className = 'cam-tab' + (i === 0 ? ' active' : '');
-    t.innerHTML = `<span class="dot"></span>${camId}`;
-    t.onclick = () => selectCam(camId);
-    tabs.appendChild(t);
+  // Selector de câmeras
+  const cams = config.cv?.cameras || [];
+  const sel = document.getElementById('cam-selector');
+  cams.forEach((id, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'cam-tab' + (i === 0 ? ' active' : '');
+    btn.innerHTML = `<span class="dot"></span>${id}`;
+    btn.onclick = () => selectCam(id);
+    sel.appendChild(btn);
   });
 
-  renderZones();
+  renderZoneList();
   renderLine();
-
-  if (cameras.length > 0) selectCam(cameras[0]);
-
-  // Atualiza frame a cada 2s
+  if (cams.length) selectCam(cams[0]);
   setInterval(refreshFrame, 2000);
 }
 
 // ── Câmera ─────────────────────────────────────────────────────────────────
-
-function selectCam(camId) {
-  currentCam = camId;
+function selectCam(id) {
+  currentCam = id;
   cancelDrawing();
-
-  document.querySelectorAll('.cam-tab').forEach(t => {
-    t.classList.toggle('active', t.textContent.trim() === camId);
-  });
-
+  document.querySelectorAll('.cam-tab').forEach(t =>
+    t.classList.toggle('active', t.textContent.trim() === id));
   refreshFrame();
   renderOverlay();
-  document.getElementById('canvas-hint').textContent = getHint();
+  updateHint();
 }
 
 function refreshFrame() {
   if (!currentCam) return;
   const img = document.getElementById('cam-frame');
-  img.src = `/api/cv/${currentCam}/frame?t=${Date.now()}`;
-  img.onload = () => {
+  const noFrame = document.getElementById('no-frame');
+  const url = `/api/cv/${currentCam}/frame?t=${Date.now()}`;
+  const tmp = new Image();
+  tmp.onload = () => {
+    img.src = url;
+    img.style.display = '';
+    noFrame.style.display = 'none';
     resizeCanvas();
     renderOverlay();
   };
+  tmp.onerror = () => {
+    noFrame.style.display = 'flex';
+    noFrame.textContent = `${currentCam}: sem frame (detector iniciando...)`;
+  };
+  tmp.src = url;
 }
 
-// ── Canvas / coordenadas ───────────────────────────────────────────────────
-
+// ── Canvas ─────────────────────────────────────────────────────────────────
 function resizeCanvas() {
   const wrap = document.getElementById('canvas-wrap');
-  const canvas = document.getElementById('overlay');
-  canvas.width = wrap.clientWidth;
-  canvas.height = wrap.clientHeight;
-  renderOverlay();
+  const cv = document.getElementById('overlay');
+  cv.width = wrap.clientWidth;
+  cv.height = wrap.clientHeight;
 }
 
-/** Converte clique no canvas para coordenadas 1920×1080 do frame. */
-function canvasToFrame(cx, cy) {
-  const img = document.getElementById('cam-frame');
+/** Canvas px → frame 1920×1080 */
+function c2f(cx, cy) {
   const wrap = document.getElementById('canvas-wrap');
-
-  const wW = wrap.clientWidth, wH = wrap.clientHeight;
-  const scale = Math.min(wW / FRAME_W, wH / FRAME_H);
-  const ox = (wW - FRAME_W * scale) / 2;
-  const oy = (wH - FRAME_H * scale) / 2;
-
-  return [
-    Math.round((cx - ox) / scale),
-    Math.round((cy - oy) / scale),
-  ];
+  const s = Math.min(wrap.clientWidth / FRAME_W, wrap.clientHeight / FRAME_H);
+  const ox = (wrap.clientWidth - FRAME_W * s) / 2;
+  const oy = (wrap.clientHeight - FRAME_H * s) / 2;
+  return [Math.round((cx - ox) / s), Math.round((cy - oy) / s)];
 }
 
-/** Converte coordenadas do frame para o canvas. */
-function frameToCanvas(fx, fy) {
+/** Frame 1920×1080 → canvas px */
+function f2c(fx, fy) {
   const wrap = document.getElementById('canvas-wrap');
-  const wW = wrap.clientWidth, wH = wrap.clientHeight;
-  const scale = Math.min(wW / FRAME_W, wH / FRAME_H);
-  const ox = (wW - FRAME_W * scale) / 2;
-  const oy = (wH - FRAME_H * scale) / 2;
-  return [ox + fx * scale, oy + fy * scale];
+  const s = Math.min(wrap.clientWidth / FRAME_W, wrap.clientHeight / FRAME_H);
+  const ox = (wrap.clientWidth - FRAME_W * s) / 2;
+  const oy = (wrap.clientHeight - FRAME_H * s) / 2;
+  return [ox + fx * s, oy + fy * s];
 }
 
-// ── Interação ──────────────────────────────────────────────────────────────
-
-function handleCanvasClick(e) {
+// ── Cliques ────────────────────────────────────────────────────────────────
+function handleClick(e) {
   if (!currentCam) return;
-
   const wrap = document.getElementById('canvas-wrap');
-  const rect = wrap.getBoundingClientRect();
-  const cx = e.clientX - rect.left;
-  const cy = e.clientY - rect.top;
-  const [fx, fy] = canvasToFrame(cx, cy);
-
-  // Fora do frame
+  const r = wrap.getBoundingClientRect();
+  const [fx, fy] = c2f(e.clientX - r.left, e.clientY - r.top);
   if (fx < 0 || fx > FRAME_W || fy < 0 || fy > FRAME_H) return;
-
-  if (currentTool === 'zone') {
-    handleZoneClick(fx, fy, cx, cy);
-  } else if (currentTool === 'line') {
-    handleLineClick(fx, fy);
-  }
+  if (currentTool === 'zone') clickZone(fx, fy, e.clientX - r.left, e.clientY - r.top);
+  else clickLine(fx, fy);
 }
 
-// ── Ferramenta: Zona ───────────────────────────────────────────────────────
+// ── Zona: desenho ──────────────────────────────────────────────────────────
+function clickZone(fx, fy, cx, cy) {
+  if (!activeZoneId) { addZone(); return; }
+  const zone = getZone(activeZoneId);
+  if (!zone) return;
 
-function handleZoneClick(fx, fy, cx, cy) {
-  if (!activeZoneId) {
-    // Nenhuma zona selecionada — cria nova automaticamente
-    addZone();
-    return;
-  }
-
-  // Fecha polígono se clicou perto do primeiro ponto
+  // Fecha se clicou perto do 1º ponto
   if (drawing.length >= 3) {
-    const [fpx, fpy] = drawing[0];
-    const [cpx, cpy] = frameToCanvas(fpx, fpy);
-    const dist = Math.sqrt((cx - cpx) ** 2 + (cy - cpy) ** 2);
-    if (dist < 12) {
-      closePolygon();
-      return;
-    }
+    const [p0x, p0y] = drawing[0];
+    const [c0x, c0y] = f2c(p0x, p0y);
+    if (Math.hypot(cx - c0x, cy - c0y) < 14) { closeZone(); return; }
   }
-
   drawing.push([fx, fy]);
   renderOverlay();
   updateHint();
 }
 
-function closePolygon() {
+function closeZone() {
   if (!activeZoneId || drawing.length < 3) return;
-
-  const zone = getZones().find(z => z.id === activeZoneId);
+  const zone = getZone(activeZoneId);
   if (!zone) return;
-
-  zone.polygon = [...drawing];
-  // Garante que a câmera atual está na lista de câmeras da zona
-  if (!zone.cameras) zone.cameras = [];
-  if (!zone.cameras.includes(currentCam)) zone.cameras.push(currentCam);
-
+  if (!zone.cameras) zone.cameras = {};
+  if (typeof zone.cameras !== 'object' || Array.isArray(zone.cameras)) zone.cameras = {};
+  zone.cameras[currentCam] = [...drawing];
   drawing = [];
+  renderZoneList();
   renderOverlay();
-  renderZones();
   updateHint();
 }
 
-// ── Ferramenta: Linha ──────────────────────────────────────────────────────
+function setCamFull(zoneId) {
+  const zone = getZone(zoneId);
+  if (!zone) return;
+  if (!zone.cameras || Array.isArray(zone.cameras)) zone.cameras = {};
+  zone.cameras[currentCam] = 'full';
+  drawing = [];
+  renderZoneList();
+  renderOverlay();
+}
 
-function handleLineClick(fx, fy) {
+function removeCamFromZone(zoneId, camId) {
+  const zone = getZone(zoneId);
+  if (!zone?.cameras) return;
+  if (typeof zone.cameras === 'object' && !Array.isArray(zone.cameras)) {
+    delete zone.cameras[camId];
+  }
+  if (activeZoneId === zoneId) drawing = [];
+  renderZoneList();
+  renderOverlay();
+}
+
+// ── Linha ──────────────────────────────────────────────────────────────────
+function clickLine(fx, fy) {
   linePoints.push([fx, fy]);
   renderOverlay();
-
   if (linePoints.length === 2) {
-    // Salva linha no config
     if (!config.cv.counter) config.cv.counter = {};
     config.cv.counter.camera = currentCam;
     config.cv.counter.line = linePoints.map(p => p.join(',')).join(',');
@@ -380,165 +399,244 @@ function handleLineClick(fx, fy) {
 }
 
 function clearLine() {
-  if (config.cv?.counter) delete config.cv.counter.line;
+  if (config.cv?.counter) {
+    delete config.cv.counter.line;
+    delete config.cv.counter.camera;
+  }
   linePoints = [];
   renderLine();
   renderOverlay();
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────
-
 function renderOverlay() {
-  const canvas = document.getElementById('overlay');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const cv = document.getElementById('overlay');
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
 
-  // Desenha zonas existentes
-  getZones().forEach((zone, i) => {
-    if (!zone.polygon || zone.polygon.length < 2) return;
-    if (!zone.cameras?.includes(currentCam) && zone.cameras?.length > 0) return;
+  // Zonas existentes desta câmera
+  (config.cv?.zones || []).forEach((zone, i) => {
+    const cams = zone.cameras || {};
+    const camPoly = typeof cams === 'object' && !Array.isArray(cams) ? cams[currentCam] : null;
+    if (!camPoly) return;
 
-    const color = ZONE_COLORS[i % ZONE_COLORS.length];
-    const pts = zone.polygon.map(([x, y]) => frameToCanvas(x, y));
+    const color = COLORS[i % COLORS.length];
     const isActive = zone.id === activeZoneId;
 
-    ctx.beginPath();
-    ctx.moveTo(pts[0][0], pts[0][1]);
-    pts.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
-    ctx.closePath();
-    ctx.fillStyle = hexAlpha(color, isActive ? .2 : .12);
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = isActive ? 2 : 1.5;
-    ctx.stroke();
+    if (camPoly === 'full') {
+      // Frame inteiro — borda pontilhada
+      const wrap = document.getElementById('canvas-wrap');
+      const s = Math.min(wrap.clientWidth / FRAME_W, wrap.clientHeight / FRAME_H);
+      const ox = (wrap.clientWidth - FRAME_W * s) / 2;
+      const oy = (wrap.clientHeight - FRAME_H * s) / 2;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = isActive ? 2 : 1;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(ox + 4, oy + 4, FRAME_W * s - 8, FRAME_H * s - 8);
+      ctx.setLineDash([]);
+      ctx.fillStyle = hexAlpha(color, .07);
+      ctx.fillRect(ox + 4, oy + 4, FRAME_W * s - 8, FRAME_H * s - 8);
+      // Label
+      ctx.fillStyle = color;
+      ctx.font = '13px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(zone.name + ' (frame inteiro)', wrap.clientWidth / 2, oy + 24);
+    } else {
+      // Polígono personalizado
+      const pts = camPoly.map(([x, y]) => f2c(x, y));
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      pts.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
+      ctx.closePath();
+      ctx.fillStyle = hexAlpha(color, isActive ? .2 : .1);
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = isActive ? 2 : 1.5;
+      ctx.stroke();
 
-    // Label no centroide
-    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
-    const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
-    ctx.fillStyle = color;
-    ctx.font = '12px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(zone.name || zone.id, cx, cy);
+      // Label no centroide
+      const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+      const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+      ctx.fillStyle = color;
+      ctx.font = '12px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(zone.name, cx, cy);
 
-    // Vértices
-    if (isActive) {
-      pts.forEach(([x, y], vi) => {
-        ctx.beginPath();
-        ctx.arc(x, y, vi === 0 ? 6 : 4, 0, Math.PI * 2);
-        ctx.fillStyle = vi === 0 ? '#fff' : color;
-        ctx.fill();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      });
+      // Vértices (só zona ativa)
+      if (isActive) {
+        pts.forEach(([x, y], vi) => {
+          ctx.beginPath();
+          ctx.arc(x, y, vi === 0 ? 6 : 4, 0, Math.PI * 2);
+          ctx.fillStyle = vi === 0 ? '#fff' : color;
+          ctx.fill();
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+      }
     }
   });
 
-  // Desenha polígono em construção
-  if (drawing.length > 0 && activeZoneId) {
-    const zone = getZones().find(z => z.id === activeZoneId);
-    const color = ZONE_COLORS[getZones().indexOf(zone) % ZONE_COLORS.length] || '#3b82f6';
-    const pts = drawing.map(([x, y]) => frameToCanvas(x, y));
+  // Polígono em construção
+  if (drawing.length > 0) {
+    const zone = getZone(activeZoneId);
+    const i = (config.cv?.zones || []).indexOf(zone);
+    const color = COLORS[i >= 0 ? i % COLORS.length : 0];
+    const pts = drawing.map(([x, y]) => f2c(x, y));
 
+    ctx.setLineDash([5, 3]);
     ctx.strokeStyle = color;
     ctx.lineWidth = 1.5;
-    ctx.setLineDash([5, 3]);
     ctx.beginPath();
     ctx.moveTo(pts[0][0], pts[0][1]);
     pts.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
     ctx.stroke();
     ctx.setLineDash([]);
 
-    pts.forEach(([x, y], i) => {
+    pts.forEach(([x, y], vi) => {
       ctx.beginPath();
-      ctx.arc(x, y, i === 0 ? 6 : 4, 0, Math.PI * 2);
-      ctx.fillStyle = i === 0 ? '#fff' : color;
+      ctx.arc(x, y, vi === 0 ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = vi === 0 ? '#fff' : color;
       ctx.fill();
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
     });
   }
 
-  // Linha de contagem configurada
+  // Linha de contagem
   const lineStr = config.cv?.counter?.line;
-  const counterCam = config.cv?.counter?.camera;
-  if (lineStr && counterCam === currentCam) {
-    const coords = lineStr.split(',').map(Number);
-    if (coords.length === 4) {
-      const [x1, y1, x2, y2] = coords;
-      const [cx1, cy1] = frameToCanvas(x1, y1);
-      const [cx2, cy2] = frameToCanvas(x2, y2);
-      drawLine(ctx, cx1, cy1, cx2, cy2, '#f59e0b', true);
-    }
+  const lineCam = config.cv?.counter?.camera;
+  if (lineStr && lineCam === currentCam) {
+    const [x1, y1, x2, y2] = lineStr.split(',').map(Number);
+    const [cx1, cy1] = f2c(x1, y1);
+    const [cx2, cy2] = f2c(x2, y2);
+    drawLine(ctx, cx1, cy1, cx2, cy2, '#f59e0b');
   }
-
-  // Linha em construção
   if (linePoints.length === 1) {
-    const [cx, cy] = frameToCanvas(linePoints[0][0], linePoints[0][1]);
-    ctx.beginPath();
-    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#f59e0b';
-    ctx.fill();
+    const [cx, cy] = f2c(linePoints[0][0], linePoints[0][1]);
+    ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#f59e0b'; ctx.fill();
   }
 }
 
-function drawLine(ctx, x1, y1, x2, y2, color, arrow = false) {
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.stroke();
-
-  // Pontos nas extremidades
+function drawLine(ctx, x1, y1, x2, y2, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
   [[x1,y1],[x2,y2]].forEach(([x,y]) => {
-    ctx.beginPath();
-    ctx.arc(x, y, 5, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
   });
+  // Seta de direção (perpendicular, aponta para baixo = entrada)
+  const mx = (x1+x2)/2, my = (y1+y2)/2;
+  const a = Math.atan2(y2-y1, x2-x1) + Math.PI/2;
+  ctx.beginPath();
+  ctx.moveTo(mx+Math.cos(a)*10, my+Math.sin(a)*10);
+  ctx.lineTo(mx+Math.cos(a-2.4)*6, my+Math.sin(a-2.4)*6);
+  ctx.lineTo(mx+Math.cos(a+2.4)*6, my+Math.sin(a+2.4)*6);
+  ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+  // Label
+  ctx.fillStyle = color; ctx.font = '11px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('entrada ↓', mx, my - 12);
+}
 
-  // Seta no meio indicando direção
-  if (arrow) {
-    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-    const angle = Math.atan2(y2 - y1, x2 - x1) + Math.PI / 2; // perpendicular para baixo = entrada
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(mx + Math.cos(angle) * 10, my + Math.sin(angle) * 10);
-    ctx.lineTo(mx + Math.cos(angle - 2.4) * 6, my + Math.sin(angle - 2.4) * 6);
-    ctx.lineTo(mx + Math.cos(angle + 2.4) * 6, my + Math.sin(angle + 2.4) * 6);
-    ctx.closePath();
-    ctx.fill();
+// ── Zone list render ───────────────────────────────────────────────────────
+function renderZoneList() {
+  const list = document.getElementById('zone-list');
+  const zones = config.cv?.zones || [];
+  list.innerHTML = '';
+
+  if (!zones.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-dimmer);padding:4px 0 8px;">Nenhuma zona definida</div>';
+    return;
   }
+
+  const allCams = config.cv?.cameras || [];
+
+  zones.forEach((zone, i) => {
+    const color = COLORS[i % COLORS.length];
+    const isActive = zone.id === activeZoneId;
+    const cams = zone.cameras || {};
+    const camDict = typeof cams === 'object' && !Array.isArray(cams) ? cams : {};
+    const strategy = zone.strategy || 'max';
+
+    const card = document.createElement('div');
+    card.className = 'zone-card' + (isActive ? ' active' : '');
+    card.onclick = e => { if (!e.target.closest('button,select')) selectZone(zone.id); };
+
+    // Linhas de câmera
+    const camRows = allCams.map(camId => {
+      const poly = camDict[camId];
+      let statusText = '— não incluída';
+      let statusClass = '';
+      let actionBtns = `<button class="btn-xs" onclick="event.stopPropagation();startDrawCam('${zone.id}','${camId}')">Desenhar</button>
+                        <button class="btn-xs" onclick="event.stopPropagation();setCamFull('${zone.id}','${camId}')">Inteiro</button>`;
+      if (poly === 'full') {
+        statusText = 'frame inteiro'; statusClass = 'full';
+        actionBtns = `<button class="btn-xs" onclick="event.stopPropagation();removeCamFromZone('${zone.id}','${camId}')">✕</button>`;
+      } else if (poly) {
+        statusText = `${poly.length} pontos`; statusClass = 'set';
+        actionBtns = `<button class="btn-xs" onclick="event.stopPropagation();startDrawCam('${zone.id}','${camId}')">Redesenhar</button>
+                      <button class="btn-xs" onclick="event.stopPropagation();removeCamFromZone('${zone.id}','${camId}')">✕</button>`;
+      }
+      return `<div class="cam-row">
+        <span class="cam-id">${camId}</span>
+        <span class="cam-poly-status ${statusClass}">${statusText}</span>
+        <span class="cam-actions">${isActive ? actionBtns : ''}</span>
+      </div>`;
+    }).join('');
+
+    const strategyOptions = ['max','sum','single'].map(s =>
+      `<option value="${s}" ${s===strategy?'selected':''}>${s}</option>`).join('');
+
+    const strategyHints = {
+      max: 'Mesmo espaço físico, câmeras complementares — evita dupla contagem',
+      sum: 'Espaços distintos sem sobreposição — soma os públicos',
+      single: 'Uma única câmera cobre esta zona',
+    };
+
+    card.innerHTML = `
+      <div class="zone-header">
+        <span class="zone-color" style="background:${color}"></span>
+        <span class="zone-title">${zone.name}</span>
+        <span class="zone-strategy">${strategy}</span>
+        <button class="zone-del" onclick="event.stopPropagation();deleteZone('${zone.id}')" title="Remover zona">✕</button>
+      </div>
+      <div class="zone-body">
+        ${camRows}
+        <div class="strategy-row">
+          <span class="strategy-label">Estratégia:</span>
+          <select class="strategy-select" onchange="setStrategy('${zone.id}',this.value)">
+            ${strategyOptions}
+          </select>
+        </div>
+        <div class="strategy-hint" id="sh-${zone.id}">${strategyHints[strategy]}</div>
+      </div>
+    `;
+    list.appendChild(card);
+  });
 }
 
-// ── Zonas ──────────────────────────────────────────────────────────────────
-
-function getZones() {
-  return config.cv?.zones || [];
+function renderLine() {
+  const line = config.cv?.counter?.line;
+  const cam = config.cv?.counter?.camera;
+  document.getElementById('line-cam').textContent = cam ? `Câmera: ${cam}` : 'câmera: —';
+  const el = document.getElementById('line-coords');
+  el.textContent = line || 'não configurada';
+  el.className = 'line-coords' + (line ? ' set' : '');
 }
+
+// ── Zone management ────────────────────────────────────────────────────────
+function getZones() { return config.cv?.zones || []; }
+function getZone(id) { return getZones().find(z => z.id === id); }
 
 function addZone() {
-  if (!config.cv) config.cv = {};
-  if (!config.cv.zones) config.cv.zones = [];
-
-  const id = 'zona-' + Date.now().toString(36);
-  const name = prompt('Nome da zona:', 'Nova Zona');
+  const name = prompt('Nome da zona física:', 'Nova Zona');
   if (!name) return;
-
-  config.cv.zones.push({
-    id,
-    name,
-    cameras: [currentCam],
-    polygon: [],
-    alert: {},
-  });
-
+  const id = 'zona-' + Date.now().toString(36);
+  config.cv.zones.push({ id, name, strategy: 'max', cameras: {}, alert: {} });
   activeZoneId = id;
   drawing = [];
-  renderZones();
+  renderZoneList();
   renderOverlay();
   updateHint();
 }
@@ -547,67 +645,54 @@ function deleteZone(id) {
   if (!confirm('Remover esta zona?')) return;
   config.cv.zones = config.cv.zones.filter(z => z.id !== id);
   if (activeZoneId === id) { activeZoneId = null; drawing = []; }
-  renderZones();
-  renderOverlay();
+  renderZoneList(); renderOverlay();
 }
 
 function selectZone(id) {
-  activeZoneId = id;
+  activeZoneId = id; drawing = []; currentTool = 'zone';
+  updateToolButtons(); renderZoneList(); renderOverlay(); updateHint();
+}
+
+function setStrategy(zoneId, value) {
+  const zone = getZone(zoneId);
+  if (zone) zone.strategy = value;
+  const hints = {
+    max: 'Mesmo espaço físico, câmeras complementares — evita dupla contagem',
+    sum: 'Espaços distintos sem sobreposição — soma os públicos',
+    single: 'Uma única câmera cobre esta zona',
+  };
+  const el = document.getElementById(`sh-${zoneId}`);
+  if (el) el.textContent = hints[value] || '';
+}
+
+function startDrawCam(zoneId, camId) {
+  activeZoneId = zoneId;
+  selectCam(camId);
   drawing = [];
   currentTool = 'zone';
   updateToolButtons();
-  renderZones();
+  renderZoneList();
   renderOverlay();
   updateHint();
 }
 
-function renderZones() {
-  const list = document.getElementById('zone-list');
-  const zones = getZones();
-  list.innerHTML = '';
-
-  if (zones.length === 0) {
-    list.innerHTML = '<div style="font-size:12px;color:var(--text-dimmer);padding:4px 0;">Nenhuma zona definida</div>';
-    return;
-  }
-
-  zones.forEach((zone, i) => {
-    const color = ZONE_COLORS[i % ZONE_COLORS.length];
-    const isActive = zone.id === activeZoneId;
-    const hasPoly = zone.polygon?.length >= 3;
-    const div = document.createElement('div');
-    div.className = 'zone-item' + (isActive ? ' active' : '');
-    div.style.borderColor = isActive ? color : '';
-    div.onclick = () => selectZone(zone.id);
-    div.innerHTML = `
-      <span class="zone-swatch" style="background:${color}${hasPoly ? '' : ';opacity:.4'}"></span>
-      <span class="zone-name">${zone.name}</span>
-      <span class="zone-cam">${(zone.cameras || []).join(', ')}</span>
-      <span class="zone-del" onclick="event.stopPropagation();deleteZone('${zone.id}')" title="Remover">✕</span>
-    `;
-    list.appendChild(div);
-  });
-}
-
-function renderLine() {
-  const info = document.getElementById('line-info');
-  const line = config.cv?.counter?.line;
-  const cam = config.cv?.counter?.camera;
-  info.textContent = line ? `${cam}: ${line}` : 'não configurada';
+function setCamFull(zoneId, camId) {
+  const zone = getZone(zoneId);
+  if (!zone) return;
+  if (!zone.cameras || Array.isArray(zone.cameras)) zone.cameras = {};
+  zone.cameras[camId] = 'full';
+  drawing = [];
+  renderZoneList(); renderOverlay();
 }
 
 // ── Ferramentas ────────────────────────────────────────────────────────────
-
 function setTool(tool) {
-  currentTool = tool;
-  drawing = [];
-  linePoints = [];
+  currentTool = tool; drawing = []; linePoints = [];
   updateToolButtons();
-  updateHint();
-  renderOverlay();
-
-  document.getElementById('zones-section').style.display = tool === 'zone' ? '' : 'none';
-  document.getElementById('line-section').style.display = tool === 'line' ? '' : 'none';
+  document.getElementById('zone-panel').style.display = tool === 'zone' ? '' : 'none';
+  document.getElementById('line-panel').style.display = tool === 'line' ? '' : 'none';
+  document.getElementById('canvas-wrap').className = 'canvas-wrap' + (currentCam ? ' drawing' : '');
+  renderOverlay(); updateHint();
 }
 
 function updateToolButtons() {
@@ -615,86 +700,69 @@ function updateToolButtons() {
   document.getElementById('tool-line').classList.toggle('active', currentTool === 'line');
 }
 
-function cancelDrawing() {
-  drawing = [];
-  linePoints = [];
-  renderOverlay();
-  updateHint();
-}
-
-function getHint() {
-  if (!currentCam) return 'Selecione uma câmera';
-  if (currentTool === 'zone') {
-    if (!activeZoneId) return 'Selecione ou crie uma zona no painel';
-    if (drawing.length === 0) return 'Clique para começar o polígono';
-    if (drawing.length < 3) return `${drawing.length} ponto(s) — continue clicando`;
-    return 'Continue clicando ou clique no 1º ponto para fechar';
-  }
-  if (currentTool === 'line') {
-    if (linePoints.length === 0) return 'Clique no 1º ponto da linha';
-    return 'Clique no 2º ponto para concluir a linha';
-  }
-  return '';
-}
+function cancelDrawing() { drawing = []; linePoints = []; renderOverlay(); updateHint(); }
 
 function updateHint() {
-  document.getElementById('canvas-hint').textContent = getHint();
+  const hints = {
+    zone: {
+      noZone: 'Selecione ou crie uma zona no painel',
+      start: 'Clique para iniciar o polígono — ou use "Inteiro" para cobrir o frame todo',
+      drawing: n => `${n} ponto${n>1?'s':''} — continue ou clique no 1º ponto para fechar`,
+      done: 'Continue clicando ou clique no 1º ponto (branco) para fechar',
+    },
+    line: ['Clique no 1º ponto da linha','Clique no 2º ponto para concluir'],
+  };
+  let text = '';
+  if (currentTool === 'zone') {
+    if (!activeZoneId) text = hints.zone.noZone;
+    else if (drawing.length === 0) text = hints.zone.start;
+    else if (drawing.length < 3) text = hints.zone.drawing(drawing.length);
+    else text = hints.zone.done;
+  } else {
+    text = hints.line[linePoints.length] || '';
+  }
+  document.getElementById('hint').textContent = text;
 }
 
 // ── Salvar ─────────────────────────────────────────────────────────────────
-
 async function saveConfig() {
   const btn = document.querySelector('.btn.primary');
-  btn.textContent = 'Salvando...';
-  btn.disabled = true;
-
+  btn.disabled = true; btn.textContent = 'Salvando...';
   try {
-    // Usa PUT /api/config para salvar o config completo
-    const res = await fetch('/api/config', {
+    const r = await fetch('/api/config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
     });
-    if (!res.ok) throw new Error(await res.text());
-
+    if (!r.ok) throw new Error(await r.text());
     const msg = document.getElementById('save-msg');
     msg.style.display = 'inline';
     setTimeout(() => msg.style.display = 'none', 3000);
-  } catch (e) {
-    alert('Erro ao salvar: ' + e.message);
-  } finally {
-    btn.textContent = 'Salvar configuração';
-    btn.disabled = false;
-  }
+  } catch(e) { alert('Erro: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = 'Salvar configuração'; }
 }
 
 async function reloadDetectors() {
   await fetch('/api/cv/stop', { method: 'POST' });
   await new Promise(r => setTimeout(r, 1500));
   await fetch('/api/cv/start', { method: 'POST' });
-  alert('Detectores reiniciados com a nova configuração.');
+  alert('Detectores reiniciados.');
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────
-
-function hexAlpha(hex, alpha) {
-  const r = parseInt(hex.slice(1,3), 16);
-  const g = parseInt(hex.slice(3,5), 16);
-  const b = parseInt(hex.slice(5,7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
+function hexAlpha(hex, a) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
-// Teclado
+// ── Teclado ────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') cancelDrawing();
-  if (e.key === 'Enter' && drawing.length >= 3) closePolygon();
-  if (e.key === 'Backspace' && drawing.length > 0) {
-    drawing.pop();
-    renderOverlay();
-    updateHint();
+  if (e.key === 'Enter' && drawing.length >= 3) closeZone();
+  if ((e.key === 'Backspace' || e.key === 'Delete') && drawing.length > 0) {
+    e.preventDefault(); drawing.pop(); renderOverlay(); updateHint();
   }
 });
-
 window.addEventListener('resize', () => { resizeCanvas(); renderOverlay(); });
 
 init();

@@ -99,32 +99,54 @@ def emit_status(status: str, **kwargs):
 def parse_zones(cv_config: dict, camera_id: str) -> list:
     """
     Extrai zonas relevantes para esta câmera do config.
-    Cada zona: { id, name, polygon (np.array) }
 
-    Config esperado em cv.zones:
-    [
-      {
-        "id": "sala-principal",
-        "name": "Sala Principal",
-        "cameras": ["cam-1"],          ← opcional, filtra por câmera
-        "polygon": [[0,0],[1920,0],[1920,1080],[0,1080]]
+    Formato novo (cameras como dict, polígono por câmera):
+    {
+      "id": "sala-imersiva",
+      "name": "Sala Imersiva",
+      "strategy": "max",
+      "cameras": {
+        "cam-1": "full",       ← frame inteiro
+        "cam-3": "full"
       }
-    ]
+    }
+
+    Formato legado (cameras como lista, polígono único):
+    {
+      "id": "entrada",
+      "cameras": ["cam-2"],
+      "polygon": [[0,450],[1920,450],[1920,1080],[0,1080]]
+    }
+
+    polygon=None → frame inteiro (sem teste de polígono).
     """
     zones_raw = cv_config.get("zones", [])
     zones = []
     for z in zones_raw:
-        # Filtra por câmera se especificado
-        cam_filter = z.get("cameras")
-        if cam_filter and camera_id not in cam_filter:
-            continue
-        poly = np.array(z["polygon"], dtype=np.float32)
-        if len(poly) < 3:
-            continue  # polígono inválido
+        cameras = z.get("cameras", {})
+
+        # Novo formato: cameras é dict {cam_id: polygon | "full"}
+        if isinstance(cameras, dict):
+            if camera_id not in cameras:
+                continue
+            cam_poly = cameras[camera_id]
+        # Formato legado: cameras é lista
+        else:
+            if cameras and camera_id not in cameras:
+                continue
+            cam_poly = z.get("polygon", "full")
+
+        # Resolve polígono
+        if cam_poly == "full" or not cam_poly:
+            polygon = None  # frame inteiro
+        else:
+            pts = np.array(cam_poly, dtype=np.float32)
+            polygon = pts if len(pts) >= 3 else None
+
         zones.append({
             "id": z["id"],
             "name": z.get("name", z["id"]),
-            "polygon": poly,
+            "polygon": polygon,  # None = frame inteiro
             "alert": z.get("alert", {}),
         })
     return zones
@@ -139,6 +161,7 @@ def classify_detections_to_zones(detections: list, zones: list) -> dict:
     """
     Para cada zona, conta quantas pessoas estão dentro.
     Usa o ponto dos pés (bottom-center da bbox) para o teste.
+    polygon=None significa frame inteiro — qualquer detecção conta.
 
     Retorna: { zone_id: count, ... }
     """
@@ -147,12 +170,11 @@ def classify_detections_to_zones(detections: list, zones: list) -> dict:
 
     zone_counts = {z["id"]: 0 for z in zones}
     for d in detections:
-        # Ponto dos pés: bottom-center da bounding box
         feet_x = d["x"] + d["w"] // 2
         feet_y = d["y"] + d["h"]
         d["zones"] = []
         for z in zones:
-            if point_in_polygon((feet_x, feet_y), z["polygon"]):
+            if z["polygon"] is None or point_in_polygon((feet_x, feet_y), z["polygon"]):
                 zone_counts[z["id"]] += 1
                 d["zones"].append(z["id"])
 
