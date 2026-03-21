@@ -154,6 +154,8 @@ class CVManager extends EventEmitter {
         format: readyInfo.format || 'unknown',
         gpuName: readyInfo.gpuName || null,
         zones: cached?.zones || {},
+        dwell: cached?.dwell || {},
+        activeVisitors: cached?.activeVisitors || {},
         timestamp: cached?.timestamp || null,
       };
     }
@@ -192,6 +194,33 @@ class CVManager extends EventEmitter {
           ? counts.reduce((a, b) => a + b, 0)
           : (counts.length > 0 ? Math.max(...counts) : 0));
 
+    // Agrega dwell time por zona (combina câmeras que veem a mesma zona)
+    const aggregatedDwell = {};
+    for (const zone of zonesConfig) {
+      const zoneCamIds = Array.isArray(zone.cameras) ? zone.cameras : Object.keys(zone.cameras || {});
+      const allSamples = [];
+      let totalActive = 0;
+      for (const cid of zoneCamIds) {
+        const camDwell = perCamera[cid]?.dwell?.[zone.id];
+        if (camDwell?.samples) {
+          // Collect raw avg to combine (best effort without raw data)
+          allSamples.push(camDwell);
+        }
+        totalActive += perCamera[cid]?.activeVisitors?.[zone.id] || 0;
+      }
+      if (allSamples.length > 0) {
+        const totalSamp = allSamples.reduce((a, d) => a + d.samples, 0);
+        const weightedAvg = allSamples.reduce((a, d) => a + d.avgSeconds * d.samples, 0) / totalSamp;
+        aggregatedDwell[zone.id] = {
+          samples: totalSamp,
+          avgSeconds: Math.round(weightedAvg),
+          avgFormatted: weightedAvg >= 60 ? `${Math.floor(weightedAvg/60)}m${Math.round(weightedAvg%60).toString().padStart(2,'0')}s` : `${Math.round(weightedAvg)}s`,
+          maxSeconds: Math.max(...allSamples.map(d => d.maxSeconds)),
+          activeVisitors: totalActive,
+        };
+      }
+    }
+
     const counterData = this._readCounterData();
 
     return {
@@ -201,6 +230,7 @@ class CVManager extends EventEmitter {
       countStrategy: strategy,
       totalCount,
       zones: aggregatedZones,
+      dwell: aggregatedDwell,
       zonesConfig: (this.cvConfig.zones || []).map(z => ({
         id: z.id,
         name: z.name,
@@ -381,6 +411,8 @@ class CVManager extends EventEmitter {
           fps: event.fps,
           zones: event.zones || {},
           detections: event.detections || [],
+          dwell: event.dwell || {},
+          activeVisitors: event.activeVisitors || {},
           resolution: event.resolution,
           model: event.model,
           format: event.format,

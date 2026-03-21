@@ -60,6 +60,11 @@ function sample() {
       entry.perCamera[camId] = cam.count;
     }
 
+    // Dwell time per zone
+    if (status.dwell && Object.keys(status.dwell).length > 0) {
+      entry.dwell = status.dwell;
+    }
+
     // Counter data
     if (status.counter && status.counter.entries !== undefined) {
       entry.counter = {
@@ -163,6 +168,20 @@ function consolidate(date) {
       delete data.total;
     }
 
+    // ── Dwell time per zone (last non-empty dwell from samples) ──
+    const dwellStats = {};
+    for (const l of [...lines].reverse()) {
+      if (l.dwell) {
+        for (const [zoneId, stats] of Object.entries(l.dwell)) {
+          if (!dwellStats[zoneId] && stats.samples > 0) {
+            dwellStats[zoneId] = stats;
+          }
+        }
+      }
+      // Stop once we have all zones
+      if (Object.keys(dwellStats).length >= zoneIds.length) break;
+    }
+
     const summary = {
       date,
       samples: lines.length,
@@ -172,6 +191,7 @@ function consolidate(date) {
       counterHourly,
       peak: { count: peak, time: peakTime },
       zones: zoneStats,
+      dwell: dwellStats,
       hourly: hourlyZones,
     };
 

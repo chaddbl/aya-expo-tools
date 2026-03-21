@@ -183,6 +183,23 @@ def classify_detections_to_zones(detections: list, zones: list) -> dict:
 
 # ─── Heatmap ───────────────────────────────────────────────────────────────────
 
+def _dwell_stats(times: list) -> dict:
+    """Compute dwell time statistics from a list of durations in seconds."""
+    if not times:
+        return {}
+    n = len(times)
+    s = sorted(times)
+    avg = sum(s) / n
+    return {
+        "samples": n,
+        "avgSeconds": round(avg),
+        "medianSeconds": round(s[n // 2]),
+        "minSeconds": round(s[0]),
+        "maxSeconds": round(s[-1]),
+        "avgFormatted": f"{int(avg)//60}m{int(avg)%60:02d}s" if avg >= 60 else f"{int(avg)}s",
+    }
+
+
 def load_heatmap(shape):
     if HEATMAP_RAW_FILE and HEATMAP_RAW_FILE.exists():
         try:
@@ -392,6 +409,12 @@ def main():
 
     frame_count = 0
     file_write_interval = 10  # escreve heatmap/frame a cada N frames
+
+    # ─── Dwell time tracking por zona ────────────────────────────────────────
+    # zone_visitors: { zone_id: { track_id: first_seen_iso } }
+    # Quando um track_id desaparece de uma zona → dwell = now - first_seen
+    zone_visitors = {z["id"]: {} for z in zones}
+    zone_dwell_times = {z["id"]: [] for z in zones}  # completed dwell times in seconds
     fps_count = 0
     fps_timer = time.time()
     fps = 0.0
@@ -427,7 +450,7 @@ def main():
         # ─── Inferência YOLO ─────────────────────────────────────────────────
 
         try:
-            results = model.predict(frame, **predict_kwargs)
+            results = model.track(frame, persist=True, tracker="bytetrack.yaml", **predict_kwargs)
         except Exception as e:
             print(f"[CV] Erro na inferência: {e}", file=sys.stderr, flush=True)
             time.sleep(1)
@@ -435,13 +458,18 @@ def main():
 
         detections = []
         for r in results:
-            for box in r.boxes:
+            if r.boxes is None:
+                continue
+            has_ids = r.boxes.id is not None
+            for i, box in enumerate(r.boxes):
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
                 conf = float(box.conf[0])
+                tid = int(r.boxes.id[i].cpu().numpy()) if has_ids else None
                 detections.append({
                     "x": int(x1), "y": int(y1),
                     "w": int(x2 - x1), "h": int(y2 - y1),
                     "confidence": round(conf, 3),
+                    "trackId": tid,
                     "zones": [],
                 })
 
@@ -450,6 +478,34 @@ def main():
         # ─── Classificação por zonas ─────────────────────────────────────────
 
         zone_counts = classify_detections_to_zones(detections, zones)
+
+        # ─── Dwell time — track quem está em cada zona ──────────────────────
+        now_ts = datetime.now(timezone.utc)
+        now_iso = now_ts.isoformat()
+        for z in zones:
+            zid = z["id"]
+            # Current track IDs in this zone
+            current_ids = set()
+            for d in detections:
+                if d.get("trackId") is not None and zid in d.get("zones", []):
+                    current_ids.add(d["trackId"])
+
+            # New visitors: track IDs not seen before in this zone
+            for tid in current_ids:
+                if tid not in zone_visitors[zid]:
+                    zone_visitors[zid][tid] = now_iso
+
+            # Departed visitors: were in zone, now gone
+            departed = set(zone_visitors[zid].keys()) - current_ids
+            for tid in departed:
+                entered_iso = zone_visitors[zid].pop(tid)
+                try:
+                    entered_dt = datetime.fromisoformat(entered_iso)
+                    dwell_sec = (now_ts - entered_dt).total_seconds()
+                    if 3 < dwell_sec < 7200:  # filter noise (< 3s) and stale (> 2h)
+                        zone_dwell_times[zid].append(dwell_sec)
+                except Exception:
+                    pass
 
         # ─── Heatmap — só dentro das zonas (evita falsos positivos) ──────────
         # Se não há zonas configuradas: acumula tudo (comportamento legacy).
@@ -496,6 +552,8 @@ def main():
             "format": model_format,
             "detections": detections,
             "zones": zone_counts,
+            "dwell": {zid: _dwell_stats(zone_dwell_times[zid]) for zid in zone_dwell_times if zone_dwell_times[zid]},
+            "activeVisitors": {zid: len(zone_visitors[zid]) for zid in zone_visitors if zone_visitors[zid]},
         })
 
         # ─── Escrita em arquivo (backward compat — a cada N frames) ──────────
