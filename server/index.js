@@ -20,6 +20,7 @@ const serverHealth = require('./server-health');
 const { TimelapseCapture } = require('./timelapse');
 const loopGen = require('./loop-generator');
 const audio = require('./audio');
+const cvLogger = require('./cv-logger');
 
 // ─── Load Config ───────────────────────────────────────────
 const configArg = process.argv.find(a => a.startsWith('--config='));
@@ -938,6 +939,23 @@ app.get('/api/cv/counter/history/:date', (req, res) => {
   }
 });
 
+// ─── API: CV Daily Logs ──────────────────────────────────
+app.get('/api/cv/daily', (req, res) => {
+  res.json(cvLogger.listDays());
+});
+
+app.get('/api/cv/daily/:date', (req, res) => {
+  const summary = cvLogger.getDailySummary(req.params.date);
+  if (!summary) return res.status(404).json({ error: 'No data for this date' });
+  res.json(summary);
+});
+
+app.get('/api/cv/daily/today/summary', (req, res) => {
+  const summary = cvLogger.getDailySummary();
+  if (!summary) return res.json({ error: 'No samples yet', samples: 0 });
+  res.json(summary);
+});
+
 // ─── API: Audio (Windows Master Volume) ──────────────────
 app.get('/api/audio/volume', (req, res) => {
   const level = audio.getVolume()
@@ -1105,6 +1123,7 @@ server.listen(PORT, HOST, () => {
   scheduler.start();
   portalSync.start();
   cvManager.start();
+  cvLogger.start(cvManager);
   serverHealth.start();
   timelapse.start();
 });
@@ -1125,6 +1144,7 @@ process.on('SIGINT', () => {
   cameras.stopPolling();
   scheduler.stop();
   portalSync.stop();
+  cvLogger.stop();
   cvManager.stop();
   serverHealth.stop();
   timelapse.stop();
