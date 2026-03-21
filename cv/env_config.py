@@ -23,12 +23,38 @@ def _log(msg: str):
     print(f"[env] {msg}", file=sys.stderr, flush=True)
 
 
+def _detect_sm_version(device_index: int = 0) -> int:
+    """
+    Retorna a compute capability major version da GPU (ex: 6 para Pascal, 7 para Turing, 8 para Ampere).
+    Usado para decidir se FP16 é eficiente.
+      Pascal  (SM 6.x) — 1080 Ti, 1070, etc    → FP16 limitado, usar FP32
+      Volta   (SM 7.0) — Titan V                → FP16 ok
+      Turing  (SM 7.5) — RTX 20xx               → FP16 nativo
+      Ampere  (SM 8.x) — RTX 30xx               → FP16 nativo
+      Ada     (SM 8.9) — RTX 40xx               → FP16 nativo
+    """
+    try:
+        import torch
+        if torch.cuda.is_available() and device_index < torch.cuda.device_count():
+            major, _ = torch.cuda.get_device_capability(device_index)
+            return major
+    except Exception:
+        pass
+    return 0
+
+
+def _supports_fp16(sm_major: int) -> bool:
+    """FP16 é eficiente apenas em Turing+ (SM 7.5+). Pascal (SM 6.x) tem suporte parcial mas não é vantajoso."""
+    return sm_major >= 7  # 7 = Volta/Turing, 8 = Ampere, 9 = Ada
+
+
 def detect_gpu() -> dict:
     """
     Detecta GPU NVIDIA via nvidia-smi.
-    Retorna dict com: name, memory_mb, device ("0", "1", ...), cuda_available
+    Retorna dict com: name, memory_mb, device, cuda_available, sm_major, fp16
     """
-    info = {"name": None, "memory_mb": 0, "device": "0", "cuda_available": False}
+    info = {"name": None, "memory_mb": 0, "device": "0", "cuda_available": False,
+            "sm_major": 0, "fp16": False}
 
     # Tenta nvidia-smi
     nvidia_smi = shutil.which("nvidia-smi")
@@ -56,7 +82,11 @@ def detect_gpu() -> dict:
                         info["name"] = parts[1]
                         info["memory_mb"] = int(float(parts[2]))
                         info["cuda_available"] = True
-                        _log(f"GPU detectada: {info['name']} ({info['memory_mb']} MB) — device {info['device']}")
+                        sm = _detect_sm_version(int(parts[0]))
+                        info["sm_major"] = sm
+                        info["fp16"] = _supports_fp16(sm)
+                        _log(f"GPU detectada: {info['name']} ({info['memory_mb']} MB) "
+                             f"SM {sm}.x — FP16: {'sim' if info['fp16'] else 'não (Pascal)'}")
                         return info
         except Exception as e:
             _log(f"nvidia-smi falhou: {e}")
@@ -70,7 +100,11 @@ def detect_gpu() -> dict:
             props = torch.cuda.get_device_properties(0)
             info["memory_mb"] = getattr(props, "total_memory", 0) // (1024 * 1024)
             info["cuda_available"] = True
-            _log(f"GPU via torch: {info['name']} ({info['memory_mb']} MB)")
+            sm = _detect_sm_version(0)
+            info["sm_major"] = sm
+            info["fp16"] = _supports_fp16(sm)
+            _log(f"GPU via torch: {info['name']} ({info['memory_mb']} MB) "
+                 f"SM {sm}.x — FP16: {'sim' if info['fp16'] else 'não (Pascal)'}")
             return info
     except ImportError:
         pass
@@ -98,6 +132,11 @@ def load_model_optimized(model_name: str, device: str = "0") -> tuple:
     pt_path = Path(f"{model_name}.pt")
     cuda_device = f"cuda:{device}" if not device.startswith("cuda") and device not in ("cpu",) else device
 
+    # FP16 só em Turing+ (SM 7.5+). Pascal (1080 Ti = SM 6.1) usa FP32.
+    sm = _detect_sm_version(int(device) if device.isdigit() else 0)
+    use_half = _supports_fp16(sm)
+    _log(f"Precisão TRT: {'FP16' if use_half else 'FP32'} (SM {gpu_info.get('sm_major', '?')}.x)")
+
     # 1. Engine TRT já existe?
     if engine_path.exists():
         try:
@@ -111,10 +150,11 @@ def load_model_optimized(model_name: str, device: str = "0") -> tuple:
     # 2. TensorRT disponível? Exportar PT → engine
     try:
         import tensorrt  # noqa: F401
-        _log(f"TensorRT disponível — exportando {model_name}.pt (única vez, ~60s)...")
+        _log(f"TensorRT disponível — exportando {model_name}.pt "
+             f"({'FP16' if use_half else 'FP32'}, uma vez, ~60-120s)...")
         t0 = time.perf_counter()
         base = YOLO(str(pt_path) if pt_path.exists() else f"{model_name}.pt")
-        exported = base.export(format="engine", device=device, half=True, verbose=False)
+        exported = base.export(format="engine", device=device, half=use_half, verbose=False)
         elapsed = time.perf_counter() - t0
         _log(f"Export TRT concluído ({elapsed:.0f}s): {exported}")
         model = YOLO(str(exported))
