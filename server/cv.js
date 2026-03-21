@@ -86,12 +86,16 @@ class CVManager extends EventEmitter {
   stop() {
     this.enabled = false;
 
+    // Collect PIDs before killing (needed for tree-kill on Windows)
+    const pids = [];
     for (const [camId, entry] of this.processes) {
-      console.log(`  👁️ CV [${camId}]: parando...`);
+      console.log(`  👁️ CV [${camId}]: parando (PID ${entry.pid})...`);
+      pids.push(entry.pid);
       try { entry.process.kill('SIGTERM'); } catch {}
     }
 
     if (this.counterProcess) {
+      pids.push(this.counterProcess.pid);
       try { this.counterProcess.process.kill('SIGTERM'); } catch {}
     }
 
@@ -104,6 +108,17 @@ class CVManager extends EventEmitter {
       if (this.counterProcess) {
         try { this.counterProcess.process.kill('SIGKILL'); } catch {}
         this.counterProcess = null;
+      }
+
+      // Windows: taskkill /T kills entire process tree (catches orphan children
+      // from venv launcher or any subprocess). Safe even if PIDs already exited.
+      if (process.platform === 'win32') {
+        const { execSync } = require('child_process');
+        for (const pid of pids) {
+          try {
+            execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', timeout: 5000 });
+          } catch {} // ignore — process may already be dead
+        }
       }
     }, 5000);
   }
@@ -468,11 +483,15 @@ class CVManager extends EventEmitter {
   }
 
   _findPython() {
+    // System Python first — on Windows, venv python.exe is a thin launcher that
+    // spawns system python as a child process. This creates two PIDs per detector
+    // and kill() doesn't tree-kill, leaving orphan system python processes.
+    // By using system Python directly we avoid the launcher indirection entirely.
     const candidates = [
-      path.join(CV_DIR, 'venv', 'Scripts', 'python.exe'),
-      path.join(CV_DIR, 'venv', 'bin', 'python'),
       'C:\\Users\\AYA\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
       'C:\\Users\\Ihon\\AppData\\Local\\Programs\\Python\\Python311\\python.exe',
+      path.join(CV_DIR, 'venv', 'Scripts', 'python.exe'),
+      path.join(CV_DIR, 'venv', 'bin', 'python'),
       'python',
       'python3',
     ];
