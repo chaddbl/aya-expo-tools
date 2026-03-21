@@ -34,6 +34,10 @@ const OUTPUT_DIR = path.join(CV_DIR, 'output');
 class CVManager extends EventEmitter {
   constructor(config) {
     super();
+    // EventEmitter: sem listener para 'error' → uncaught exception. Handler padrão.
+    this.on('error', (err) => {
+      console.error(`  👁️ CV [${err?.camId || '?'}] erro: ${err?.message || err}`);
+    });
     this.config = config;
     this.cvConfig = config.cv || {};
     this.camerasConfig = config.cameras || [];

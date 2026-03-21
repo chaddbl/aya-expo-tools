@@ -135,7 +135,7 @@ def load_model_optimized(model_name: str, device: str = "0") -> tuple:
     # FP16 só em Turing+ (SM 7.5+). Pascal (1080 Ti = SM 6.1) usa FP32.
     sm = _detect_sm_version(int(device) if device.isdigit() else 0)
     use_half = _supports_fp16(sm)
-    _log(f"Precisão TRT: {'FP16' if use_half else 'FP32'} (SM {gpu_info.get('sm_major', '?')}.x)")
+    _log(f"Precisão TRT: {'FP16' if use_half else 'FP32'} (SM {sm}.x)")
 
     # 1. Engine TRT já existe?
     if engine_path.exists():
