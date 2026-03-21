@@ -332,38 +332,6 @@ app.post('/api/schedule/close', async (req, res) => {
   res.json({ ok: true, message: 'Close sequence started' });
 });
 
-// ─── Resolume OSC ──────────────────────────────────────────
-app.get('/api/resolume', (req, res) => {
-  res.json(scheduler.resolume.getStatus());
-});
-
-app.post('/api/resolume/play', async (req, res) => {
-  try {
-    await scheduler.resolume.playAll();
-    res.json({ ok: true, action: 'play' });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.post('/api/resolume/stop', async (req, res) => {
-  try {
-    await scheduler.resolume.stopAll();
-    res.json({ ok: true, action: 'stop' });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-app.post('/api/resolume/test', async (req, res) => {
-  try {
-    const result = await scheduler.resolume.test();
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
 // ─── Static: config files (plants, pixelmaps) ─────────────
 app.use('/files', express.static(path.join(__dirname, '..', 'config')));
 

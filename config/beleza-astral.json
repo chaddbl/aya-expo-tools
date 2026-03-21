@@ -108,17 +108,7 @@
     "process": "Arena.exe",
     "pixelmap": "",
     "contentStatus": "pixelmap",
-    "notes": "Mapeado com pixelmap JPG/PNG — Samuel de Saboia",
-    "osc": {
-      "host": "127.0.0.1",
-      "port": 7000
-    },
-    "layers": {
-      "video": 1,
-      "audio": 2
-    },
-    "clip": 1,
-    "autoManage": true
+    "notes": "Mapeado com pixelmap JPG/PNG — Samuel de Saboia"
   },
 
   "remoteAccess": {

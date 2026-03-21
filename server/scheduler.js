@@ -25,7 +25,6 @@
  */
 
 const cron = require('node-cron');
-const { ResolumeOSC } = require('./resolume');
 let _audio = null;
 try { _audio = require('./audio'); } catch { /* audio opcional */ }
 
@@ -44,7 +43,6 @@ class Scheduler {
     this.config = config.schedule || {};
     this.tvConfig = config.tvs || [];
     this.serverConfig = config.server || {};
-    this.resolume = new ResolumeOSC(config.resolume || {});
     this.jobs = [];
     this.enabled = false;
     this.log = [];
@@ -150,18 +148,6 @@ class Scheduler {
     console.log(`[Scheduler] ▶ OPEN sequence started at ${new Date().toISOString()}`);
     this.addLog('open-sequence', 'started');
 
-    // Step 0: Resolume play — inicia vídeo+áudio ANTES dos projetores
-    // Garante que o conteúdo já está rodando quando a imagem aparecer
-    if (this.resolume.enabled) {
-      try {
-        this.addLog('resolume-play', 'started');
-        await this.resolume.playAll();
-        this.addLog('resolume-play', 'completed');
-      } catch (err) {
-        this.addLog('resolume-play', 'error', err.message);
-      }
-    }
-
     // Step 1: Wake TVs via WOL
     if (this.tvModule && this.tvConfig.length > 0) {
       try {
@@ -223,19 +209,6 @@ class Scheduler {
   async _runCloseSequence() {
     console.log(`[Scheduler] ⏹ CLOSE sequence started at ${new Date().toISOString()}`);
     this.addLog('close-sequence', 'started');
-
-    // Step 0: Resolume stop — desconecta clips ANTES dos projetores apagarem
-    // GPU vai para idle imediatamente; projetores ainda mostram negro por ~2s
-    if (this.resolume.enabled) {
-      try {
-        this.addLog('resolume-stop', 'started');
-        await this.resolume.stopAll();
-        await this._sleep(1500); // pequena pausa — tela preta nos projetores antes de desligar
-        this.addLog('resolume-stop', 'completed');
-      } catch (err) {
-        this.addLog('resolume-stop', 'error', err.message);
-      }
-    }
 
     try {
       this.addLog('power-off-all', 'started');
