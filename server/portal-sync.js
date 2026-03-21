@@ -19,6 +19,8 @@ const fs = require('fs')
 const path = require('path')
 const network = require('./network')
 const tv = require('./tv')
+const cvLogger = require('./cv-logger')
+const cvReport = require('./cv-report')
 
 // Carrega .env local (se existir) sem dependência de dotenv
 // Formato suportado: KEY=VALUE por linha, # para comentários
@@ -193,8 +195,39 @@ class PortalSync {
       ) : undefined,
     }
 
-    // Heatmap: push 1x per hour (base64 PNG of first CV camera)
+    // Zones + dwell (from getStatus)
+    if (status.zones) payload.zones = status.zones
+    if (status.dwell) payload.dwell = status.dwell
+
+    // Daily summary (on-the-fly from cv-logger) — included in every push, lightweight
+    try {
+      const daily = cvLogger.getDailySummary()
+      if (daily && daily.samples > 0) {
+        payload.dailySummary = {
+          date: daily.date,
+          samples: daily.samples,
+          counter: daily.counter,
+          peak: daily.peak,
+          zones: daily.zones,
+          dwell: daily.dwell,
+          hourly: daily.hourly,
+        }
+      }
+    } catch { /* cv-logger not ready */ }
+
+    // Weekly report (push 1x per hour — heavier payload)
     const now = Date.now()
+    if (!this._lastReportPush || now - this._lastReportPush > 3600_000) {
+      try {
+        const weekReport = cvReport.last7()
+        if (weekReport.daysWithData > 0) {
+          payload.weekReport = weekReport
+          this._lastReportPush = now
+        }
+      } catch { /* report not ready */ }
+    }
+
+    // Heatmap: push 1x per hour (base64 PNG of first CV camera)
     if (!this._lastHeatmapPush || now - this._lastHeatmapPush > 3600_000) {
       const cvCams = this.config.cv?.cameras || []
       const camId = cvCams[0] || null
