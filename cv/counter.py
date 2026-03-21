@@ -315,6 +315,23 @@ def main():
     counter = LineCrossingCounter(line_start, line_end)
     frame_count = 0
 
+    # Restore today's counts from previous session (survives restarts)
+    if COUNT_FILE.exists():
+        try:
+            prev = json.loads(COUNT_FILE.read_text())
+            prev_date = prev.get("date", "")
+            today = datetime.now().strftime("%Y-%m-%d")
+            if prev_date == today and (prev.get("entries", 0) > 0 or prev.get("exits", 0) > 0):
+                counter.entries = prev["entries"]
+                counter.exits = prev["exits"]
+                counter.hourly = prev.get("hourly", {})
+                counter.day_start = prev_date
+                print(f"[Counter] Restored today's counts: {counter.entries} entries, {counter.exits} exits")
+            else:
+                print(f"[Counter] Previous counts from {prev_date}, starting fresh for {today}")
+        except Exception as e:
+            print(f"[Counter] Could not restore counts: {e}")
+
     # Write initial counts immediately
     write_json(COUNT_FILE, counter.get_counts())
     print("[Counter] Initial count file written")

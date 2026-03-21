@@ -101,10 +101,21 @@ function consolidate(date) {
 
     if (lines.length === 0) return null;
 
-    // ── Counter final (last entry of the day) ──
-    const lastWithCounter = [...lines].reverse().find(l => l.counter);
-    const counterFinal = lastWithCounter?.counter || { entries: 0, exits: 0, occupancy: 0 };
-    const counterHourly = lastWithCounter?.counterHourly || {};
+    // ── Counter final — use MAX entries/exits seen across all samples ──
+    // (handles restarts: counter may reset mid-day, we want cumulative max)
+    let maxEntries = 0, maxExits = 0;
+    let lastHourly = {};
+    for (const l of lines) {
+      if (l.counter) {
+        if (l.counter.entries > maxEntries) maxEntries = l.counter.entries;
+        if (l.counter.exits > maxExits) maxExits = l.counter.exits;
+        if (l.counterHourly && Object.keys(l.counterHourly).length > 0) {
+          lastHourly = l.counterHourly;
+        }
+      }
+    }
+    const counterFinal = { entries: maxEntries, exits: maxExits, occupancy: Math.max(0, maxEntries - maxExits) };
+    const counterHourly = lastHourly;
 
     // ── Zone stats ──
     const zoneIds = Object.keys(lines[0].zones || {});
