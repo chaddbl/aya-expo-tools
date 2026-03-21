@@ -735,9 +735,17 @@ async function saveConfig() {
       body: JSON.stringify(config),
     });
     if (!r.ok) throw new Error(await r.text());
+
+    // Reinicia os detectores automaticamente para aplicar as novas zonas
+    btn.textContent = 'Reiniciando detectores...';
+    await fetch('/api/cv/stop', { method: 'POST' });
+    await new Promise(r => setTimeout(r, 2000));
+    await fetch('/api/cv/start', { method: 'POST' });
+
     const msg = document.getElementById('save-msg');
+    msg.textContent = '✓ Salvo e detectores reiniciados';
     msg.style.display = 'inline';
-    setTimeout(() => msg.style.display = 'none', 3000);
+    setTimeout(() => { msg.style.display = 'none'; msg.textContent = '✓ Salvo'; }, 4000);
   } catch(e) { alert('Erro: ' + e.message); }
   finally { btn.disabled = false; btn.textContent = 'Salvar configuração'; }
 }
