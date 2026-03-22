@@ -65,7 +65,8 @@ class PortalSync {
     this.enabled = ps.enabled !== false && !!ps.url
     this.portalUrl = (ps.url || '').replace(/\/$/, '') // sem trailing slash
     this.apiKey = process.env.PORTAL_BOT_API_KEY || ps.apiKey || ''
-    this.interval = ps.interval || 30_000 // ms entre pushes
+    this.interval = ps.interval || 30_000 // ms entre pushes (horário aberto)
+    this.offHoursInterval = ps.offHoursInterval || 300_000 // 5min durante horário fechado
 
     // Estado interno
     this._running = false
@@ -286,23 +287,27 @@ class PortalSync {
       schedule: this.scheduler ? this.scheduler.getStatus() : null,
     }
 
-    // Snapshot de 1 câmera por push (rodízio)
+    // Snapshots de TODAS as câmeras por push (otimização 4G: portal serve do cache)
     const cams = this.cameras.getAllStatus()
     if (cams.length > 0) {
-      const idx = this._camRotation % cams.length
-      const camStatus = cams[idx]
-      const cam = this.cameras.get(camStatus.id)
-      if (cam) {
+      const snapshots = {}
+      await Promise.allSettled(cams.map(async (camStatus) => {
+        const cam = this.cameras.get(camStatus.id)
+        if (!cam) return
         try {
-          const buffer = await cam.getSnapshot(false) // SD — mais leve
-          payload.cameraSnapshot = {
-            camId: camStatus.id,
+          const buffer = await cam.getSnapshot(false) // SD 640x480
+          snapshots[camStatus.id] = {
             data: buffer.toString('base64'),
             contentType: 'image/jpeg',
           }
-        } catch { /* câmera inacessível — snapshot omitido */ }
+        } catch { /* câmera inacessível */ }
+      }))
+      if (Object.keys(snapshots).length > 0) {
+        payload.cameraSnapshots = snapshots
+        // Backward compat: mantém cameraSnapshot (singular) com a primeira
+        const firstId = Object.keys(snapshots)[0]
+        payload.cameraSnapshot = { camId: firstId, ...snapshots[firstId] }
       }
-      this._camRotation++
     }
 
     return payload
@@ -348,6 +353,39 @@ class PortalSync {
 
   // ─── Push Loop ────────────────────────────────────────────
 
+
+  // ── Schedule-aware interval ────────────────────────────────────
+  // During open hours: push every 30s (real-time monitoring)
+  // During closed hours: push every 5min (saves 4G bandwidth)
+
+  _getCurrentInterval() {
+    try {
+      const schedule = this.config.schedule
+      if (!schedule || !schedule.enabled) return this.interval // sem schedule = sempre ativo
+
+      const tz = schedule.timezone || 'America/Sao_Paulo'
+      const now = new Date()
+      const local = new Date(now.toLocaleString('en-US', { timeZone: tz }))
+      const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+      const dayKey = dayNames[local.getDay()]
+      const daySchedule = schedule.days?.[dayKey]
+
+      // Dia sem schedule (ex: segunda = null) = fechado o dia todo
+      if (!daySchedule) return this.offHoursInterval
+
+      const hhmm = local.getHours() * 100 + local.getMinutes()
+      const open = parseInt(daySchedule.open?.replace(':', '') || '900')
+      const close = parseInt(daySchedule.close?.replace(':', '') || '2000')
+
+      if (hhmm >= open && hhmm < close) {
+        return this.interval // aberto: 30s
+      }
+      return this.offHoursInterval // fechado: 5min
+    } catch {
+      return this.interval // fallback: intervalo normal
+    }
+  }
+
   async _push() {
     if (!this._running) return
 
@@ -367,7 +405,7 @@ class PortalSync {
       this._recordSuccess()
 
       if (this._running) {
-        this._timer = setTimeout(() => this._push(), this.interval)
+        this._timer = setTimeout(() => this._push(), this._getCurrentInterval())
       }
     } catch (err) {
       console.error(`  ⚡ Portal sync: falha — ${err.message}`)

@@ -2,7 +2,7 @@
   "exhibition": {
     "name": "Beleza Astral",
     "venue": "Farol Santander",
-    "city": "São Paulo",
+    "city": "SÃ£o Paulo",
     "type": "sala-imersiva",
     "slug": "beleza-astral",
     "projetoId": "cml9t9rrc0003peao6wux69rl",
@@ -19,7 +19,6 @@
       }
     }
   },
-
   "modules": {
     "projectors": true,
     "cameras": true,
@@ -30,56 +29,175 @@
     "resolume": true,
     "remoteAccess": true
   },
-
   "projectors": [
-    { "id": "proj-1", "name": "Projetor 1", "ip": "192.168.0.101", "mac": "14:50:51:AD:B4:16", "model": "NEC PE456USL", "input": "HDMI1" },
-    { "id": "proj-2", "name": "Projetor 2", "ip": "192.168.0.102", "mac": "14:50:51:AD:8F:2E", "model": "NEC PE456USL", "input": "HDMI1" },
-    { "id": "proj-3", "name": "Projetor 3", "ip": "192.168.0.103", "mac": "14:50:51:AD:6A:58", "model": "NEC PE456USL", "input": "HDMI1" },
-    { "id": "proj-4", "name": "Projetor 4", "ip": "192.168.0.104", "mac": "14:50:51:AD:6A:55", "model": "NEC PE456USL", "input": "HDMI1" },
-    { "id": "proj-5", "name": "Projetor 5", "ip": "192.168.0.105", "mac": "14:50:51:AD:7C:24", "model": "NEC PE456USL", "input": "HDMI1" },
-    { "id": "proj-6", "name": "Projetor 6", "ip": "192.168.0.106", "mac": "8C:52:19:44:9F:B3", "model": "NEC PE456USL", "input": "HDMI1" }
+    {
+      "id": "proj-1",
+      "name": "Projetor 1",
+      "ip": "192.168.0.101",
+      "mac": "14:50:51:AD:B4:16",
+      "model": "NEC PE456USL",
+      "input": "HDMI1"
+    },
+    {
+      "id": "proj-2",
+      "name": "Projetor 2",
+      "ip": "192.168.0.102",
+      "mac": "14:50:51:AD:8F:2E",
+      "model": "NEC PE456USL",
+      "input": "HDMI1"
+    },
+    {
+      "id": "proj-3",
+      "name": "Projetor 3",
+      "ip": "192.168.0.103",
+      "mac": "14:50:51:AD:6A:58",
+      "model": "NEC PE456USL",
+      "input": "HDMI1"
+    },
+    {
+      "id": "proj-4",
+      "name": "Projetor 4",
+      "ip": "192.168.0.104",
+      "mac": "14:50:51:AD:6A:55",
+      "model": "NEC PE456USL",
+      "input": "HDMI1"
+    },
+    {
+      "id": "proj-5",
+      "name": "Projetor 5",
+      "ip": "192.168.0.105",
+      "mac": "14:50:51:AD:7C:24",
+      "model": "NEC PE456USL",
+      "input": "HDMI1"
+    },
+    {
+      "id": "proj-6",
+      "name": "Projetor 6",
+      "ip": "192.168.0.106",
+      "mac": "8C:52:19:44:9F:B3",
+      "model": "NEC PE456USL",
+      "input": "HDMI1"
+    }
   ],
-
   "cameras": [
-    { "id": "cam-1", "name": "Câmera 1", "ip": "192.168.0.107", "mac": "80:85:44:6C:68:C6", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac", "serial": "FJ1M24007238M" },
-    { "id": "cam-2", "name": "Câmera 2", "ip": "192.168.0.108", "mac": "98:2A:0A:82:0A:C5", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" },
-    { "id": "cam-3", "name": "Câmera 3", "ip": "192.168.0.181", "mac": "98:2A:0A:82:0A:8B", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "ac00ac00ac00ac" },
-    { "id": "cam-4", "name": "Câmera 4", "ip": "192.168.0.200", "mac": "98:2A:0A:82:0A:9E", "model": "Intelbras iMD 3C Black", "user": "admin", "password": "Abcd1234#!", "notes": "Instalada por Ihon em 20/03/2026" }
+    {
+      "id": "cam-1",
+      "name": "CÃ¢mera 1",
+      "ip": "192.168.0.107",
+      "mac": "80:85:44:6C:68:C6",
+      "model": "Intelbras iMD 3C Black",
+      "user": "admin",
+      "password": "ac00ac00ac00ac",
+      "serial": "FJ1M24007238M"
+    },
+    {
+      "id": "cam-2",
+      "name": "CÃ¢mera 2",
+      "ip": "192.168.0.108",
+      "mac": "98:2A:0A:82:0A:C5",
+      "model": "Intelbras iMD 3C Black",
+      "user": "admin",
+      "password": "ac00ac00ac00ac"
+    },
+    {
+      "id": "cam-3",
+      "name": "CÃ¢mera 3",
+      "ip": "192.168.0.181",
+      "mac": "98:2A:0A:82:0A:8B",
+      "model": "Intelbras iMD 3C Black",
+      "user": "admin",
+      "password": "ac00ac00ac00ac"
+    },
+    {
+      "id": "cam-4",
+      "name": "CÃ¢mera 4",
+      "ip": "192.168.0.200",
+      "mac": "98:2A:0A:82:0A:9E",
+      "model": "Intelbras iMD 3C Black",
+      "user": "admin",
+      "password": "Abcd1234#!",
+      "notes": "Instalada por Ihon em 20/03/2026"
+    }
   ],
-
   "audio": {
     "type": "analog",
     "interface": "",
-    "notes": "3x JBL soundbar + subwoofer — saída analógica direto do servidor",
+    "notes": "3x JBL soundbar + subwoofer â€” saÃ­da analÃ³gica direto do servidor",
     "zones": [
-      { "id": "audio-1", "name": "Zona A", "equipment": "JBL Bar + Sub" },
-      { "id": "audio-2", "name": "Zona B", "equipment": "JBL Bar + Sub" },
-      { "id": "audio-3", "name": "Zona C", "equipment": "JBL Bar + Sub" }
+      {
+        "id": "audio-1",
+        "name": "Zona A",
+        "equipment": "JBL Bar + Sub"
+      },
+      {
+        "id": "audio-2",
+        "name": "Zona B",
+        "equipment": "JBL Bar + Sub"
+      },
+      {
+        "id": "audio-3",
+        "name": "Zona C",
+        "equipment": "JBL Bar + Sub"
+      }
     ]
   },
-
   "smartplugs": [
-    { "id": "plug-1", "name": "Smart Plug 1", "ip": "192.168.0.40", "model": "NovaDigital", "controls": "Projetores 1–2" },
-    { "id": "plug-2", "name": "Smart Plug 2", "ip": "192.168.0.41", "model": "NovaDigital", "controls": "Projetores 3–4" },
-    { "id": "plug-3", "name": "Smart Plug 3", "ip": "192.168.0.42", "model": "NovaDigital", "controls": "Projetores 5–6" },
-    { "id": "plug-4", "name": "Smart Plug 4", "ip": "192.168.0.43", "model": "NovaDigital", "controls": "Áudio" },
-    { "id": "plug-5", "name": "Smart Plug 5", "ip": "192.168.0.44", "model": "NovaDigital", "controls": "" },
-    { "id": "plug-6", "name": "Smart Plug 6", "ip": "192.168.0.45", "model": "NovaDigital", "controls": "" }
+    {
+      "id": "plug-1",
+      "name": "Smart Plug 1",
+      "ip": "192.168.0.40",
+      "model": "NovaDigital",
+      "controls": "Projetores 1â€“2"
+    },
+    {
+      "id": "plug-2",
+      "name": "Smart Plug 2",
+      "ip": "192.168.0.41",
+      "model": "NovaDigital",
+      "controls": "Projetores 3â€“4"
+    },
+    {
+      "id": "plug-3",
+      "name": "Smart Plug 3",
+      "ip": "192.168.0.42",
+      "model": "NovaDigital",
+      "controls": "Projetores 5â€“6"
+    },
+    {
+      "id": "plug-4",
+      "name": "Smart Plug 4",
+      "ip": "192.168.0.43",
+      "model": "NovaDigital",
+      "controls": "Ãudio"
+    },
+    {
+      "id": "plug-5",
+      "name": "Smart Plug 5",
+      "ip": "192.168.0.44",
+      "model": "NovaDigital",
+      "controls": ""
+    },
+    {
+      "id": "plug-6",
+      "name": "Smart Plug 6",
+      "ip": "192.168.0.45",
+      "model": "NovaDigital",
+      "controls": ""
+    }
   ],
-
   "tvs": [
     {
       "id": "tv-1",
       "name": "TV 1",
-      "ip": "192.168.0.121",
+      "ip": "192.168.0.115",
       "mac": "E0:3E:CB:E2:60:4C",
       "model": "Hisense 55A51HUA",
       "zone": "",
       "broadcastAddr": "192.168.0.255",
       "protocol": "cast",
-      "videoUrl": "/loops/tv1-loop.mp4",
-      "videoUrlOriginal": "/media/tv1-video.mp4",
-      "videoTitle": "Beleza Astral — TV 1"
+      "videoUrl": "/loops/Samuel_1080p_entrevista-loop.mp4",
+      "videoUrlOriginal": "/media/Samuel_1080p_entrevista.mp4",
+      "videoTitle": "Beleza Astral TV1"
     },
     {
       "id": "tv-2",
@@ -90,38 +208,39 @@
       "zone": "",
       "broadcastAddr": "192.168.0.255",
       "protocol": "cast",
-      "videoUrl": "/loops/tv2-loop.mp4",
-      "videoUrlOriginal": "/media/tv2-video.mp4",
-      "videoTitle": "Beleza Astral — TV 2"
+      "videoUrl": "/loops/Samuel__1080p_estudio-loop.mp4",
+      "videoUrlOriginal": "/media/Samuel__1080p_estudio.mp4",
+      "videoTitle": "Beleza Astral TV2"
     }
   ],
-
   "space": {
     "planta": "/files/planta-samuel-de-saboia-dark.png",
     "plantaPdf": "/files/planta-expografia-R02.pdf",
-    "plantaVersao": "R02 — Janeiro 2026 (Brígida Garrido)",
-    "notas": "Exposição Samuel de Saboia — Introdução ao Infinito. 22º andar do Farol Santander SP.\nZonas: Entrada · Obras · Sala Imersiva · Sala Técnica · Vídeo 1 · Vídeo 2.\nR02 aprovada para orçamento de cenografia (13/01/2026).",
-    "andares": "22º andar"
+    "plantaVersao": "R02 â€” Janeiro 2026 (BrÃ­gida Garrido)",
+    "notas": "ExposiÃ§Ã£o Samuel de Saboia â€” IntroduÃ§Ã£o ao Infinito. 22Âº andar do Farol Santander SP.\nZonas: Entrada Â· Obras Â· Sala Imersiva Â· Sala TÃ©cnica Â· VÃ­deo 1 Â· VÃ­deo 2.\nR02 aprovada para orÃ§amento de cenografia (13/01/2026).",
+    "andares": "22Âº andar"
   },
-
   "resolume": {
     "process": "Arena.exe",
     "pixelmap": "",
     "contentStatus": "pixelmap",
-    "notes": "Mapeado com pixelmap JPG/PNG — Samuel de Saboia"
+    "notes": "Mapeado com pixelmap JPG/PNG â€” Samuel de Saboia"
   },
-
   "remoteAccess": {
-    "rustdesk": { "enabled": true, "id": "" },
-    "tailscale": { "enabled": false, "ip": "" }
+    "rustdesk": {
+      "enabled": true,
+      "id": ""
+    },
+    "tailscale": {
+      "enabled": false,
+      "ip": ""
+    }
   },
-
   "pjlink": {
     "port": 4352,
     "password": "",
     "pollInterval": 30000
   },
-
   "schedule": {
     "enabled": true,
     "timezone": "America/Sao_Paulo",
@@ -129,44 +248,194 @@
     "powerOff": "20:00",
     "days": {
       "mon": null,
-      "tue": { "open": "09:00", "close": "20:00" },
-      "wed": { "open": "09:00", "close": "20:00" },
-      "thu": { "open": "09:00", "close": "20:00" },
-      "fri": { "open": "09:00", "close": "20:00" },
-      "sat": { "open": "09:00", "close": "20:00" },
-      "sun": { "open": "09:00", "close": "20:00" }
+      "tue": {
+        "open": "09:00",
+        "close": "20:00"
+      },
+      "wed": {
+        "open": "09:00",
+        "close": "20:00"
+      },
+      "thu": {
+        "open": "09:00",
+        "close": "20:00"
+      },
+      "fri": {
+        "open": "09:00",
+        "close": "20:00"
+      },
+      "sat": {
+        "open": "09:00",
+        "close": "20:00"
+      },
+      "sun": {
+        "open": "09:00",
+        "close": "20:00"
+      }
     }
   },
-
   "cv": {
     "enabled": true,
-    "cameras": ["cam-1", "cam-2", "cam-3", "cam-4"],
+    "cameras": [
+      "cam-1",
+      "cam-2",
+      "cam-3",
+      "cam-4"
+    ],
     "gpu": 1,
     "model": "yolov8m",
-    "interval": 1.0,
+    "interval": 1,
     "confidence": 0.3,
     "heatmapDecay": 0.999,
     "imgsz": 960,
     "countStrategy": "max",
-
-    "_comment_zones": "cameras é um dict: {cam_id: 'full' | [[x,y],...]}. strategy: 'max' para câmeras no mesmo espaço físico (evita dupla contagem), 'sum' para espaços distintos sem sobreposição.",
+    "_comment_zones": "cameras Ã© um dict: {cam_id: 'full' | [[x,y],...]}. strategy: 'max' para cÃ¢meras no mesmo espaÃ§o fÃ­sico (evita dupla contagem), 'sum' para espaÃ§os distintos sem sobreposiÃ§Ã£o.",
     "zones": [
       {
         "id": "sala-imersiva",
         "name": "Sala Imersiva",
         "strategy": "max",
         "cameras": {
-          "cam-1": "full",
-          "cam-3": "full"
+          "cam-1": [
+            [
+              464,
+              158
+            ],
+            [
+              517,
+              510
+            ],
+            [
+              856,
+              380
+            ],
+            [
+              848,
+              110
+            ],
+            [
+              1131,
+              37
+            ],
+            [
+              1895,
+              198
+            ],
+            [
+              1733,
+              1063
+            ],
+            [
+              96,
+              1067
+            ],
+            [
+              8,
+              740
+            ],
+            [
+              20,
+              271
+            ]
+          ],
+          "cam-3": [
+            [
+              460,
+              166
+            ],
+            [
+              521,
+              546
+            ],
+            [
+              937,
+              401
+            ],
+            [
+              921,
+              150
+            ],
+            [
+              1257,
+              8
+            ],
+            [
+              1899,
+              73
+            ],
+            [
+              1843,
+              849
+            ],
+            [
+              1770,
+              1055
+            ],
+            [
+              12,
+              1055
+            ],
+            [
+              12,
+              498
+            ],
+            [
+              161,
+              231
+            ]
+          ]
         },
-        "alert": { "emptyAfter": 300 }
+        "alert": {
+          "emptyAfter": 300
+        }
       },
       {
         "id": "galeria",
         "name": "Galeria",
         "strategy": "single",
         "cameras": {
-          "cam-4": "full"
+          "cam-4": [
+            [
+              3,
+              413
+            ],
+            [
+              193,
+              279
+            ],
+            [
+              319,
+              736
+            ],
+            [
+              468,
+              538
+            ],
+            [
+              416,
+              219
+            ],
+            [
+              594,
+              61
+            ],
+            [
+              1277,
+              45
+            ],
+            [
+              1899,
+              150
+            ],
+            [
+              1907,
+              1055
+            ],
+            [
+              20,
+              1067
+            ]
+          ]
         },
         "alert": {}
       },
@@ -175,7 +444,24 @@
         "name": "Corredor",
         "strategy": "single",
         "cameras": {
-          "cam-2": [[0,0],[1920,0],[1920,450],[0,450]]
+          "cam-2": [
+            [
+              953,
+              550
+            ],
+            [
+              493,
+              506
+            ],
+            [
+              529,
+              13
+            ],
+            [
+              1034,
+              45
+            ]
+          ]
         },
         "alert": {}
       },
@@ -184,7 +470,56 @@
         "name": "Entrada",
         "strategy": "single",
         "cameras": {
-          "cam-2": [[0,450],[1920,450],[1920,1080],[0,1080]]
+          "cam-2": [
+            [
+              12,
+              202
+            ],
+            [
+              24,
+              243
+            ],
+            [
+              12,
+              1055
+            ],
+            [
+              1883,
+              1072
+            ],
+            [
+              1907,
+              384
+            ],
+            [
+              1701,
+              271
+            ],
+            [
+              1624,
+              384
+            ],
+            [
+              1531,
+              247
+            ],
+            [
+              1026,
+              118
+            ],
+            [
+              949,
+              542
+            ],
+            [
+              484,
+              522
+            ],
+            [
+              476,
+              97
+            ]
+          ]
         },
         "alert": {}
       }
@@ -192,17 +527,15 @@
     "counter": {
       "enabled": true,
       "camera": "cam-2",
-      "line": "188,295,306,302",
-      "confidence": 0.45,
-      "interval": 0.5
+      "line": "638,392,1022,376",
+      "confidence": 0.3,
+      "interval": 0.25
     }
   },
-
   "server": {
     "port": 3000,
     "host": "0.0.0.0"
   },
-
   "portalSync": {
     "enabled": true,
     "url": "http://192.168.15.169:3000",
