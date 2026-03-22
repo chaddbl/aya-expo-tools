@@ -75,7 +75,7 @@ Portal AYA (REMOTO — portal.aya.cx)
 
 ```bash
 # Clonar no media server
-git clone https://github.com/chaddbl/aya-expo-tools.git
+git clone https://github.com/sztlink/aya-expo-tools.git
 cd aya-expo-tools
 
 # Instalar (ou dar dois cliques em install.bat)
